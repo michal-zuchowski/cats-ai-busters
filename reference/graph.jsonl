@@ -1,0 +1,640 @@
+{"kind": "node", "id": "platform:Atari XE/XL", "type": "platform", "label": "Atari XE/XL"}
+{"kind": "node", "id": "platform:Atari 2600/VCS", "type": "platform", "label": "Atari 2600/VCS"}
+{"kind": "node", "id": "platform:Commodore 64", "type": "platform", "label": "Commodore 64"}
+{"kind": "node", "id": "UPSTREAM.md", "type": "document", "label": "K65 reference sources", "path": "UPSTREAM.md", "line_start": 1, "line_end": 7}
+{"kind": "node", "id": "UPSTREAM.md#L1", "type": "section", "label": "K65 reference sources", "path": "UPSTREAM.md", "line_start": 1, "line_end": 7}
+{"kind": "node", "id": "compiler/compiler.inc", "type": "source", "label": "Compiler", "path": "compiler/compiler.inc", "line_start": 1, "line_end": 516}
+{"kind": "node", "id": "compiler/compiler.inc#rule:A", "type": "grammar_rule", "label": "A", "path": "compiler/compiler.inc", "line_start": 244, "line_end": 245, "lines": [244, 245]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Align", "type": "grammar_rule", "label": "Align", "path": "compiler/compiler.inc", "line_start": 133, "line_end": 136, "lines": [133, 134, 135, 136]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:AllIdent", "type": "grammar_rule", "label": "AllIdent", "path": "compiler/compiler.inc", "line_start": 237, "line_end": 242, "lines": [237, 238, 239, 240, 241, 242]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Arg", "type": "grammar_rule", "label": "Arg", "path": "compiler/compiler.inc", "line_start": 264, "line_end": 276, "lines": [264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:ArithOp", "type": "grammar_rule", "label": "ArithOp", "path": "compiler/compiler.inc", "line_start": 286, "line_end": 295, "lines": [286, 287, 288, 289, 290, 291, 292, 293, 294, 295]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:AsmLocation", "type": "grammar_rule", "label": "AsmLocation", "path": "compiler/compiler.inc", "line_start": 78, "line_end": 78, "lines": [78]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:BinLoad", "type": "grammar_rule", "label": "BinLoad", "path": "compiler/compiler.inc", "line_start": 71, "line_end": 72, "lines": [71, 72]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:BitDir", "type": "grammar_rule", "label": "BitDir", "path": "compiler/compiler.inc", "line_start": 105, "line_end": 108, "lines": [105, 106, 107, 108]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:BitSeq", "type": "grammar_rule", "label": "BitSeq", "path": "compiler/compiler.inc", "line_start": 109, "line_end": 110, "lines": [109, 110]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Br1", "type": "grammar_rule", "label": "Br1", "path": "compiler/compiler.inc", "line_start": 199, "line_end": 200, "lines": [199, 200]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Br2", "type": "grammar_rule", "label": "Br2", "path": "compiler/compiler.inc", "line_start": 206, "line_end": 206, "lines": [206]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:BrInstr", "type": "grammar_rule", "label": "BrInstr", "path": "compiler/compiler.inc", "line_start": 196, "line_end": 209, "lines": [196, 198, 202, 205, 208, 209]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:BracketNumber", "type": "grammar_rule", "label": "BracketNumber", "path": "compiler/compiler.inc", "line_start": 330, "line_end": 330, "lines": [330]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:BranchOp", "type": "grammar_rule", "label": "BranchOp", "path": "compiler/compiler.inc", "line_start": 304, "line_end": 319, "lines": [304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315, 316, 317, 318, 319]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Const", "type": "grammar_rule", "label": "Const", "path": "compiler/compiler.inc", "line_start": 47, "line_end": 48, "lines": [47, 48]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:ConstList", "type": "grammar_rule", "label": "ConstList", "path": "compiler/compiler.inc", "line_start": 45, "line_end": 46, "lines": [45, 46]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Data", "type": "grammar_rule", "label": "Data", "path": "compiler/compiler.inc", "line_start": 62, "line_end": 98, "lines": [62, 63, 64, 67, 68, 69, 70, 73, 74, 75, 76, 77, 92, 93, 94, 95, 96, 98]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:DataList", "type": "grammar_rule", "label": "DataList", "path": "compiler/compiler.inc", "line_start": 60, "line_end": 61, "lines": [60, 61]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:DataListPPElse", "type": "grammar_rule", "label": "DataListPPElse", "path": "compiler/compiler.inc", "line_start": 99, "line_end": 101, "lines": [99, 100, 101]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvArg", "type": "grammar_rule", "label": "EvArg", "path": "compiler/compiler.inc", "line_start": 456, "line_end": 456, "lines": [456]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvArgDef", "type": "grammar_rule", "label": "EvArgDef", "path": "compiler/compiler.inc", "line_start": 471, "line_end": 471, "lines": [471]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvArgDefs", "type": "grammar_rule", "label": "EvArgDefs", "path": "compiler/compiler.inc", "line_start": 469, "line_end": 470, "lines": [469, 470]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvArgList", "type": "grammar_rule", "label": "EvArgList", "path": "compiler/compiler.inc", "line_start": 454, "line_end": 455, "lines": [454, 455]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvArgList1", "type": "grammar_rule", "label": "EvArgList1", "path": "compiler/compiler.inc", "line_start": 461, "line_end": 462, "lines": [461, 462]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvBitAnd", "type": "grammar_rule", "label": "EvBitAnd", "path": "compiler/compiler.inc", "line_start": 401, "line_end": 402, "lines": [401, 402]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvBitOr", "type": "grammar_rule", "label": "EvBitOr", "path": "compiler/compiler.inc", "line_start": 395, "line_end": 396, "lines": [395, 396]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvBitXor", "type": "grammar_rule", "label": "EvBitXor", "path": "compiler/compiler.inc", "line_start": 398, "line_end": 399, "lines": [398, 399]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvCompare", "type": "grammar_rule", "label": "EvCompare", "path": "compiler/compiler.inc", "line_start": 404, "line_end": 406, "lines": [404, 405, 406]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvElem", "type": "grammar_rule", "label": "EvElem", "path": "compiler/compiler.inc", "line_start": 435, "line_end": 449, "lines": [435, 436, 437, 438, 439, 440, 441, 442, 443, 444, 445, 446, 447, 448, 449]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvExpr", "type": "grammar_rule", "label": "EvExpr", "path": "compiler/compiler.inc", "line_start": 371, "line_end": 372, "lines": [371, 372]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvLogAnd", "type": "grammar_rule", "label": "EvLogAnd", "path": "compiler/compiler.inc", "line_start": 392, "line_end": 393, "lines": [392, 393]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvLogOr", "type": "grammar_rule", "label": "EvLogOr", "path": "compiler/compiler.inc", "line_start": 389, "line_end": 390, "lines": [389, 390]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvMult", "type": "grammar_rule", "label": "EvMult", "path": "compiler/compiler.inc", "line_start": 424, "line_end": 427, "lines": [424, 425, 426, 427]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvRelCompare", "type": "grammar_rule", "label": "EvRelCompare", "path": "compiler/compiler.inc", "line_start": 408, "line_end": 414, "lines": [408, 409, 410, 411, 412, 413, 414]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvSetVar", "type": "grammar_rule", "label": "EvSetVar", "path": "compiler/compiler.inc", "line_start": 374, "line_end": 387, "lines": [374, 375, 376, 377, 378, 379, 380, 381, 382, 383, 384, 385, 387]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvShift", "type": "grammar_rule", "label": "EvShift", "path": "compiler/compiler.inc", "line_start": 416, "line_end": 418, "lines": [416, 417, 418]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvSum", "type": "grammar_rule", "label": "EvSum", "path": "compiler/compiler.inc", "line_start": 420, "line_end": 422, "lines": [420, 421, 422]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvUnary", "type": "grammar_rule", "label": "EvUnary", "path": "compiler/compiler.inc", "line_start": 429, "line_end": 433, "lines": [429, 430, 431, 432, 433]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvalCode", "type": "grammar_rule", "label": "EvalCode", "path": "compiler/compiler.inc", "line_start": 359, "line_end": 362, "lines": [359, 360, 362]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:EvalInstr", "type": "grammar_rule", "label": "EvalInstr", "path": "compiler/compiler.inc", "line_start": 363, "line_end": 367, "lines": [363, 364, 365, 366, 367]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Flag", "type": "grammar_rule", "label": "Flag", "path": "compiler/compiler.inc", "line_start": 253, "line_end": 260, "lines": [253, 254, 255, 256, 257, 258, 259, 260]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Ident", "type": "grammar_rule", "label": "Ident", "path": "compiler/compiler.inc", "line_start": 333, "line_end": 334, "lines": [333, 334]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:IfElse", "type": "grammar_rule", "label": "IfElse", "path": "compiler/compiler.inc", "line_start": 203, "line_end": 203, "lines": [203]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:ImgLoad", "type": "grammar_rule", "label": "ImgLoad", "path": "compiler/compiler.inc", "line_start": 65, "line_end": 66, "lines": [65, 66]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:ImgOpt", "type": "grammar_rule", "label": "ImgOpt", "path": "compiler/compiler.inc", "line_start": 115, "line_end": 116, "lines": [115, 116]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:ImgWaveStart", "type": "grammar_rule", "label": "ImgWaveStart", "path": "compiler/compiler.inc", "line_start": 81, "line_end": 81, "lines": [81]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Instr", "type": "grammar_rule", "label": "Instr", "path": "compiler/compiler.inc", "line_start": 142, "line_end": 226, "lines": [142, 149, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 183, 184, 185, 186, 187, 188, 193, 194, 212, 213, 214, 215, 216, 218, 219, 222, 223, 225, 226]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:MacroArg", "type": "grammar_rule", "label": "MacroArg", "path": "compiler/compiler.inc", "line_start": 131, "line_end": 131, "lines": [131]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:MacroArgList", "type": "grammar_rule", "label": "MacroArgList", "path": "compiler/compiler.inc", "line_start": 129, "line_end": 130, "lines": [129, 130]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:MainStart", "type": "grammar_rule", "label": "MainStart", "path": "compiler/compiler.inc", "line_start": 125, "line_end": 125, "lines": [125]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:MovSeq", "type": "grammar_rule", "label": "MovSeq", "path": "compiler/compiler.inc", "line_start": 190, "line_end": 191, "lines": [190, 191]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:NoCross", "type": "grammar_rule", "label": "NoCross", "path": "compiler/compiler.inc", "line_start": 230, "line_end": 230, "lines": [230]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Number", "type": "grammar_rule", "label": "Number", "path": "compiler/compiler.inc", "line_start": 327, "line_end": 328, "lines": [327, 328]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:OptEvArgDefs", "type": "grammar_rule", "label": "OptEvArgDefs", "path": "compiler/compiler.inc", "line_start": 467, "line_end": 468, "lines": [467, 468]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:OptEvArgList", "type": "grammar_rule", "label": "OptEvArgList", "path": "compiler/compiler.inc", "line_start": 452, "line_end": 453, "lines": [452, 453]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:OptEvArgList1", "type": "grammar_rule", "label": "OptEvArgList1", "path": "compiler/compiler.inc", "line_start": 459, "line_end": 460, "lines": [459, 460]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:OptMacroArgList", "type": "grammar_rule", "label": "OptMacroArgList", "path": "compiler/compiler.inc", "line_start": 127, "line_end": 128, "lines": [127, 128]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:OptNoCross", "type": "grammar_rule", "label": "OptNoCross", "path": "compiler/compiler.inc", "line_start": 89, "line_end": 90, "lines": [89, 90]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:OptWaveArgs", "type": "grammar_rule", "label": "OptWaveArgs", "path": "compiler/compiler.inc", "line_start": 82, "line_end": 83, "lines": [82, 83]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:PPElIf", "type": "grammar_rule", "label": "PPElIf", "path": "compiler/compiler.inc", "line_start": 17, "line_end": 17, "lines": [17]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:PPElse", "type": "grammar_rule", "label": "PPElse", "path": "compiler/compiler.inc", "line_start": 16, "line_end": 16, "lines": [16]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:PPEndif", "type": "grammar_rule", "label": "PPEndif", "path": "compiler/compiler.inc", "line_start": 18, "line_end": 18, "lines": [18]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:PPError", "type": "grammar_rule", "label": "PPError", "path": "compiler/compiler.inc", "line_start": 20, "line_end": 21, "lines": [20, 21]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:PPIf", "type": "grammar_rule", "label": "PPIf", "path": "compiler/compiler.inc", "line_start": 15, "line_end": 15, "lines": [15]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:PPIfNumber", "type": "grammar_rule", "label": "PPIfNumber", "path": "compiler/compiler.inc", "line_start": 23, "line_end": 25, "lines": [23, 24, 25]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:PostfixOp", "type": "grammar_rule", "label": "PostfixOp", "path": "compiler/compiler.inc", "line_start": 297, "line_end": 302, "lines": [297, 298, 299, 300, 301, 302]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:PutLabel", "type": "grammar_rule", "label": "PutLabel", "path": "compiler/compiler.inc", "line_start": 232, "line_end": 232, "lines": [232]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:RowDir", "type": "grammar_rule", "label": "RowDir", "path": "compiler/compiler.inc", "line_start": 111, "line_end": 114, "lines": [111, 112, 113, 114]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:S", "type": "grammar_rule", "label": "S", "path": "compiler/compiler.inc", "line_start": 250, "line_end": 251, "lines": [250, 251]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:SecStart", "type": "grammar_rule", "label": "SecStart", "path": "compiler/compiler.inc", "line_start": 124, "line_end": 124, "lines": [124]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:SeqListPPElse", "type": "grammar_rule", "label": "SeqListPPElse", "path": "compiler/compiler.inc", "line_start": 143, "line_end": 145, "lines": [143, 144, 145]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Sequence", "type": "grammar_rule", "label": "Sequence", "path": "compiler/compiler.inc", "line_start": 139, "line_end": 140, "lines": [139, 140]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Syntax", "type": "grammar_rule", "label": "Syntax", "path": "compiler/compiler.inc", "line_start": 2, "line_end": 2, "lines": [2]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:TopElem", "type": "grammar_rule", "label": "TopElem", "path": "compiler/compiler.inc", "line_start": 7, "line_end": 466, "lines": [7, 12, 29, 31, 33, 44, 51, 54, 55, 56, 59, 119, 121, 122, 123, 465, 466]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:TopList", "type": "grammar_rule", "label": "TopList", "path": "compiler/compiler.inc", "line_start": 4, "line_end": 5, "lines": [4, 5]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:TopListPPElse", "type": "grammar_rule", "label": "TopListPPElse", "path": "compiler/compiler.inc", "line_start": 8, "line_end": 10, "lines": [8, 9, 10]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Var", "type": "grammar_rule", "label": "Var", "path": "compiler/compiler.inc", "line_start": 36, "line_end": 39, "lines": [36, 37, 38, 39]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:VarArg", "type": "grammar_rule", "label": "VarArg", "path": "compiler/compiler.inc", "line_start": 278, "line_end": 282, "lines": [278, 279, 280, 281, 282]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:VarList", "type": "grammar_rule", "label": "VarList", "path": "compiler/compiler.inc", "line_start": 34, "line_end": 35, "lines": [34, 35]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Verbose", "type": "grammar_rule", "label": "Verbose", "path": "compiler/compiler.inc", "line_start": 40, "line_end": 41, "lines": [40, 41]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:WaveArgs", "type": "grammar_rule", "label": "WaveArgs", "path": "compiler/compiler.inc", "line_start": 84, "line_end": 87, "lines": [84, 85, 86, 87]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:X", "type": "grammar_rule", "label": "X", "path": "compiler/compiler.inc", "line_start": 246, "line_end": 247, "lines": [246, 247]}
+{"kind": "node", "id": "compiler/compiler.inc#rule:Y", "type": "grammar_rule", "label": "Y", "path": "compiler/compiler.inc", "line_start": 248, "line_end": 249, "lines": [248, 249]}
+{"kind": "node", "id": "doc/docs/alternate-vcs-definitions.md", "type": "document", "label": "Alternate VCS Definitions", "path": "doc/docs/alternate-vcs-definitions.md", "line_start": 1, "line_end": 47}
+{"kind": "node", "id": "doc/docs/alternate-vcs-definitions.md#L3", "type": "section", "label": "Alternate VCS Definitions", "path": "doc/docs/alternate-vcs-definitions.md", "line_start": 3, "line_end": 8}
+{"kind": "node", "id": "doc/docs/alternate-vcs-definitions.md#L9", "type": "section", "label": "Key Register Aliases", "path": "doc/docs/alternate-vcs-definitions.md", "line_start": 9, "line_end": 31}
+{"kind": "node", "id": "doc/docs/alternate-vcs-definitions.md#L11", "type": "section", "label": "TIA (write)", "path": "doc/docs/alternate-vcs-definitions.md", "line_start": 11, "line_end": 26}
+{"kind": "node", "id": "doc/docs/alternate-vcs-definitions.md#L27", "type": "section", "label": "PIA", "path": "doc/docs/alternate-vcs-definitions.md", "line_start": 27, "line_end": 31}
+{"kind": "node", "id": "doc/docs/alternate-vcs-definitions.md#L32", "type": "section", "label": "Special Macros", "path": "doc/docs/alternate-vcs-definitions.md", "line_start": 32, "line_end": 40}
+{"kind": "node", "id": "doc/docs/alternate-vcs-definitions.md#L41", "type": "section", "label": "Local Reference", "path": "doc/docs/alternate-vcs-definitions.md", "line_start": 41, "line_end": 47}
+{"kind": "node", "id": "doc/docs/changelog.md", "type": "document", "label": "Changelog", "path": "doc/docs/changelog.md", "line_start": 1, "line_end": 15}
+{"kind": "node", "id": "doc/docs/changelog.md#L3", "type": "section", "label": "Changelog", "path": "doc/docs/changelog.md", "line_start": 3, "line_end": 15}
+{"kind": "node", "id": "doc/docs/changelog.md#L5", "type": "section", "label": "SDK 0.2.1", "path": "doc/docs/changelog.md", "line_start": 5, "line_end": 15}
+{"kind": "node", "id": "doc/docs/downloads.md", "type": "document", "label": "Downloads", "path": "doc/docs/downloads.md", "line_start": 1, "line_end": 19}
+{"kind": "node", "id": "doc/docs/downloads.md#L3", "type": "section", "label": "Downloads", "path": "doc/docs/downloads.md", "line_start": 3, "line_end": 19}
+{"kind": "node", "id": "doc/docs/downloads.md#L7", "type": "section", "label": "Current release", "path": "doc/docs/downloads.md", "line_start": 7, "line_end": 10}
+{"kind": "node", "id": "doc/docs/downloads.md#L11", "type": "section", "label": "Older releases", "path": "doc/docs/downloads.md", "line_start": 11, "line_end": 19}
+{"kind": "node", "id": "doc/docs/evaluator.md", "type": "document", "label": "Introduction", "path": "doc/docs/evaluator.md", "line_start": 1, "line_end": 352}
+{"kind": "node", "id": "doc/docs/evaluator.md#L5", "type": "section", "label": "Introduction", "path": "doc/docs/evaluator.md", "line_start": 5, "line_end": 30}
+{"kind": "node", "id": "doc/docs/evaluator.md#L31", "type": "section", "label": "Operators", "path": "doc/docs/evaluator.md", "line_start": 31, "line_end": 184}
+{"kind": "node", "id": "doc/docs/evaluator.md#L35", "type": "section", "label": "Precedence 2", "path": "doc/docs/evaluator.md", "line_start": 35, "line_end": 44}
+{"kind": "node", "id": "doc/docs/evaluator.md#L45", "type": "section", "label": "Precedence 3", "path": "doc/docs/evaluator.md", "line_start": 45, "line_end": 54}
+{"kind": "node", "id": "doc/docs/evaluator.md#L55", "type": "section", "label": "Precedence 5", "path": "doc/docs/evaluator.md", "line_start": 55, "line_end": 64}
+{"kind": "node", "id": "doc/docs/evaluator.md#L65", "type": "section", "label": "Precedence 6", "path": "doc/docs/evaluator.md", "line_start": 65, "line_end": 74}
+{"kind": "node", "id": "doc/docs/evaluator.md#L75", "type": "section", "label": "Precedence 7", "path": "doc/docs/evaluator.md", "line_start": 75, "line_end": 84}
+{"kind": "node", "id": "doc/docs/evaluator.md#L85", "type": "section", "label": "Precedence 8", "path": "doc/docs/evaluator.md", "line_start": 85, "line_end": 94}
+{"kind": "node", "id": "doc/docs/evaluator.md#L95", "type": "section", "label": "Precedence 9", "path": "doc/docs/evaluator.md", "line_start": 95, "line_end": 104}
+{"kind": "node", "id": "doc/docs/evaluator.md#L105", "type": "section", "label": "Precedence 10", "path": "doc/docs/evaluator.md", "line_start": 105, "line_end": 114}
+{"kind": "node", "id": "doc/docs/evaluator.md#L115", "type": "section", "label": "Precedence 11", "path": "doc/docs/evaluator.md", "line_start": 115, "line_end": 124}
+{"kind": "node", "id": "doc/docs/evaluator.md#L125", "type": "section", "label": "Precedence 12", "path": "doc/docs/evaluator.md", "line_start": 125, "line_end": 134}
+{"kind": "node", "id": "doc/docs/evaluator.md#L135", "type": "section", "label": "Precedence 13", "path": "doc/docs/evaluator.md", "line_start": 135, "line_end": 144}
+{"kind": "node", "id": "doc/docs/evaluator.md#L145", "type": "section", "label": "Precedence 14", "path": "doc/docs/evaluator.md", "line_start": 145, "line_end": 154}
+{"kind": "node", "id": "doc/docs/evaluator.md#L155", "type": "section", "label": "Precedence 15", "path": "doc/docs/evaluator.md", "line_start": 155, "line_end": 164}
+{"kind": "node", "id": "doc/docs/evaluator.md#L165", "type": "section", "label": "Precedence 16", "path": "doc/docs/evaluator.md", "line_start": 165, "line_end": 174}
+{"kind": "node", "id": "doc/docs/evaluator.md#L175", "type": "section", "label": "Precedence 18", "path": "doc/docs/evaluator.md", "line_start": 175, "line_end": 184}
+{"kind": "node", "id": "doc/docs/evaluator.md#L185", "type": "section", "label": "Functions", "path": "doc/docs/evaluator.md", "line_start": 185, "line_end": 318}
+{"kind": "node", "id": "doc/docs/evaluator.md#L187", "type": "section", "label": "`acos( x )`", "path": "doc/docs/evaluator.md", "line_start": 187, "line_end": 192}
+{"kind": "node", "id": "doc/docs/evaluator.md#L193", "type": "section", "label": "`addbyte( sec, b )`", "path": "doc/docs/evaluator.md", "line_start": 193, "line_end": 198}
+{"kind": "node", "id": "doc/docs/evaluator.md#L199", "type": "section", "label": "`asin( x )`", "path": "doc/docs/evaluator.md", "line_start": 199, "line_end": 204}
+{"kind": "node", "id": "doc/docs/evaluator.md#L205", "type": "section", "label": "`ceil( x )`", "path": "doc/docs/evaluator.md", "line_start": 205, "line_end": 210}
+{"kind": "node", "id": "doc/docs/evaluator.md#L211", "type": "section", "label": "`clamp( x, min, max )`", "path": "doc/docs/evaluator.md", "line_start": 211, "line_end": 216}
+{"kind": "node", "id": "doc/docs/evaluator.md#L217", "type": "section", "label": "`color( r, g, b )`", "path": "doc/docs/evaluator.md", "line_start": 217, "line_end": 222}
+{"kind": "node", "id": "doc/docs/evaluator.md#L223", "type": "section", "label": "`color( x )`", "path": "doc/docs/evaluator.md", "line_start": 223, "line_end": 228}
+{"kind": "node", "id": "doc/docs/evaluator.md#L229", "type": "section", "label": "`cos( x )`", "path": "doc/docs/evaluator.md", "line_start": 229, "line_end": 234}
+{"kind": "node", "id": "doc/docs/evaluator.md#L235", "type": "section", "label": "`error( err )`", "path": "doc/docs/evaluator.md", "line_start": 235, "line_end": 240}
+{"kind": "node", "id": "doc/docs/evaluator.md#L241", "type": "section", "label": "`floor( x )`", "path": "doc/docs/evaluator.md", "line_start": 241, "line_end": 246}
+{"kind": "node", "id": "doc/docs/evaluator.md#L247", "type": "section", "label": "`frac( x )`", "path": "doc/docs/evaluator.md", "line_start": 247, "line_end": 252}
+{"kind": "node", "id": "doc/docs/evaluator.md#L253", "type": "section", "label": "`index( tab, x )`", "path": "doc/docs/evaluator.md", "line_start": 253, "line_end": 258}
+{"kind": "node", "id": "doc/docs/evaluator.md#L259", "type": "section", "label": "`index( tab, x, y )`", "path": "doc/docs/evaluator.md", "line_start": 259, "line_end": 264}
+{"kind": "node", "id": "doc/docs/evaluator.md#L265", "type": "section", "label": "`max( a, b )`", "path": "doc/docs/evaluator.md", "line_start": 265, "line_end": 270}
+{"kind": "node", "id": "doc/docs/evaluator.md#L271", "type": "section", "label": "`min( a, b )`", "path": "doc/docs/evaluator.md", "line_start": 271, "line_end": 276}
+{"kind": "node", "id": "doc/docs/evaluator.md#L277", "type": "section", "label": "`pow( x, y )`", "path": "doc/docs/evaluator.md", "line_start": 277, "line_end": 282}
+{"kind": "node", "id": "doc/docs/evaluator.md#L283", "type": "section", "label": "`print( msg )`", "path": "doc/docs/evaluator.md", "line_start": 283, "line_end": 288}
+{"kind": "node", "id": "doc/docs/evaluator.md#L289", "type": "section", "label": "`rnd( )`", "path": "doc/docs/evaluator.md", "line_start": 289, "line_end": 294}
+{"kind": "node", "id": "doc/docs/evaluator.md#L295", "type": "section", "label": "`round( x )`", "path": "doc/docs/evaluator.md", "line_start": 295, "line_end": 300}
+{"kind": "node", "id": "doc/docs/evaluator.md#L301", "type": "section", "label": "`sin( x )`", "path": "doc/docs/evaluator.md", "line_start": 301, "line_end": 306}
+{"kind": "node", "id": "doc/docs/evaluator.md#L307", "type": "section", "label": "`size( sec )`", "path": "doc/docs/evaluator.md", "line_start": 307, "line_end": 312}
+{"kind": "node", "id": "doc/docs/evaluator.md#L313", "type": "section", "label": "`sqrt( x )`", "path": "doc/docs/evaluator.md", "line_start": 313, "line_end": 318}
+{"kind": "node", "id": "doc/docs/evaluator.md#L319", "type": "section", "label": "Section helpers in method form", "path": "doc/docs/evaluator.md", "line_start": 319, "line_end": 337}
+{"kind": "node", "id": "doc/docs/evaluator.md#L338", "type": "section", "label": "Image sampling in evaluator", "path": "doc/docs/evaluator.md", "line_start": 338, "line_end": 352}
+{"kind": "node", "id": "doc/docs/examples.md", "type": "document", "label": "Scripts", "path": "doc/docs/examples.md", "line_start": 1, "line_end": 376}
+{"kind": "node", "id": "doc/docs/examples.md#L3", "type": "section", "label": "Scripts", "path": "doc/docs/examples.md", "line_start": 3, "line_end": 35}
+{"kind": "node", "id": "doc/docs/examples.md#L5", "type": "section", "label": "Project example files", "path": "doc/docs/examples.md", "line_start": 5, "line_end": 35}
+{"kind": "node", "id": "doc/docs/examples.md#L36", "type": "section", "label": "Atari 2600 / VCS", "path": "doc/docs/examples.md", "line_start": 36, "line_end": 119}
+{"kind": "node", "id": "doc/docs/examples.md#L38", "type": "section", "label": "Frame sync helpers (PAL)", "path": "doc/docs/examples.md", "line_start": 38, "line_end": 62}
+{"kind": "node", "id": "doc/docs/examples.md#L63", "type": "section", "label": "Reusable horizontal positioning inline", "path": "doc/docs/examples.md", "line_start": 63, "line_end": 86}
+{"kind": "node", "id": "doc/docs/examples.md#L87", "type": "section", "label": "Simple scene sequencer", "path": "doc/docs/examples.md", "line_start": 87, "line_end": 119}
+{"kind": "node", "id": "doc/docs/examples.md#L120", "type": "section", "label": "Atari 800 XL", "path": "doc/docs/examples.md", "line_start": 120, "line_end": 376}
+{"kind": "node", "id": "doc/docs/examples.md#L122", "type": "section", "label": "Rainbow", "path": "doc/docs/examples.md", "line_start": 122, "line_end": 132}
+{"kind": "node", "id": "doc/docs/examples.md#L133", "type": "section", "label": "Starfield", "path": "doc/docs/examples.md", "line_start": 133, "line_end": 161}
+{"kind": "node", "id": "doc/docs/examples.md#L162", "type": "section", "label": "DLI example", "path": "doc/docs/examples.md", "line_start": 162, "line_end": 195}
+{"kind": "node", "id": "doc/docs/examples.md#L196", "type": "section", "label": "Flame", "path": "doc/docs/examples.md", "line_start": 196, "line_end": 272}
+{"kind": "node", "id": "doc/docs/examples.md#L273", "type": "section", "label": "Mode 9++/10++", "path": "doc/docs/examples.md", "line_start": 273, "line_end": 304}
+{"kind": "node", "id": "doc/docs/examples.md#L305", "type": "section", "label": "Quatari landscape", "path": "doc/docs/examples.md", "line_start": 305, "line_end": 352}
+{"kind": "node", "id": "doc/docs/examples.md#L353", "type": "section", "label": "Screensaver", "path": "doc/docs/examples.md", "line_start": 353, "line_end": 376}
+{"kind": "node", "id": "doc/docs/index.md", "type": "document", "label": "Welcome to K65", "path": "doc/docs/index.md", "line_start": 1, "line_end": 98}
+{"kind": "node", "id": "doc/docs/index.md#L1", "type": "section", "label": "Welcome to K65", "path": "doc/docs/index.md", "line_start": 1, "line_end": 98}
+{"kind": "node", "id": "doc/docs/index.md#L5", "type": "section", "label": "Start Here (Navigation)", "path": "doc/docs/index.md", "line_start": 5, "line_end": 31}
+{"kind": "node", "id": "doc/docs/index.md#L7", "type": "section", "label": "Core", "path": "doc/docs/index.md", "line_start": 7, "line_end": 13}
+{"kind": "node", "id": "doc/docs/index.md#L14", "type": "section", "label": "Platforms", "path": "doc/docs/index.md", "line_start": 14, "line_end": 20}
+{"kind": "node", "id": "doc/docs/index.md#L21", "type": "section", "label": "Project Info", "path": "doc/docs/index.md", "line_start": 21, "line_end": 31}
+{"kind": "node", "id": "doc/docs/index.md#L32", "type": "section", "label": "Language Support", "path": "doc/docs/index.md", "line_start": 32, "line_end": 40}
+{"kind": "node", "id": "doc/docs/index.md#L34", "type": "section", "label": "Visual Studio Code", "path": "doc/docs/index.md", "line_start": 34, "line_end": 40}
+{"kind": "node", "id": "doc/docs/index.md#L41", "type": "section", "label": "Downloads", "path": "doc/docs/index.md", "line_start": 41, "line_end": 53}
+{"kind": "node", "id": "doc/docs/index.md#L43", "type": "section", "label": "Current release", "path": "doc/docs/index.md", "line_start": 43, "line_end": 46}
+{"kind": "node", "id": "doc/docs/index.md#L47", "type": "section", "label": "Older releases", "path": "doc/docs/index.md", "line_start": 47, "line_end": 53}
+{"kind": "node", "id": "doc/docs/index.md#L54", "type": "section", "label": "Changelog", "path": "doc/docs/index.md", "line_start": 54, "line_end": 64}
+{"kind": "node", "id": "doc/docs/index.md#L56", "type": "section", "label": "SDK 0.2.1", "path": "doc/docs/index.md", "line_start": 56, "line_end": 64}
+{"kind": "node", "id": "doc/docs/index.md#L65", "type": "section", "label": "Local Preview (MkDocs)", "path": "doc/docs/index.md", "line_start": 65, "line_end": 74}
+{"kind": "node", "id": "doc/docs/index.md#L75", "type": "section", "label": "Common Commands", "path": "doc/docs/index.md", "line_start": 75, "line_end": 82}
+{"kind": "node", "id": "doc/docs/index.md#L83", "type": "section", "label": "How to Update Content", "path": "doc/docs/index.md", "line_start": 83, "line_end": 89}
+{"kind": "node", "id": "doc/docs/index.md#L90", "type": "section", "label": "Reference Links", "path": "doc/docs/index.md", "line_start": 90, "line_end": 98}
+{"kind": "node", "id": "doc/docs/instructions.md", "type": "document", "label": "[Address Modes](https://www.masswerk.at/6502/6502_instruction_set.html)", "path": "doc/docs/instructions.md", "line_start": 1, "line_end": 1297}
+{"kind": "node", "id": "doc/docs/instructions.md#L3", "type": "section", "label": "[Address Modes](https://www.masswerk.at/6502/6502_instruction_set.html)", "path": "doc/docs/instructions.md", "line_start": 3, "line_end": 31}
+{"kind": "node", "id": "doc/docs/instructions.md#L32", "type": "section", "label": "Registers", "path": "doc/docs/instructions.md", "line_start": 32, "line_end": 40}
+{"kind": "node", "id": "doc/docs/instructions.md#L41", "type": "section", "label": "SR Flags NV-BDIZC", "path": "doc/docs/instructions.md", "line_start": 41, "line_end": 55}
+{"kind": "node", "id": "doc/docs/instructions.md#L56", "type": "section", "label": "Processor Stack", "path": "doc/docs/instructions.md", "line_start": 56, "line_end": 59}
+{"kind": "node", "id": "doc/docs/instructions.md#L60", "type": "section", "label": "Bytes, Words, Addressing", "path": "doc/docs/instructions.md", "line_start": 60, "line_end": 70}
+{"kind": "node", "id": "doc/docs/instructions.md#L71", "type": "section", "label": "Standard 6502 opcodes", "path": "doc/docs/instructions.md", "line_start": 71, "line_end": 1280}
+{"kind": "node", "id": "doc/docs/instructions.md#L97", "type": "section", "label": "`ADC` add with carry", "path": "doc/docs/instructions.md", "line_start": 97, "line_end": 122}
+{"kind": "node", "id": "doc/docs/instructions.md#L123", "type": "section", "label": "`AND` and (with accumulator)", "path": "doc/docs/instructions.md", "line_start": 123, "line_end": 148}
+{"kind": "node", "id": "doc/docs/instructions.md#L149", "type": "section", "label": "`ASL` arithmetic shift left", "path": "doc/docs/instructions.md", "line_start": 149, "line_end": 171}
+{"kind": "node", "id": "doc/docs/instructions.md#L172", "type": "section", "label": "`BCC` branch on carry clear", "path": "doc/docs/instructions.md", "line_start": 172, "line_end": 193}
+{"kind": "node", "id": "doc/docs/instructions.md#L194", "type": "section", "label": "`BCS` branch on carry set", "path": "doc/docs/instructions.md", "line_start": 194, "line_end": 215}
+{"kind": "node", "id": "doc/docs/instructions.md#L216", "type": "section", "label": "`BEQ` branch on equal (zero set)", "path": "doc/docs/instructions.md", "line_start": 216, "line_end": 237}
+{"kind": "node", "id": "doc/docs/instructions.md#L238", "type": "section", "label": "`BIT` bit test", "path": "doc/docs/instructions.md", "line_start": 238, "line_end": 260}
+{"kind": "node", "id": "doc/docs/instructions.md#L261", "type": "section", "label": "`BMI` branch on minus (negative set)", "path": "doc/docs/instructions.md", "line_start": 261, "line_end": 282}
+{"kind": "node", "id": "doc/docs/instructions.md#L283", "type": "section", "label": "`BNE` branch on not equal (zero clear)", "path": "doc/docs/instructions.md", "line_start": 283, "line_end": 304}
+{"kind": "node", "id": "doc/docs/instructions.md#L305", "type": "section", "label": "`BPL` branch on plus (negative clear)", "path": "doc/docs/instructions.md", "line_start": 305, "line_end": 326}
+{"kind": "node", "id": "doc/docs/instructions.md#L327", "type": "section", "label": "`BRK` interrupt", "path": "doc/docs/instructions.md", "line_start": 327, "line_end": 343}
+{"kind": "node", "id": "doc/docs/instructions.md#L344", "type": "section", "label": "`BVC` branch on overflow clear", "path": "doc/docs/instructions.md", "line_start": 344, "line_end": 365}
+{"kind": "node", "id": "doc/docs/instructions.md#L366", "type": "section", "label": "`BVS` branch on overflow set", "path": "doc/docs/instructions.md", "line_start": 366, "line_end": 387}
+{"kind": "node", "id": "doc/docs/instructions.md#L388", "type": "section", "label": "`CLC` clear carry", "path": "doc/docs/instructions.md", "line_start": 388, "line_end": 406}
+{"kind": "node", "id": "doc/docs/instructions.md#L407", "type": "section", "label": "`CLD` clear decimal", "path": "doc/docs/instructions.md", "line_start": 407, "line_end": 425}
+{"kind": "node", "id": "doc/docs/instructions.md#L426", "type": "section", "label": "`CLI` clear interrupt disable", "path": "doc/docs/instructions.md", "line_start": 426, "line_end": 444}
+{"kind": "node", "id": "doc/docs/instructions.md#L445", "type": "section", "label": "`CLV` clear overflow", "path": "doc/docs/instructions.md", "line_start": 445, "line_end": 463}
+{"kind": "node", "id": "doc/docs/instructions.md#L464", "type": "section", "label": "`CMP` compare (with accumulator)", "path": "doc/docs/instructions.md", "line_start": 464, "line_end": 489}
+{"kind": "node", "id": "doc/docs/instructions.md#L490", "type": "section", "label": "`CPX` compare with X", "path": "doc/docs/instructions.md", "line_start": 490, "line_end": 510}
+{"kind": "node", "id": "doc/docs/instructions.md#L511", "type": "section", "label": "`CPY` compare with Y", "path": "doc/docs/instructions.md", "line_start": 511, "line_end": 531}
+{"kind": "node", "id": "doc/docs/instructions.md#L532", "type": "section", "label": "`DEC` decrement", "path": "doc/docs/instructions.md", "line_start": 532, "line_end": 553}
+{"kind": "node", "id": "doc/docs/instructions.md#L554", "type": "section", "label": "`DEX` decrement X", "path": "doc/docs/instructions.md", "line_start": 554, "line_end": 572}
+{"kind": "node", "id": "doc/docs/instructions.md#L573", "type": "section", "label": "`DEY` decrement Y", "path": "doc/docs/instructions.md", "line_start": 573, "line_end": 591}
+{"kind": "node", "id": "doc/docs/instructions.md#L592", "type": "section", "label": "`EOR` exclusive or (with accumulator)", "path": "doc/docs/instructions.md", "line_start": 592, "line_end": 617}
+{"kind": "node", "id": "doc/docs/instructions.md#L618", "type": "section", "label": "`INC` increment", "path": "doc/docs/instructions.md", "line_start": 618, "line_end": 639}
+{"kind": "node", "id": "doc/docs/instructions.md#L640", "type": "section", "label": "`INX` increment X", "path": "doc/docs/instructions.md", "line_start": 640, "line_end": 658}
+{"kind": "node", "id": "doc/docs/instructions.md#L659", "type": "section", "label": "`INY` increment Y", "path": "doc/docs/instructions.md", "line_start": 659, "line_end": 677}
+{"kind": "node", "id": "doc/docs/instructions.md#L678", "type": "section", "label": "`JMP` jump", "path": "doc/docs/instructions.md", "line_start": 678, "line_end": 697}
+{"kind": "node", "id": "doc/docs/instructions.md#L698", "type": "section", "label": "`JSR` jump subroutine", "path": "doc/docs/instructions.md", "line_start": 698, "line_end": 717}
+{"kind": "node", "id": "doc/docs/instructions.md#L718", "type": "section", "label": "`LDA` load accumulator", "path": "doc/docs/instructions.md", "line_start": 718, "line_end": 743}
+{"kind": "node", "id": "doc/docs/instructions.md#L744", "type": "section", "label": "`LDX` load X", "path": "doc/docs/instructions.md", "line_start": 744, "line_end": 766}
+{"kind": "node", "id": "doc/docs/instructions.md#L767", "type": "section", "label": "`LDY` load Y", "path": "doc/docs/instructions.md", "line_start": 767, "line_end": 789}
+{"kind": "node", "id": "doc/docs/instructions.md#L790", "type": "section", "label": "`LSR` logical shift right", "path": "doc/docs/instructions.md", "line_start": 790, "line_end": 812}
+{"kind": "node", "id": "doc/docs/instructions.md#L813", "type": "section", "label": "`NOP` no operation", "path": "doc/docs/instructions.md", "line_start": 813, "line_end": 830}
+{"kind": "node", "id": "doc/docs/instructions.md#L831", "type": "section", "label": "`ORA` or with accumulator", "path": "doc/docs/instructions.md", "line_start": 831, "line_end": 856}
+{"kind": "node", "id": "doc/docs/instructions.md#L857", "type": "section", "label": "`PHA` push accumulator", "path": "doc/docs/instructions.md", "line_start": 857, "line_end": 875}
+{"kind": "node", "id": "doc/docs/instructions.md#L876", "type": "section", "label": "`PHP` push processor status (SR)", "path": "doc/docs/instructions.md", "line_start": 876, "line_end": 894}
+{"kind": "node", "id": "doc/docs/instructions.md#L895", "type": "section", "label": "`PLA` pull accumulator", "path": "doc/docs/instructions.md", "line_start": 895, "line_end": 913}
+{"kind": "node", "id": "doc/docs/instructions.md#L914", "type": "section", "label": "`PLP` pull processor status (SR)", "path": "doc/docs/instructions.md", "line_start": 914, "line_end": 932}
+{"kind": "node", "id": "doc/docs/instructions.md#L933", "type": "section", "label": "`ROL` rotate left", "path": "doc/docs/instructions.md", "line_start": 933, "line_end": 955}
+{"kind": "node", "id": "doc/docs/instructions.md#L956", "type": "section", "label": "`ROR` rotate right", "path": "doc/docs/instructions.md", "line_start": 956, "line_end": 978}
+{"kind": "node", "id": "doc/docs/instructions.md#L979", "type": "section", "label": "`RTI` return from interrupt", "path": "doc/docs/instructions.md", "line_start": 979, "line_end": 997}
+{"kind": "node", "id": "doc/docs/instructions.md#L998", "type": "section", "label": "`RTS` return from subroutine", "path": "doc/docs/instructions.md", "line_start": 998, "line_end": 1016}
+{"kind": "node", "id": "doc/docs/instructions.md#L1017", "type": "section", "label": "`SBC` subtract with carry", "path": "doc/docs/instructions.md", "line_start": 1017, "line_end": 1042}
+{"kind": "node", "id": "doc/docs/instructions.md#L1043", "type": "section", "label": "`SEC` set carry", "path": "doc/docs/instructions.md", "line_start": 1043, "line_end": 1061}
+{"kind": "node", "id": "doc/docs/instructions.md#L1062", "type": "section", "label": "`SED` set decimal", "path": "doc/docs/instructions.md", "line_start": 1062, "line_end": 1080}
+{"kind": "node", "id": "doc/docs/instructions.md#L1081", "type": "section", "label": "`SEI` set interrupt disable", "path": "doc/docs/instructions.md", "line_start": 1081, "line_end": 1099}
+{"kind": "node", "id": "doc/docs/instructions.md#L1100", "type": "section", "label": "`STA` store accumulator", "path": "doc/docs/instructions.md", "line_start": 1100, "line_end": 1124}
+{"kind": "node", "id": "doc/docs/instructions.md#L1125", "type": "section", "label": "`STX` store X", "path": "doc/docs/instructions.md", "line_start": 1125, "line_end": 1145}
+{"kind": "node", "id": "doc/docs/instructions.md#L1146", "type": "section", "label": "`STY` store Y", "path": "doc/docs/instructions.md", "line_start": 1146, "line_end": 1166}
+{"kind": "node", "id": "doc/docs/instructions.md#L1167", "type": "section", "label": "`TAX` transfer accumulator to X", "path": "doc/docs/instructions.md", "line_start": 1167, "line_end": 1185}
+{"kind": "node", "id": "doc/docs/instructions.md#L1186", "type": "section", "label": "`TAY` transfer accumulator to Y", "path": "doc/docs/instructions.md", "line_start": 1186, "line_end": 1204}
+{"kind": "node", "id": "doc/docs/instructions.md#L1205", "type": "section", "label": "`TSX` transfer stack pointer to X", "path": "doc/docs/instructions.md", "line_start": 1205, "line_end": 1223}
+{"kind": "node", "id": "doc/docs/instructions.md#L1224", "type": "section", "label": "`TXA` transfer X to accumulator", "path": "doc/docs/instructions.md", "line_start": 1224, "line_end": 1242}
+{"kind": "node", "id": "doc/docs/instructions.md#L1243", "type": "section", "label": "`TXS` transfer X to stack pointer", "path": "doc/docs/instructions.md", "line_start": 1243, "line_end": 1261}
+{"kind": "node", "id": "doc/docs/instructions.md#L1262", "type": "section", "label": "`TYA` transfer Y to accumulator", "path": "doc/docs/instructions.md", "line_start": 1262, "line_end": 1280}
+{"kind": "node", "id": "doc/docs/instructions.md#L1281", "type": "section", "label": "Note", "path": "doc/docs/instructions.md", "line_start": 1281, "line_end": 1297}
+{"kind": "node", "id": "doc/docs/instructions.md#L1288", "type": "section", "label": "Legend to Flags", "path": "doc/docs/instructions.md", "line_start": 1288, "line_end": 1297}
+{"kind": "node", "id": "doc/docs/known-bugs.md", "type": "document", "label": "Known Bugs", "path": "doc/docs/known-bugs.md", "line_start": 1, "line_end": 6}
+{"kind": "node", "id": "doc/docs/platform-atari-8bit.md", "type": "document", "label": "Atari 800/65 XE Platform Notes", "path": "doc/docs/platform-atari-8bit.md", "line_start": 1, "line_end": 116}
+{"kind": "node", "id": "doc/docs/platform-atari-8bit.md#L3", "type": "section", "label": "Atari 800/65 XE Platform Notes", "path": "doc/docs/platform-atari-8bit.md", "line_start": 3, "line_end": 6}
+{"kind": "node", "id": "doc/docs/platform-atari-8bit.md#L7", "type": "section", "label": "Minimal frame loop with WSYNC", "path": "doc/docs/platform-atari-8bit.md", "line_start": 7, "line_end": 24}
+{"kind": "node", "id": "doc/docs/platform-atari-8bit.md#L25", "type": "section", "label": "Display list setup (text mode)", "path": "doc/docs/platform-atari-8bit.md", "line_start": 25, "line_end": 51}
+{"kind": "node", "id": "doc/docs/platform-atari-8bit.md#L52", "type": "section", "label": "DLI script pattern", "path": "doc/docs/platform-atari-8bit.md", "line_start": 52, "line_end": 77}
+{"kind": "node", "id": "doc/docs/platform-atari-8bit.md#L78", "type": "section", "label": "Player/Missile Graphics quick init", "path": "doc/docs/platform-atari-8bit.md", "line_start": 78, "line_end": 104}
+{"kind": "node", "id": "doc/docs/platform-atari-8bit.md#L105", "type": "section", "label": "Compile-time tables for Atari effects", "path": "doc/docs/platform-atari-8bit.md", "line_start": 105, "line_end": 116}
+{"kind": "node", "id": "doc/docs/platform-c64.md", "type": "document", "label": "Commodore 64 Platform Notes", "path": "doc/docs/platform-c64.md", "line_start": 1, "line_end": 126}
+{"kind": "node", "id": "doc/docs/platform-c64.md#L3", "type": "section", "label": "Commodore 64 Platform Notes", "path": "doc/docs/platform-c64.md", "line_start": 3, "line_end": 6}
+{"kind": "node", "id": "doc/docs/platform-c64.md#L7", "type": "section", "label": "Build profile for C64", "path": "doc/docs/platform-c64.md", "line_start": 7, "line_end": 17}
+{"kind": "node", "id": "doc/docs/platform-c64.md#L18", "type": "section", "label": "Raster IRQ skeleton", "path": "doc/docs/platform-c64.md", "line_start": 18, "line_end": 59}
+{"kind": "node", "id": "doc/docs/platform-c64.md#L60", "type": "section", "label": "VIC-II screen/bitmap mapping", "path": "doc/docs/platform-c64.md", "line_start": 60, "line_end": 80}
+{"kind": "node", "id": "doc/docs/platform-c64.md#L81", "type": "section", "label": "Fast memory fill with pointers", "path": "doc/docs/platform-c64.md", "line_start": 81, "line_end": 99}
+{"kind": "node", "id": "doc/docs/platform-c64.md#L100", "type": "section", "label": "CIA timer tick pattern", "path": "doc/docs/platform-c64.md", "line_start": 100, "line_end": 117}
+{"kind": "node", "id": "doc/docs/platform-c64.md#L118", "type": "section", "label": "Notes", "path": "doc/docs/platform-c64.md", "line_start": 118, "line_end": 126}
+{"kind": "node", "id": "doc/docs/projects.md", "type": "document", "label": "Projects", "path": "doc/docs/projects.md", "line_start": 1, "line_end": 6}
+{"kind": "node", "id": "doc/docs/syntax.md", "type": "document", "label": "Comments", "path": "doc/docs/syntax.md", "line_start": 1, "line_end": 336}
+{"kind": "node", "id": "doc/docs/syntax.md#L3", "type": "section", "label": "Comments", "path": "doc/docs/syntax.md", "line_start": 3, "line_end": 13}
+{"kind": "node", "id": "doc/docs/syntax.md#L14", "type": "section", "label": "Variable declaration", "path": "doc/docs/syntax.md", "line_start": 14, "line_end": 26}
+{"kind": "node", "id": "doc/docs/syntax.md#L27", "type": "section", "label": "Constant declaration", "path": "doc/docs/syntax.md", "line_start": 27, "line_end": 39}
+{"kind": "node", "id": "doc/docs/syntax.md#L40", "type": "section", "label": "Numeric literals", "path": "doc/docs/syntax.md", "line_start": 40, "line_end": 49}
+{"kind": "node", "id": "doc/docs/syntax.md#L50", "type": "section", "label": "Labels", "path": "doc/docs/syntax.md", "line_start": 50, "line_end": 96}
+{"kind": "node", "id": "doc/docs/syntax.md#L54", "type": "section", "label": "Global", "path": "doc/docs/syntax.md", "line_start": 54, "line_end": 73}
+{"kind": "node", "id": "doc/docs/syntax.md#L74", "type": "section", "label": "Local", "path": "doc/docs/syntax.md", "line_start": 74, "line_end": 96}
+{"kind": "node", "id": "doc/docs/syntax.md#L97", "type": "section", "label": "Bank selection", "path": "doc/docs/syntax.md", "line_start": 97, "line_end": 106}
+{"kind": "node", "id": "doc/docs/syntax.md#L107", "type": "section", "label": "Raw data", "path": "doc/docs/syntax.md", "line_start": 107, "line_end": 130}
+{"kind": "node", "id": "doc/docs/syntax.md#L131", "type": "section", "label": "Data block definition", "path": "doc/docs/syntax.md", "line_start": 131, "line_end": 209}
+{"kind": "node", "id": "doc/docs/syntax.md#L210", "type": "section", "label": "Image declarations for evaluator", "path": "doc/docs/syntax.md", "line_start": 210, "line_end": 227}
+{"kind": "node", "id": "doc/docs/syntax.md#L228", "type": "section", "label": "`nocross` for code blocks", "path": "doc/docs/syntax.md", "line_start": 228, "line_end": 242}
+{"kind": "node", "id": "doc/docs/syntax.md#L243", "type": "section", "label": "Compile-time Evaluator", "path": "doc/docs/syntax.md", "line_start": 243, "line_end": 248}
+{"kind": "node", "id": "doc/docs/syntax.md#L249", "type": "section", "label": "Code sections", "path": "doc/docs/syntax.md", "line_start": 249, "line_end": 303}
+{"kind": "node", "id": "doc/docs/syntax.md#L253", "type": "section", "label": "`main`", "path": "doc/docs/syntax.md", "line_start": 253, "line_end": 263}
+{"kind": "node", "id": "doc/docs/syntax.md#L264", "type": "section", "label": "`func`", "path": "doc/docs/syntax.md", "line_start": 264, "line_end": 273}
+{"kind": "node", "id": "doc/docs/syntax.md#L274", "type": "section", "label": "`naked`", "path": "doc/docs/syntax.md", "line_start": 274, "line_end": 284}
+{"kind": "node", "id": "doc/docs/syntax.md#L285", "type": "section", "label": "`inline`", "path": "doc/docs/syntax.md", "line_start": 285, "line_end": 303}
+{"kind": "node", "id": "doc/docs/syntax.md#L304", "type": "section", "label": "`else`", "path": "doc/docs/syntax.md", "line_start": 304, "line_end": 321}
+{"kind": "node", "id": "doc/docs/syntax.md#L322", "type": "section", "label": "Far calls", "path": "doc/docs/syntax.md", "line_start": 322, "line_end": 336}
+{"kind": "node", "id": "doc/docs/todo.md", "type": "document", "label": "Simple", "path": "doc/docs/todo.md", "line_start": 1, "line_end": 47}
+{"kind": "node", "id": "doc/docs/todo.md#L5", "type": "section", "label": "Simple", "path": "doc/docs/todo.md", "line_start": 5, "line_end": 21}
+{"kind": "node", "id": "doc/docs/todo.md#L22", "type": "section", "label": "Medium", "path": "doc/docs/todo.md", "line_start": 22, "line_end": 31}
+{"kind": "node", "id": "doc/docs/todo.md#L32", "type": "section", "label": "Hard/large", "path": "doc/docs/todo.md", "line_start": 32, "line_end": 47}
+{"kind": "node", "id": "doc/docs/tutorial-1.md", "type": "document", "label": "Tutorial 1 - Simple Raster Bar Animation", "path": "doc/docs/tutorial-1.md", "line_start": 1, "line_end": 41}
+{"kind": "node", "id": "doc/docs/tutorial-1.md#L3", "type": "section", "label": "Tutorial 1 - Simple Raster Bar Animation", "path": "doc/docs/tutorial-1.md", "line_start": 3, "line_end": 41}
+{"kind": "node", "id": "doc/docs/tutorial-2.md", "type": "document", "label": "Tutorial 2 - Using Data", "path": "doc/docs/tutorial-2.md", "line_start": 1, "line_end": 43}
+{"kind": "node", "id": "doc/docs/tutorial-2.md#L3", "type": "section", "label": "Tutorial 2 - Using Data", "path": "doc/docs/tutorial-2.md", "line_start": 3, "line_end": 43}
+{"kind": "node", "id": "doc/docs/tutorial-3.md", "type": "document", "label": "Tutorial 3 - Data... Continued (Embedding Images)", "path": "doc/docs/tutorial-3.md", "line_start": 1, "line_end": 44}
+{"kind": "node", "id": "doc/docs/tutorial-3.md#L3", "type": "section", "label": "Tutorial 3 - Data... Continued (Embedding Images)", "path": "doc/docs/tutorial-3.md", "line_start": 3, "line_end": 35}
+{"kind": "node", "id": "doc/docs/tutorial-3.md#L36", "type": "section", "label": "Local Reference", "path": "doc/docs/tutorial-3.md", "line_start": 36, "line_end": 44}
+{"kind": "node", "id": "doc/docs/tutorials.md", "type": "document", "label": "Tutorials", "path": "doc/docs/tutorials.md", "line_start": 1, "line_end": 24}
+{"kind": "node", "id": "doc/docs/tutorials.md#L3", "type": "section", "label": "Tutorials", "path": "doc/docs/tutorials.md", "line_start": 3, "line_end": 10}
+{"kind": "node", "id": "doc/docs/tutorials.md#L11", "type": "section", "label": "External References", "path": "doc/docs/tutorials.md", "line_start": 11, "line_end": 16}
+{"kind": "node", "id": "doc/docs/tutorials.md#L17", "type": "section", "label": "Notes", "path": "doc/docs/tutorials.md", "line_start": 17, "line_end": 24}
+{"kind": "node", "id": "doc/mkdocs.yml", "type": "source", "label": "Mkdocs", "path": "doc/mkdocs.yml", "line_start": 1, "line_end": 28}
+{"kind": "node", "id": "examples/a2600-tutorial-03/_defs.k65", "type": "source", "label": "_Defs", "path": "examples/a2600-tutorial-03/_defs.k65", "line_start": 1, "line_end": 109}
+{"kind": "node", "id": "examples/a2600-tutorial-03/files.lst", "type": "source", "label": "Files", "path": "examples/a2600-tutorial-03/files.lst", "line_start": 1, "line_end": 6}
+{"kind": "node", "id": "examples/a2600-tutorial-03/main.k65", "type": "source", "label": "Main", "path": "examples/a2600-tutorial-03/main.k65", "line_start": 1, "line_end": 87}
+{"kind": "node", "id": "examples/a2600-tutorial-03/sprites.bmp", "type": "source", "label": "Sprites", "path": "examples/a2600-tutorial-03/sprites.bmp", "line_start": 1, "line_end": 1}
+{"kind": "node", "id": "examples/atari-xl/dli-example/linux.k65proj", "type": "source", "label": "Linux", "path": "examples/atari-xl/dli-example/linux.k65proj", "line_start": 1, "line_end": 10}
+{"kind": "node", "id": "examples/atari-xl/dli-example/main.k65", "type": "source", "label": "Main", "path": "examples/atari-xl/dli-example/main.k65", "line_start": 1, "line_end": 28}
+{"kind": "node", "id": "examples/atari-xl/dli-example/makefile", "type": "source", "label": "Makefile", "path": "examples/atari-xl/dli-example/makefile", "line_start": 1, "line_end": 13}
+{"kind": "node", "id": "examples/atari-xl/dli-example/windows.k65proj", "type": "source", "label": "Windows", "path": "examples/atari-xl/dli-example/windows.k65proj", "line_start": 1, "line_end": 10}
+{"kind": "node", "id": "examples/atari-xl/include/defs.k65", "type": "source", "label": "Defs", "path": "examples/atari-xl/include/defs.k65", "line_start": 1, "line_end": 213}
+{"kind": "node", "id": "examples/atari-xl/landscape/linux.k65proj", "type": "source", "label": "Linux", "path": "examples/atari-xl/landscape/linux.k65proj", "line_start": 1, "line_end": 10}
+{"kind": "node", "id": "examples/atari-xl/landscape/main.k65", "type": "source", "label": "Main", "path": "examples/atari-xl/landscape/main.k65", "line_start": 1, "line_end": 42}
+{"kind": "node", "id": "examples/atari-xl/landscape/makefile", "type": "source", "label": "Makefile", "path": "examples/atari-xl/landscape/makefile", "line_start": 1, "line_end": 13}
+{"kind": "node", "id": "examples/atari-xl/landscape/windows.k65proj", "type": "source", "label": "Windows", "path": "examples/atari-xl/landscape/windows.k65proj", "line_start": 1, "line_end": 10}
+{"kind": "node", "id": "examples/atari-xl/rainbow/linux.k65proj", "type": "source", "label": "Linux", "path": "examples/atari-xl/rainbow/linux.k65proj", "line_start": 1, "line_end": 10}
+{"kind": "node", "id": "examples/atari-xl/rainbow/main.k65", "type": "source", "label": "Main", "path": "examples/atari-xl/rainbow/main.k65", "line_start": 1, "line_end": 6}
+{"kind": "node", "id": "examples/atari-xl/rainbow/makefile", "type": "source", "label": "Makefile", "path": "examples/atari-xl/rainbow/makefile", "line_start": 1, "line_end": 13}
+{"kind": "node", "id": "examples/atari-xl/rainbow/windows.k65proj", "type": "source", "label": "Windows", "path": "examples/atari-xl/rainbow/windows.k65proj", "line_start": 1, "line_end": 10}
+{"kind": "node", "id": "examples/atari-xl/starfield/linux.k65proj", "type": "source", "label": "Linux", "path": "examples/atari-xl/starfield/linux.k65proj", "line_start": 1, "line_end": 10}
+{"kind": "node", "id": "examples/atari-xl/starfield/main.k65", "type": "source", "label": "Main", "path": "examples/atari-xl/starfield/main.k65", "line_start": 1, "line_end": 24}
+{"kind": "node", "id": "examples/atari-xl/starfield/makefile", "type": "source", "label": "Makefile", "path": "examples/atari-xl/starfield/makefile", "line_start": 1, "line_end": 13}
+{"kind": "node", "id": "examples/atari-xl/starfield/windows.k65proj", "type": "source", "label": "Windows", "path": "examples/atari-xl/starfield/windows.k65proj", "line_start": 1, "line_end": 10}
+{"kind": "edge", "source": "UPSTREAM.md", "target": "UPSTREAM.md#L1", "relation": "contains"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:A", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Align", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:AllIdent", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Arg", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:ArithOp", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:AsmLocation", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:BinLoad", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:BitDir", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:BitSeq", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Br1", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Br2", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:BrInstr", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:BracketNumber", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:BranchOp", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Const", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:ConstList", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Data", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:DataList", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:DataListPPElse", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvArg", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvArgDef", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvArgDefs", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvArgList", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvArgList1", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvBitAnd", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvBitOr", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvBitXor", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvCompare", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvElem", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvExpr", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvLogAnd", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvLogOr", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvMult", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvRelCompare", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvSetVar", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvShift", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvSum", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvUnary", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvalCode", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:EvalInstr", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Flag", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Ident", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:IfElse", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:ImgLoad", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:ImgOpt", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:ImgWaveStart", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Instr", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:MacroArg", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:MacroArgList", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:MainStart", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:MovSeq", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:NoCross", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Number", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:OptEvArgDefs", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:OptEvArgList", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:OptEvArgList1", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:OptMacroArgList", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:OptNoCross", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:OptWaveArgs", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:PPElIf", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:PPElse", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:PPEndif", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:PPError", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:PPIf", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:PPIfNumber", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:PostfixOp", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:PutLabel", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:RowDir", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:S", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:SecStart", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:SeqListPPElse", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Sequence", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Syntax", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:TopElem", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:TopList", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:TopListPPElse", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Var", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:VarArg", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:VarList", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Verbose", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:WaveArgs", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:X", "relation": "defines"}
+{"kind": "edge", "source": "compiler/compiler.inc", "target": "compiler/compiler.inc#rule:Y", "relation": "defines"}
+{"kind": "edge", "source": "doc/docs/alternate-vcs-definitions.md", "target": "doc/docs/alternate-vcs-definitions.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/alternate-vcs-definitions.md", "target": "doc/docs/alternate-vcs-definitions.md#L32", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/alternate-vcs-definitions.md", "target": "doc/docs/alternate-vcs-definitions.md#L41", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/alternate-vcs-definitions.md", "target": "doc/docs/alternate-vcs-definitions.md#L9", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/alternate-vcs-definitions.md#L9", "target": "doc/docs/alternate-vcs-definitions.md#L11", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/alternate-vcs-definitions.md#L9", "target": "doc/docs/alternate-vcs-definitions.md#L27", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/changelog.md", "target": "doc/docs/changelog.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/changelog.md#L3", "target": "doc/docs/changelog.md#L5", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/downloads.md", "target": "doc/docs/downloads.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/downloads.md#L3", "target": "doc/docs/downloads.md#L11", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/downloads.md#L3", "target": "doc/docs/downloads.md#L7", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md", "target": "doc/docs/evaluator.md#L185", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md", "target": "doc/docs/evaluator.md#L31", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md", "target": "doc/docs/evaluator.md#L319", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md", "target": "doc/docs/evaluator.md#L338", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md", "target": "doc/docs/evaluator.md#L5", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L187", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L193", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L199", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L205", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L211", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L217", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L223", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L229", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L235", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L241", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L247", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L253", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L259", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L265", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L271", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L277", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L283", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L289", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L295", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L301", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L307", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L185", "target": "doc/docs/evaluator.md#L313", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L105", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L115", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L125", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L135", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L145", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L155", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L165", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L175", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L35", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L45", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L55", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L65", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L75", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L85", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/evaluator.md#L31", "target": "doc/docs/evaluator.md#L95", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md", "target": "doc/docs/examples.md#L120", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md", "target": "doc/docs/examples.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md", "target": "doc/docs/examples.md#L36", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L120", "target": "doc/docs/examples.md#L122", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L120", "target": "doc/docs/examples.md#L133", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L120", "target": "doc/docs/examples.md#L162", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L120", "target": "doc/docs/examples.md#L196", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L120", "target": "doc/docs/examples.md#L273", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L120", "target": "doc/docs/examples.md#L305", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L120", "target": "doc/docs/examples.md#L353", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L3", "target": "doc/docs/examples.md#L5", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L36", "target": "doc/docs/examples.md#L38", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L36", "target": "doc/docs/examples.md#L63", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/examples.md#L36", "target": "doc/docs/examples.md#L87", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/alternate-vcs-definitions.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/changelog.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/downloads.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/evaluator.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/examples.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/index.md#L1", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/instructions.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/known-bugs.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/platform-atari-8bit.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/platform-c64.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/projects.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/syntax.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/todo.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md", "target": "doc/docs/tutorials.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/index.md#L1", "target": "doc/docs/index.md#L32", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L1", "target": "doc/docs/index.md#L41", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L1", "target": "doc/docs/index.md#L5", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L1", "target": "doc/docs/index.md#L54", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L1", "target": "doc/docs/index.md#L65", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L1", "target": "doc/docs/index.md#L75", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L1", "target": "doc/docs/index.md#L83", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L1", "target": "doc/docs/index.md#L90", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L32", "target": "doc/docs/index.md#L34", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L41", "target": "doc/docs/index.md#L43", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L41", "target": "doc/docs/index.md#L47", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L5", "target": "doc/docs/index.md#L14", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L5", "target": "doc/docs/index.md#L21", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L5", "target": "doc/docs/index.md#L7", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/index.md#L54", "target": "doc/docs/index.md#L56", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md", "target": "doc/docs/instructions.md#L1281", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md", "target": "doc/docs/instructions.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md", "target": "doc/docs/instructions.md#L32", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md", "target": "doc/docs/instructions.md#L41", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md", "target": "doc/docs/instructions.md#L56", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md", "target": "doc/docs/instructions.md#L60", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md", "target": "doc/docs/instructions.md#L71", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L1281", "target": "doc/docs/instructions.md#L1288", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1017", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1043", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1062", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1081", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1100", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1125", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1146", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1167", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1186", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1205", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1224", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L123", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1243", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L1262", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L149", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L172", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L194", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L216", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L238", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L261", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L283", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L305", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L327", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L344", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L366", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L388", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L407", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L426", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L445", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L464", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L490", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L511", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L532", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L554", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L573", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L592", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L618", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L640", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L659", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L678", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L698", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L718", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L744", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L767", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L790", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L813", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L831", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L857", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L876", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L895", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L914", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L933", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L956", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L97", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L979", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/instructions.md#L71", "target": "doc/docs/instructions.md#L998", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-atari-8bit.md", "target": "doc/docs/platform-atari-8bit.md#L105", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-atari-8bit.md", "target": "doc/docs/platform-atari-8bit.md#L25", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-atari-8bit.md", "target": "doc/docs/platform-atari-8bit.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-atari-8bit.md", "target": "doc/docs/platform-atari-8bit.md#L52", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-atari-8bit.md", "target": "doc/docs/platform-atari-8bit.md#L7", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-atari-8bit.md", "target": "doc/docs/platform-atari-8bit.md#L78", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-c64.md", "target": "doc/docs/platform-c64.md#L100", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-c64.md", "target": "doc/docs/platform-c64.md#L118", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-c64.md", "target": "doc/docs/platform-c64.md#L18", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-c64.md", "target": "doc/docs/platform-c64.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-c64.md", "target": "doc/docs/platform-c64.md#L60", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-c64.md", "target": "doc/docs/platform-c64.md#L7", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/platform-c64.md", "target": "doc/docs/platform-c64.md#L81", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "compiler/compiler.inc", "relation": "grammar_source"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/evaluator.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L107", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L131", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L14", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L210", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L228", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L243", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L249", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L27", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L304", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L322", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L40", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L50", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md", "target": "doc/docs/syntax.md#L97", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md#L249", "target": "doc/docs/syntax.md#L253", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md#L249", "target": "doc/docs/syntax.md#L264", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md#L249", "target": "doc/docs/syntax.md#L274", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md#L249", "target": "doc/docs/syntax.md#L285", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md#L50", "target": "doc/docs/syntax.md#L54", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/syntax.md#L50", "target": "doc/docs/syntax.md#L74", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/todo.md", "target": "doc/docs/todo.md#L22", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/todo.md", "target": "doc/docs/todo.md#L32", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/todo.md", "target": "doc/docs/todo.md#L5", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/tutorial-1.md", "target": "doc/docs/tutorial-1.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/tutorial-2.md", "target": "doc/docs/tutorial-2.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/tutorial-3.md", "target": "doc/docs/tutorial-3.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/tutorial-3.md", "target": "doc/docs/tutorial-3.md#L36", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/tutorials.md", "target": "doc/docs/tutorial-1.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/tutorials.md", "target": "doc/docs/tutorial-2.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/tutorials.md", "target": "doc/docs/tutorial-3.md", "relation": "links_to"}
+{"kind": "edge", "source": "doc/docs/tutorials.md", "target": "doc/docs/tutorials.md#L11", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/tutorials.md", "target": "doc/docs/tutorials.md#L17", "relation": "contains"}
+{"kind": "edge", "source": "doc/docs/tutorials.md", "target": "doc/docs/tutorials.md#L3", "relation": "contains"}
+{"kind": "edge", "source": "platform:Atari 2600/VCS", "target": "doc/docs/alternate-vcs-definitions.md", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari 2600/VCS", "target": "doc/docs/examples.md", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari 2600/VCS", "target": "doc/docs/tutorial-1.md", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari 2600/VCS", "target": "doc/docs/tutorial-2.md", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari 2600/VCS", "target": "doc/docs/tutorial-3.md", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari 2600/VCS", "target": "doc/docs/tutorials.md", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari 2600/VCS", "target": "examples/a2600-tutorial-03/_defs.k65", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari 2600/VCS", "target": "examples/a2600-tutorial-03/files.lst", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari 2600/VCS", "target": "examples/a2600-tutorial-03/main.k65", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari 2600/VCS", "target": "examples/a2600-tutorial-03/sprites.bmp", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "doc/docs/examples.md", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "doc/docs/platform-atari-8bit.md", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/dli-example/linux.k65proj", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/dli-example/main.k65", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/dli-example/makefile", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/dli-example/windows.k65proj", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/include/defs.k65", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/landscape/linux.k65proj", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/landscape/main.k65", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/landscape/makefile", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/landscape/windows.k65proj", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/rainbow/linux.k65proj", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/rainbow/main.k65", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/rainbow/makefile", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/rainbow/windows.k65proj", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/starfield/linux.k65proj", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/starfield/main.k65", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/starfield/makefile", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Atari XE/XL", "target": "examples/atari-xl/starfield/windows.k65proj", "relation": "relevant_to"}
+{"kind": "edge", "source": "platform:Commodore 64", "target": "doc/docs/platform-c64.md", "relation": "relevant_to"}
