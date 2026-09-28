@@ -1,8 +1,8 @@
 # Intro — The Witness
 
-Night. Rain lashes the windows of a data center. The camera travels past rows of server racks for about six seconds; their status lights blink continuously. Lightning periodically lights up the room, accompanied by thunder over the steady fan noise.
+Night in a data center. The camera tracks from right to left along a row of server racks for about six seconds while over a hundred amber and green status lights blink, over a steady fan hum.
 
-The camera pushes in on a monitor at the end of the room until its dark-green
+The camera pushes in on the AI's wall monitor at the end of the aisle until its dark-green
 screen fills the frame. White terminal lines appear one by one:
 
 ```text
@@ -21,16 +21,16 @@ A pause. The cursor blinks. Then one last line appears:
 Y_
 ```
 
-The camera cuts away from the terminal to the far end of the same
+The camera cuts away from the terminal to the same end of the
 blue-green room. In the foreground, half-hidden among the equipment, sits
 the gray tabby facility cat. It has been watching the screen all along.
 
-Cut to a close-up of the tabby cat's naturally colored face. Its narrow, vertical pupils dilate until they are wide and round. It understands what the AI is planning.
+Cut to a close-up of the tabby cat's naturally colored face, on the left of the frame, with the lit racks and the AI's desk terminal behind it on the right. Its narrow, vertical pupils dilate until they are wide and round. It understands what the AI is planning.
 
 The cat opens its mouth. Its muzzle moves in time with a short, startled **MEOW!**
 
 The cat opens **CATCOM**, a secure feline video link. A status light pulses
-while the call connects. The camera cuts to a wider view: the fluffy white
+while the call connects (about four seconds, long enough to read). The camera cuts to a wider view: the fluffy white
 Persian boss cat, with copper eyes and a diamond collar, lies on Blofeld's
 lap in a high-backed armchair. Blofeld is visible only from the neck down;
 one hand strokes the cat and the other rests on the armrest. He never

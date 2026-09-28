@@ -2,7 +2,7 @@
 // Playable intro cutscene (no gameplay yet) — see doc/scenario/intro.md and
 // doc/tech/graphics.md for the authoritative script/technical plan.
 //
-//   Beat 1 (ANTIC E, then ANTIC 4): storm over the server racks, push in on
+//   Beat 1 (ANTIC E, then ANTIC 4): right-to-left track past blinking racks, push in on
 //           the terminal, then lines reveal sequentially, followed by a
 //           blinking cursor pauses before "Y_" appears (still blinking).
 //   Beat 2 (ANTIC E / GR.15 bitmap): a cut pulls back to a facility cat
@@ -15,7 +15,7 @@
 //           on a faceless human's lap before the cut to black.
 //
 // Timing uses the OS jiffy clock (RTCLOK, incremented once per VBI) via
-// wait_frames, so no custom DLI/VBI is needed. All display-list/color/DMACTL
+// wait_frames; the only DLIs are the reveal's floor recolor and face_kernel. All display-list/color/DMACTL
 // changes go through the OS shadow registers (SDLSTL/H, SDMCTL, COLOR0-4) so
 // the stock OS deferred-VBI (kept enabled via NMIEN) doesn't stomp them.
 // ============================================================================
@@ -23,7 +23,8 @@
 var mouth_flag		// scratch flag toggled by mouth_tick (auto-allocated byte)
 var pan_ptr[2] = 0x84
 var pan_phase = 0x86
-var thunder_left = 0x87
+var led_bit = 0x87
+var led_ptr[2] = 0x99
 var dl_ptr[2] = 0x88
 var strip_ptr[2] = 0x8A
 var art_ptr[2] = 0x8C
@@ -38,6 +39,10 @@ var call_src[2] = 0x97
 var call_count = 0x9B
 var call_tile = 0x9C
 var call_lines_left = 0x9D
+var face_groups = 0x9E
+var meow_page = 0x9F
+var audc_ptr[2] = 0xA0		// AUDC1 while the meow plays, else meow_sink
+var meow_sink = 0xA2
 var ZoomBuf = 0x8000
 
 // ------------------------------- Terminal text -----------------------------
@@ -109,6 +114,12 @@ data RevealImg { // 64 bytes x 96 rows, two scanlines per row
   align 4096
   binary "assets/room.pic"
 }
+
+data Leds { // lo[], 0, hi[], 0xFF, eor mask[], 0, blink pattern[], 0 (120 LEDs)
+  binary "assets/leds.tbl"
+}
+
+data BitMasks { 1 2 4 8 16 32 64 128 }
 
 data CatStrip { // last 12 bytes of each of the bottom 32 panorama rows
   binary "assets/cat-strip.pic"
@@ -333,7 +344,8 @@ data dl_face {
   repeat 2 { 0x4E &<FaceImg+280 &>FaceImg+280 }
   repeat 2 { 0x4E &<FaceImg+320 &>FaceImg+320 }
   repeat 2 { 0x4E &<FaceImg+360 &>FaceImg+360 }
-  repeat 2 { 0x4E &<FaceImg+400 &>FaceImg+400 }
+  0xCE &<FaceImg+400 &>FaceImg+400	// DLI: start face_kernel
+  0x4E &<FaceImg+400 &>FaceImg+400
   repeat 2 { 0x4E &<FaceImg+440 &>FaceImg+440 }
   repeat 2 { 0x4E &<FaceImg+480 &>FaceImg+480 }
   repeat 2 { 0x4E &<FaceImg+520 &>FaceImg+520 }
@@ -451,14 +463,14 @@ func init_system {
 inline reveal_palette {
   COLOR4=a=0x00				// black room
   COLOR0=a=0x72				// dark blue silhouettes
-  COLOR1=a=0xB6				// sea-green edges and rain
+  COLOR1=a=0xB6				// sea-green rack frames and screen text
   COLOR2=a=0x1A				// amber LEDs and eyes
 }
 
 // 96 LMS pairs; row stride is 64 bytes and both entries point at the same row.
 func build_storm_list {
-  pan_ptr=a=&<RevealImg
-  pan_ptr+1=a=&>RevealImg
+  pan_ptr=a=&<RevealImg+24		// start at the right end of the panorama
+  pan_ptr+1=a=&>RevealImg+24
   dl_ptr=a=&<dl_storm+3
   dl_ptr+1=a=&>dl_storm+3
   x=96
@@ -492,7 +504,7 @@ func build_storm_list {
   } !=
 }
 
-// Advance every pair of LMS addresses by one byte (four pixels).
+// Move every pair of LMS addresses back one byte: the camera tracks left.
 func pan_step {
   dl_ptr=a=&<dl_storm+3
   dl_ptr+1=a=&>dl_storm+3
@@ -500,12 +512,12 @@ func pan_step {
   {
     y=1
     a=(dl_ptr),y
-    c- a+1
+    c+ a-1
     (dl_ptr),y=a
-    c+? {
+    c-? {
       y=2
       a=(dl_ptr),y
-      c- a+1
+      c+ a-1
       (dl_ptr),y=a
       y=5
       (dl_ptr),y=a
@@ -523,83 +535,58 @@ func pan_step {
   } !=
 }
 
+// Toggle every LED whose 8-step pattern has the current phase bit set.
 func blink_rack_leds {
   a=pan_phase
-  a&2
-  a?0 == {
-    RevealImg+1479=a=13
-    RevealImg+2520=a=13
-    RevealImg+3561=a=13
-    RevealImg+2000=a=21
-    RevealImg+3041=a=21
-    RevealImg+2034=a=21
-  } else {
-    RevealImg+1479=a=1
-    RevealImg+2520=a=1
-    RevealImg+3561=a=1
-    RevealImg+2000=a=213
-    RevealImg+3041=a=213
-    RevealImg+2034=a=213
-  }
-}
-
-func storm_tick {
-  pan_step
-  blink_rack_leds
-  a=pan_phase
-  a?5 == { thunder_left=a=3 }
-  a=pan_phase
-  a?13 == { thunder_left=a=3 }
-  a=pan_phase
-  a?20 == { thunder_left=a=3 }
-  a=thunder_left
-  a?3 == {
-    COLOR0=a=0x0C
-    COLOR1=a=0x0E
-    AUDF4=a=0x10
-    AUDC4=a=0x8C
-    x=2 wait_frames
-    reveal_palette
-    AUDF4=a=0x90
-    AUDC4=a=0x88
-    x=10 wait_frames
-  } else {
+  a&7
+  x=a
+  a=BitMasks,x
+  led_bit=a
+  x=0
+  {
+    a=Leds+121,x
+    a?0xFF == break
+    c- a+&>RevealImg
+    led_ptr+1=a
+    a=Leds+363,x
+    a&led_bit
     a?0 != {
-      AUDF4=a=0xD0
-      AUDC4=a=0x84
+      led_ptr=a=Leds,x
+      y=0
+      a=(led_ptr),y
+      a^Leds+242,x
+      (led_ptr),y=a
     }
-    x=12 wait_frames
-  }
-  a=thunder_left
-  a?0 != {
-    c+ a-1
-    thunder_left=a
-    a?0 == { AUDC4=a=0 }
-  }
+    x++
+  } always
 }
 
 // 24 four-pixel steps at 12 PAL frames each: 288 frames / 50 Hz = 5.76 s.
+// LEDs change twice per step.
 func storm_pan {
   AUDF2=a=0xF2
   AUDC2=a=0xA2			// low fan noise
   AUDF3=a=0x31
   AUDC3=a=0x84			// quiet continuous data-center hum
   pan_phase=a=0
-  thunder_left=a=0
   x=1 wait_frames			// start LMS updates at VBI, before visible rows
   {
-    storm_tick
+    pan_step
+    blink_rack_leds
+    x=6 wait_frames
+    pan_phase++
+    blink_rack_leds
+    x=6 wait_frames
     pan_phase++
     a=pan_phase
-    a?24
+    a?48
   } !=
-  AUDC4=a=0
 }
 
 // Double the last 80x48 pixels around the far monitor into spare XL RAM.
 func build_zoom_bitmap {
-  pan_ptr=a=&<RevealImg+1003
-  pan_ptr+1=a=&>RevealImg+1003
+  pan_ptr=a=&<RevealImg+961
+  pan_ptr+1=a=&>RevealImg+961
   art_ptr=a=&<ZoomBuf
   art_ptr+1=a=&>ZoomBuf
   zoom_second_ptr=a=&<ZoomBuf+40
@@ -692,8 +679,8 @@ func show_zoom_bitmap {
 func show_cat {
   strip_ptr=a=&<CatStrip
   strip_ptr+1=a=&>CatStrip
-  art_ptr=a=&<RevealImg+4148
-  art_ptr+1=a=&>RevealImg+4148
+  art_ptr=a=&<RevealImg+4096
+  art_ptr+1=a=&>RevealImg+4096
   x=32
   {
     y=0
@@ -866,11 +853,55 @@ func switch_to_storm {
   reveal_palette
 }
 
-inline cat_palette {
-  COLOR4=a=0x00
-  COLOR0=a=0x72			// navy racks, neutral shadow on the cat
-  COLOR1=a=0x08			// gray tabby fur
-  COLOR2=a=0x2C			// cream muzzle and eye highlights
+// Rows 12-95 of the close-up: every scanline starts with the cat's gray fur
+// and cream muzzle in COLPF1/COLPF2, then switches to the data center's
+// green/amber between x=84 and x=99 so the racks keep the colors of the opening track.
+// The kernel owns the CPU for 168 scanlines, so it also plays every third
+// line's meow sample through audc_ptr (a dummy byte when the meow is idle).
+naked face_kernel {
+  a!!
+  a=x
+  a!!
+  a=y
+  a!!
+  { a=VCOUNT a?28 } !=		// scanline 56: first line of row 12
+  WSYNC=a
+  face_groups=a=56			// 56 x 3 scanlines
+  {
+    a=0x08 COLPF1=a			// gray fur
+    a=0x2C COLPF2=a			// cream muzzle
+    x=0x1A y=0
+    a=(meow_ptr),y
+    a|0x10
+    (audc_ptr),y=a
+    y=0xB6
+    *2
+    COLPF1=y COLPF2=x
+    WSYNC=a
+
+    a=0x08 COLPF1=a
+    a=0x2C COLPF2=a
+    x=0x1A y=0xB6
+    a=meow_ptr c- a+1 meow_ptr=a	// constant time: no jitter on page crossings
+    a=meow_ptr+1 a+0 meow_ptr+1=a
+    *2
+    COLPF1=y COLPF2=x
+    WSYNC=a
+
+    a=0x08 COLPF1=a
+    a=0x2C COLPF2=a
+    x=0x1A y=0xB6
+    *15
+    face_groups--
+    COLPF1=y COLPF2=x
+    WSYNC=a
+  } !=
+  a??
+  y=a
+  a??
+  x=a
+  a??
+  return_i
 }
 
 func switch_to_reveal {
@@ -883,10 +914,14 @@ func switch_to_reveal {
 }
 
 func switch_to_face {
-  NMIEN=a=0x40
+  VDSLST=a=&<face_kernel
+  VDSLST+1=a=&>face_kernel
+  audc_ptr=a=&<meow_sink
+  audc_ptr+1=a=&>meow_sink
   SDLSTL=a=&<dl_face
   SDLSTH=a=&>dl_face
-  cat_palette
+  reveal_palette			// the data center keeps the colors of the track
+  NMIEN=a=0xC0
 }
 
 func switch_to_term {
@@ -984,40 +1019,40 @@ func zoom_to_terminal {
 // Widen the dark slit through the blue iris, without copying the whole image.
 
 func pupils_stage1 {
-  FaceImg+2104=a=0
-  FaceImg+2106=a=0
-  FaceImg+2110=a=0
-  FaceImg+2112=a=0
+  FaceImg+2095=a=0
+  FaceImg+2093=a=0
+  FaceImg+2089=a=0
+  FaceImg+2087=a=0
 }
 
 func pupils_stage2 {
-  FaceImg+2064=a=0
-  FaceImg+2066=a=0
-  FaceImg+2070=a=0
-  FaceImg+2072=a=0
-  FaceImg+2144=a=0
-  FaceImg+2146=a=0
-  FaceImg+2150=a=0
-  FaceImg+2152=a=0
+  FaceImg+2055=a=0
+  FaceImg+2053=a=0
+  FaceImg+2049=a=0
+  FaceImg+2047=a=0
+  FaceImg+2135=a=0
+  FaceImg+2133=a=0
+  FaceImg+2129=a=0
+  FaceImg+2127=a=0
 }
 
 func pupils_stage3 {
-  FaceImg+1984=a=0
-  FaceImg+1986=a=0
-  FaceImg+1990=a=0
-  FaceImg+1992=a=0
-  FaceImg+2024=a=0
-  FaceImg+2026=a=0
-  FaceImg+2030=a=0
-  FaceImg+2032=a=0
-  FaceImg+2184=a=0
-  FaceImg+2186=a=0
-  FaceImg+2190=a=0
-  FaceImg+2192=a=0
-  FaceImg+2224=a=0
-  FaceImg+2226=a=0
-  FaceImg+2230=a=0
-  FaceImg+2232=a=0
+  FaceImg+1975=a=0
+  FaceImg+1973=a=0
+  FaceImg+1969=a=0
+  FaceImg+1967=a=0
+  FaceImg+2015=a=0
+  FaceImg+2013=a=0
+  FaceImg+2009=a=0
+  FaceImg+2007=a=0
+  FaceImg+2175=a=0
+  FaceImg+2173=a=0
+  FaceImg+2169=a=0
+  FaceImg+2167=a=0
+  FaceImg+2215=a=0
+  FaceImg+2213=a=0
+  FaceImg+2209=a=0
+  FaceImg+2207=a=0
 }
 
 // ------------------------------ Mouth sync ----------------------------------
@@ -1025,25 +1060,25 @@ func pupils_stage3 {
 // page, i.e. 12 times across playback) so the mouth animates during the meow.
 
 inline mouth_open {
-  FaceImg+2747=a=0
-  FaceImg+2748=a=0
-  FaceImg+2787=a=0
-  FaceImg+2788=a=0
-  FaceImg+2827=a=0
-  FaceImg+2828=a=0
-  FaceImg+2867=a=0
-  FaceImg+2868=a=0
+  FaceImg+2732=a=0
+  FaceImg+2731=a=0
+  FaceImg+2772=a=0
+  FaceImg+2771=a=0
+  FaceImg+2812=a=0
+  FaceImg+2811=a=0
+  FaceImg+2852=a=0
+  FaceImg+2851=a=0
 }
 
 inline mouth_close {
-  FaceImg+2747=a=250
-  FaceImg+2748=a=43
-  FaceImg+2787=a=250
-  FaceImg+2788=a=43
-  FaceImg+2827=a=234
-  FaceImg+2828=a=42
-  FaceImg+2867=a=170
-  FaceImg+2868=a=42
+  FaceImg+2732=a=175
+  FaceImg+2731=a=232
+  FaceImg+2772=a=175
+  FaceImg+2771=a=232
+  FaceImg+2812=a=171
+  FaceImg+2811=a=168
+  FaceImg+2852=a=170
+  FaceImg+2851=a=168
 }
 
 func mouth_tick {
@@ -1059,25 +1094,32 @@ func mouth_tick {
 }
 
 func play_meow {
+  x=1 wait_frames			// set up in vblank, outside face_kernel
   meow_ptr=a=&<Meow
   meow_ptr+1=a=&>Meow
-  x=12
-  y=0
+  meow_page=a
+  audc_ptr=a=&<AUDC1
+  audc_ptr+1=a=&>AUDC1
   {
+    WSYNC=a
+    WSYNC=a
+    WSYNC=a
+    y=0
     a=(meow_ptr),y
     a|0x10
     AUDC1=a
-    WSYNC=a
-    WSYNC=a
-    WSYNC=a
-    y++
-    y?0 == {
-      meow_ptr+1++
+    meow_ptr++
+    == { meow_ptr+1++ }
+    a=meow_ptr+1
+    a?meow_page != {		// a new 256-sample page (main or kernel crossed it)
+      meow_page=a
       mouth_tick			// 12 toggles, one per sample page
-      x--
-      x?0 == break
+      a=meow_page
+      a?&>Meow+3072 == break
     }
   } always
+  audc_ptr=a=&<meow_sink
+  audc_ptr+1=a=&>meow_sink
   AUDC1=a=0
 }
 
@@ -1107,13 +1149,13 @@ func video_call {
     y++
     y?27
   } !=
-  x=12 wait_frames
+  x=50 wait_frames			// ~4 s total so the connect text can be read
   TermScreen+107=a=14
-  x=10 wait_frames
+  x=30 wait_frames
   TermScreen+108=a=14
-  x=10 wait_frames
+  x=30 wait_frames
   TermScreen+109=a=14
-  x=12 wait_frames
+  x=90 wait_frames
 
   clear_term_screen
   SDLSTL=a=&<dl_call
@@ -1199,7 +1241,7 @@ main {
   build_storm_list
 
   switch_to_storm			// opening shows racks, but not the cat
-  storm_pan				// 5.76-second pan, LEDs, lightning and POKEY thunder
+  storm_pan				// 5.76-second right-to-left track with blinking LEDs
 
   show_zoom_bitmap
   zoom_to_terminal			// monitor fills the frame before text appears

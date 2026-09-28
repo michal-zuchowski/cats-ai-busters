@@ -39,6 +39,11 @@ class Canvas:
             self.rect(round(apex_x + (base_left - apex_x) * t), y,
                       round(apex_x + (base_right - apex_x) * t) + 1, y + 1, color)
 
+    def mirrored(self):
+        for row in self.pixels:
+            row.reverse()
+        return self
+
     def packed(self):
         result = bytearray()
         for row in self.pixels:
@@ -56,6 +61,18 @@ class Canvas:
                               for pixel in row for channel in colors[pixel]))
 
 
+def rack_leds(width):
+    """(x, y, color) of every status LED; color 3 is amber, 2 is green."""
+    leds = []
+    for left in range(7, width - 52, 34):
+        for slot, y in enumerate(range(21, 61, 8)):
+            for column, x in enumerate((left + 17, left + 20, left + 23)):
+                leds.append((x, y + 2, 2 if (left + slot + column) % 3 else 3))
+                if column == 2:
+                    leds.append((x, y + 4, 3 if (left + slot) % 2 else 2))
+    return leds
+
+
 def server_room(width=160):
     art = Canvas(width)
     art.rect(0, 70, width, HEIGHT, 0)
@@ -64,21 +81,21 @@ def server_room(width=160):
         for x in range(12 + y % 11, width - 18, 40):
             art.line(x, y, x + 18, y, 1)
 
-    for left in range(7, width - 18, 34):
+    for left in range(7, width - 52, 34):
         art.rect(left, 12, left + 29, 70, 2)
         art.rect(left + 2, 14, left + 27, 68, 1)
         art.rect(left + 5, 17, left + 24, 63, 0)
         for y in range(21, 61, 8):
-            art.line(left + 7, y, left + 21, y, 2)
-            art.dot(left + 23, y + 2, 3 if (left + y) % 3 else 2)
-            art.dot(left + 23, y + 4, 2 if (left + y) % 3 else 3)
+            art.line(left + 7, y, left + 14, y, 2)
+    for x, y, color in rack_leds(width):
+        art.dot(x, y, color)
 
-    art.rect(width - 50, 8, width - 3, 65, 2)
-    art.rect(width - 47, 11, width - 6, 62, 0)
-    art.line(width - 26, 11, width - 26, 62, 1)
-    for x in (width - 42, width - 34, width - 20, width - 11):
-        for y in range(17 + x % 5, 60, 13):
-            art.line(x, y, x - 2, y + 7, 2)
+    # the AI's wall terminal at the end of the aisle
+    art.rect(width - 50, 8, width - 7, 65, 2)
+    art.rect(width - 47, 11, width - 10, 62, 0)
+    for y, length in zip(range(16, 56, 6), (30, 22, 34, 18, 26, 30, 14)):
+        art.line(width - 14 - length, y, width - 14, y, 2)  # left-aligned once mirrored
+    art.rect(width - 18, 57, width - 14, 60, 3)
     return art
 
 
@@ -131,25 +148,42 @@ def revealed_room():
     return art
 
 
+FACE_SPLIT = 86  # the DLI kernel switches fur/cream to rack green/amber at x=84..99
+
+
 def face():
-    art = server_room()
-    art.rect(43, 27, 85, 70, 1)
-    art.rect(46, 30, 82, 65, 2)
-    art.rect(49, 33, 79, 62, 0)
-    for y, end in ((37, 72), (42, 68), (47, 74), (52, 64)):
-        art.line(52, y, end, y, 2)
-    art.line(53, 56, 56, 59, 2)
-    art.line(59, 56, 56, 59, 2)
-    art.line(56, 59, 56, 62, 2)
-    art.line(62, 62, 69, 62, 2)
-    art.rect(59, 70, 70, 73, 2)
-    art.ellipse(113, 91, 37, 27, 2)
-    cat_head(art, 112, 54, 27, 30, natural=True)
+    """Mirrored close-up: the cat on the left, the lit data center on the right."""
+    room = server_room().mirrored()
+    room.rect(99, 27, 141, 70, 1)  # the AI's desk terminal, right of the split
+    room.rect(102, 30, 138, 65, 2)
+    room.rect(105, 33, 135, 62, 0)
+    for y, length in ((37, 20), (42, 16), (47, 22), (52, 12)):
+        room.line(108, y, 108 + length, y, 2)
+    room.line(109, 56, 112, 59, 2)
+    room.line(115, 56, 112, 59, 2)
+    room.line(112, 59, 112, 62, 2)
+    room.line(118, 62, 125, 62, 2)
+    room.rect(115, 70, 126, 73, 2)
+    for row in room.pixels:  # left of the split, rack green would render as fur
+        for x in range(FACE_SPLIT + 14):
+            if row[x] == 2 or (x >= FACE_SPLIT - 2 and row[x] == 3):
+                row[x] = 1
+
+    cat = Canvas()
+    cat.pixels = [[None] * cat.width for _ in range(HEIGHT)]
+    cat.ellipse(113, 91, 37, 27, 2)
+    cat_head(cat, 112, 54, 27, 30, natural=True)
     for cx in (101, 125):
-        art.ellipse(cx, 52, 9, 7, 3)
-        art.rect(cx - 1, 48, cx + 3, 57, 0)
-        art.dot(cx + 5, 49, 3)
-    return art
+        cat.ellipse(cx, 52, 9, 7, 3)
+        cat.rect(cx - 1, 48, cx + 3, 57, 0)
+        cat.dot(cx + 5, 49, 3)
+    cat.mirrored()
+    for y in range(HEIGHT):
+        for x in range(cat.width):
+            if cat.pixels[y][x] is not None:
+                assert x < FACE_SPLIT - 2
+                room.pixels[y][x] = cat.pixels[y][x]
+    return room
 
 
 CALL_W, CALL_H = 160, 80
@@ -347,16 +381,29 @@ if __name__ == "__main__":
     (ROOT / "assets" / "zoom-right.tbl").write_bytes(
         bytes(((byte >> 2) & 3) * 0x50 + (byte & 3) * 5
               for byte in range(256)))
-    for name, image in (("room", server_room(256)), ("face", face())):
+    for name, image in (("room", server_room(256).mirrored()), ("face", face())):
         payload = image.packed()
         assert len(payload) == image.width // 4 * HEIGHT
         (ROOT / "assets" / f"{name}.pic").write_bytes(payload)
         (ROOT / "out" / f"{name}-preview.ppm").parent.mkdir(exist_ok=True)
         image.preview(ROOT / "out" / f"{name}-preview.ppm", natural=name == "face")
-    revealed_art = revealed_room()
+    # The panorama is mirrored so the camera tracks right to left and ends
+    # on the terminal and the (later composited) cat at the left end.
+    revealed_art = revealed_room().mirrored()
     revealed = revealed_art.packed()
     revealed_art.preview(ROOT / "out" / "reveal-preview.ppm", natural=True)
     strip = bytearray()
     for y in range(64, HEIGHT):
-        strip.extend(revealed[y * 64 + 52:y * 64 + 64])
+        strip.extend(revealed[y * 64:y * 64 + 12])
     (ROOT / "assets" / "cat-strip.pic").write_bytes(strip)
+    rng = __import__("random").Random(65)
+    leds = [(y * 64 + (255 - x) // 4, color << (2 * ((255 - x) % 4 ^ 3)))
+            for x, y, color in rack_leds(256)]
+    patterns = [rng.choice((0x55, 0xAA, 0x33, 0xCC, 0x0F, 0xF0, 0x11, 0x88, 0x49, 0x92))
+                for _ in leds]
+    assert len(leds) < 255
+    (ROOT / "assets" / "leds.tbl").write_bytes(
+        bytes(offset & 255 for offset, _ in leds) + b"\0" +
+        bytes(offset >> 8 for offset, _ in leds) + b"\xff" +
+        bytes(mask for _, mask in leds) + b"\0" +
+        bytes(patterns) + b"\0")

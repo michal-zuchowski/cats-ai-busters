@@ -4,4 +4,5 @@ var meow_ptr[2] = 0x80
 data Meow {
   align 256
   binary "assets/meow.pcm"
+  for x=0..63 eval [7]		// silence face_kernel may read past the end
 }
