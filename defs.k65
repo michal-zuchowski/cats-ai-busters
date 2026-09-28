@@ -211,3 +211,23 @@ var NMIADL	= 0xFFFA;
 var NMIADH	= 0xFFFB;
 var IRQADL	= 0xFFFE;
 var IRQADH	= 0xFFFF;
+
+
+
+// ================================ OS Shadow RAM ================================
+// These are maintained by the OS's own deferred VBI, which keeps running as long
+// as NMIEN's VBI-enable bit stays set. Writing the shadow (instead of the raw
+// hardware register) avoids the classic bug where the OS VBI overwrites a direct
+// hardware write on the very next frame.
+
+var RTCLOK	= 0x0014;		// xxxx xxxx	OS jiffy clock, low byte; incremented once per VBI (~50/60 Hz)
+var SDMCTL	= 0x022F;		// --dr pmww	Shadow for DMACTL
+var SDLSTL	= 0x0230;		// xxxx xxxx	Shadow for DLISTL (display list pointer, low byte)
+var SDLSTH	= 0x0231;		// xxxx xxxx	Shadow for DLISTH (display list pointer, high byte)
+var CHBAS	= 0x02F4;		// xxxx xx?0	OS shadow for CHBASE
+var VDSLST	= 0x0200;		// xxxx xxxx	Display-list interrupt vector
+var COLOR0	= 0x02C4;		// cccc llll	Shadow for COLPF0
+var COLOR1	= 0x02C5;		// cccc llll	Shadow for COLPF1
+var COLOR2	= 0x02C6;		// cccc llll	Shadow for COLPF2
+var COLOR3	= 0x02C7;		// cccc llll	Shadow for COLPF3
+var COLOR4	= 0x02C8;		// cccc llll	Shadow for COLBK

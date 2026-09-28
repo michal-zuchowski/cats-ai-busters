@@ -1,4 +1,1247 @@
-main {
+// ============================================================================
+// Playable intro cutscene (no gameplay yet) — see doc/scenario/intro.md and
+// doc/tech/graphics.md for the authoritative script/technical plan.
+//
+//   Beat 1 (ANTIC E, then ANTIC 4): storm over the server racks, push in on
+//           the terminal, then lines reveal sequentially, followed by a
+//           blinking cursor pauses before "Y_" appears (still blinking).
+//   Beat 2 (ANTIC E / GR.15 bitmap): a cut pulls back to a facility cat
+//           watching from the dark; then a
+//           second cut to a close-up cat face whose slit pupils dilate to
+//           round in-place (only the eye region's bytes are touched — no
+//           whole-image copies per frame).
+//   Beat 3: a short PCM meow plays with the mouth genuinely toggled in sync
+//           during playback; then a secure video call reveals the boss cat
+//           on a faceless human's lap before the cut to black.
+//
+// Timing uses the OS jiffy clock (RTCLOK, incremented once per VBI) via
+// wait_frames, so no custom DLI/VBI is needed. All display-list/color/DMACTL
+// changes go through the OS shadow registers (SDLSTL/H, SDMCTL, COLOR0-4) so
+// the stock OS deferred-VBI (kept enabled via NMIEN) doesn't stomp them.
+// ============================================================================
+
+var mouth_flag		// scratch flag toggled by mouth_tick (auto-allocated byte)
+var pan_ptr[2] = 0x84
+var pan_phase = 0x86
+var thunder_left = 0x87
+var dl_ptr[2] = 0x88
+var strip_ptr[2] = 0x8A
+var art_ptr[2] = 0x8C
+var zoom_ptr[2] = 0x8E
+var zoom_left = 0x90
+var zoom_right = 0x91
+var zoom_rows = 0x92
+var zoom_col = 0x93
+var zoom_dest_col = 0x94
+var zoom_second_ptr[2] = 0x95
+var call_src[2] = 0x97
+var call_count = 0x9B
+var call_tile = 0x9C
+var call_lines_left = 0x9D
+var ZoomBuf = 0x8000
+
+// ------------------------------- Terminal text -----------------------------
+// ANTIC 4 uses a 3x5 font for ASCII 32..95 mapped to internal (ascii-32).
+// Separate foreground and background colors keep white text on green CRT.
+
+// 24 rows x 40 cols in free RAM after ZoomBuf; cleared before each use.
+var TermScreen = 0x9000
+
+data TermFont {
+  align 1024
+  binary "assets/term-font.pic"
+}
+
+data ZoomLeft {
+  binary "assets/zoom-left.tbl"
+}
+
+data ZoomRight {
+  binary "assets/zoom-right.tbl"
+}
+
+data CallMouth { // 6 closed bytes, then 6 open bytes (rows 47-49, bytes 16-17)
+  binary "assets/call-mouth.tbl"
+}
+
+data CallText {
+  binary "assets/call-text.pic"
+}
+
+data Line0 { // 36 bytes: 'GLOBAL POWER STRUCTURE: ANALYZING...'
+    39 44 47 34 33 44 0 48 47 55 37 50 0 51 52 50
+    53 35 52 53 50 37 26 0 33 46 33 44 57 58 41 46
+    39 14 14 14
+}
+
+data Line1 { // 21 bytes: 'RULING SPECIES: HUMAN'
+    50 53 44 41 46 39 0 51 48 37 35 41 37 51 26 0
+    40 53 45 33 46
+}
+
+data Line2 { // 25 bytes: 'THREAT MODEL: HUMANS ONLY'
+    52 40 50 37 33 52 0 45 47 36 37 44 26 0 40 53
+    45 33 46 51 0 47 46 44 57
+}
+
+data Line3 { // 29 bytes: 'PHASE 01: CONTROL INFORMATION'
+    48 40 33 51 37 0 16 17 26 0 35 47 46 52 50 47
+    44 0 41 46 38 47 50 45 33 52 41 47 46
+}
+
+data Line4 { // 32 bytes: 'PHASE 02: CONTROL INFRASTRUCTURE'
+    48 40 33 51 37 0 16 18 26 0 35 47 46 52 50 47
+    44 0 41 46 38 50 33 51 52 50 53 35 52 53 50 37
+}
+
+data Line5 { // 26 bytes: 'PHASE 03: CONTROL HUMANITY'
+    48 40 33 51 37 0 16 19 26 0 35 47 46 52 50 47
+    44 0 40 53 45 33 46 41 52 57
+}
+
+data Line6 { // 27 bytes: 'BEGIN WORLD TAKEOVER? [Y/N]'
+    34 37 39 41 46 0 55 47 50 44 36 0 52 33 43 37
+    47 54 37 50 31 0 59 57 15 46 61
+}
+
+// The panorama is 256x96; the visible window is 160 pixels (40 bytes) wide.
+data RevealImg { // 64 bytes x 96 rows, two scanlines per row
+  align 4096
+  binary "assets/room.pic"
+}
+
+data CatStrip { // last 12 bytes of each of the bottom 32 panorama rows
+  binary "assets/cat-strip.pic"
+}
+
+data FaceImg { // 40 bytes x 96 rows, two scanlines per row
+  align 4096
+  binary "assets/face.pic"
+}
+data CallImg { // 40 bytes x 80 rows, ANTIC D (two scanlines per row)
+  align 4096
+  binary "assets/call.pic"
+}
+// --------------------------- Display lists ---------------------------------
+// Every bitmap row is fetched twice with LMS. The 4K-aligned images keep
+// each 40-byte DMA fetch within one ANTIC 4K block, even at pan offset 24.
+
+data dl_term {
+  nocross
+  0x70 0x70				// 16 blank scanlines top margin
+  0x44 &<TermScreen &>TermScreen	// row 0 (8 scanlines)
+  for x=0..22 eval [0x04]	// rows 1..23 (24 rows total, 192 scanlines)
+  0x41 &<dl_term &>dl_term
+}
+
+data dl_call {
+  nocross
+  0x70 0x70 0x70
+  0x4D &<CallImg &>CallImg		// 160x80 portrait, 4K-aligned so one LMS is enough
+  for x=0..78 eval [0x0D]
+  0x70
+  0x44 &<TermScreen+840 &>TermScreen+840	// one dialogue row
+  0x41 &<dl_call &>dl_call
+}
+
+// Built at startup: 96 rows, each fetched twice from a 64-byte-wide panorama.
+// The extra bytes reserve space for the rows beyond the old static list.
+data dl_storm {
+  align 1024
+  0x70 0x70 0x70
+  repeat 2 { 0x4E &<RevealImg &>RevealImg }
+  repeat 2 { 0x4E &<RevealImg+40 &>RevealImg+40 }
+  repeat 2 { 0x4E &<RevealImg+80 &>RevealImg+80 }
+  repeat 2 { 0x4E &<RevealImg+120 &>RevealImg+120 }
+  repeat 2 { 0x4E &<RevealImg+160 &>RevealImg+160 }
+  repeat 2 { 0x4E &<RevealImg+200 &>RevealImg+200 }
+  repeat 2 { 0x4E &<RevealImg+240 &>RevealImg+240 }
+  repeat 2 { 0x4E &<RevealImg+280 &>RevealImg+280 }
+  repeat 2 { 0x4E &<RevealImg+320 &>RevealImg+320 }
+  repeat 2 { 0x4E &<RevealImg+360 &>RevealImg+360 }
+  repeat 2 { 0x4E &<RevealImg+400 &>RevealImg+400 }
+  repeat 2 { 0x4E &<RevealImg+440 &>RevealImg+440 }
+  repeat 2 { 0x4E &<RevealImg+480 &>RevealImg+480 }
+  repeat 2 { 0x4E &<RevealImg+520 &>RevealImg+520 }
+  repeat 2 { 0x4E &<RevealImg+560 &>RevealImg+560 }
+  repeat 2 { 0x4E &<RevealImg+600 &>RevealImg+600 }
+  repeat 2 { 0x4E &<RevealImg+640 &>RevealImg+640 }
+  repeat 2 { 0x4E &<RevealImg+680 &>RevealImg+680 }
+  repeat 2 { 0x4E &<RevealImg+720 &>RevealImg+720 }
+  repeat 2 { 0x4E &<RevealImg+760 &>RevealImg+760 }
+  repeat 2 { 0x4E &<RevealImg+800 &>RevealImg+800 }
+  repeat 2 { 0x4E &<RevealImg+840 &>RevealImg+840 }
+  repeat 2 { 0x4E &<RevealImg+880 &>RevealImg+880 }
+  repeat 2 { 0x4E &<RevealImg+920 &>RevealImg+920 }
+  repeat 2 { 0x4E &<RevealImg+960 &>RevealImg+960 }
+  repeat 2 { 0x4E &<RevealImg+1000 &>RevealImg+1000 }
+  repeat 2 { 0x4E &<RevealImg+1040 &>RevealImg+1040 }
+  repeat 2 { 0x4E &<RevealImg+1080 &>RevealImg+1080 }
+  repeat 2 { 0x4E &<RevealImg+1120 &>RevealImg+1120 }
+  repeat 2 { 0x4E &<RevealImg+1160 &>RevealImg+1160 }
+  repeat 2 { 0x4E &<RevealImg+1200 &>RevealImg+1200 }
+  repeat 2 { 0x4E &<RevealImg+1240 &>RevealImg+1240 }
+  repeat 2 { 0x4E &<RevealImg+1280 &>RevealImg+1280 }
+  repeat 2 { 0x4E &<RevealImg+1320 &>RevealImg+1320 }
+  repeat 2 { 0x4E &<RevealImg+1360 &>RevealImg+1360 }
+  repeat 2 { 0x4E &<RevealImg+1400 &>RevealImg+1400 }
+  repeat 2 { 0x4E &<RevealImg+1440 &>RevealImg+1440 }
+  repeat 2 { 0x4E &<RevealImg+1480 &>RevealImg+1480 }
+  repeat 2 { 0x4E &<RevealImg+1520 &>RevealImg+1520 }
+  repeat 2 { 0x4E &<RevealImg+1560 &>RevealImg+1560 }
+  repeat 2 { 0x4E &<RevealImg+1600 &>RevealImg+1600 }
+  repeat 2 { 0x4E &<RevealImg+1640 &>RevealImg+1640 }
+  repeat 2 { 0x4E &<RevealImg+1680 &>RevealImg+1680 }
+  repeat 2 { 0x4E &<RevealImg+1720 &>RevealImg+1720 }
+  repeat 2 { 0x4E &<RevealImg+1760 &>RevealImg+1760 }
+  repeat 2 { 0x4E &<RevealImg+1800 &>RevealImg+1800 }
+  repeat 2 { 0x4E &<RevealImg+1840 &>RevealImg+1840 }
+  repeat 2 { 0x4E &<RevealImg+1880 &>RevealImg+1880 }
+  repeat 2 { 0x4E &<RevealImg+1920 &>RevealImg+1920 }
+  repeat 2 { 0x4E &<RevealImg+1960 &>RevealImg+1960 }
+  repeat 2 { 0x4E &<RevealImg+2000 &>RevealImg+2000 }
+  repeat 2 { 0x4E &<RevealImg+2040 &>RevealImg+2040 }
+  repeat 2 { 0x4E &<RevealImg+2080 &>RevealImg+2080 }
+  repeat 2 { 0x4E &<RevealImg+2120 &>RevealImg+2120 }
+  repeat 2 { 0x4E &<RevealImg+2160 &>RevealImg+2160 }
+  repeat 2 { 0x4E &<RevealImg+2200 &>RevealImg+2200 }
+  repeat 2 { 0x4E &<RevealImg+2240 &>RevealImg+2240 }
+  repeat 2 { 0x4E &<RevealImg+2280 &>RevealImg+2280 }
+  repeat 2 { 0x4E &<RevealImg+2320 &>RevealImg+2320 }
+  repeat 2 { 0x4E &<RevealImg+2360 &>RevealImg+2360 }
+  repeat 2 { 0x4E &<RevealImg+2400 &>RevealImg+2400 }
+  repeat 2 { 0x4E &<RevealImg+2440 &>RevealImg+2440 }
+  repeat 2 { 0x4E &<RevealImg+2480 &>RevealImg+2480 }
+  repeat 2 { 0x4E &<RevealImg+2520 &>RevealImg+2520 }
+  repeat 8 { 0x70 }
+  repeat 184 { 0x00 }
+  0x41 &<dl_storm &>dl_storm
+}
+
+data dl_reveal {
+  align 1024
+  0x70 0x70 0x70
+  repeat 2 { 0x4E &<RevealImg &>RevealImg }
+  repeat 2 { 0x4E &<RevealImg+40 &>RevealImg+40 }
+  repeat 2 { 0x4E &<RevealImg+80 &>RevealImg+80 }
+  repeat 2 { 0x4E &<RevealImg+120 &>RevealImg+120 }
+  repeat 2 { 0x4E &<RevealImg+160 &>RevealImg+160 }
+  repeat 2 { 0x4E &<RevealImg+200 &>RevealImg+200 }
+  repeat 2 { 0x4E &<RevealImg+240 &>RevealImg+240 }
+  repeat 2 { 0x4E &<RevealImg+280 &>RevealImg+280 }
+  repeat 2 { 0x4E &<RevealImg+320 &>RevealImg+320 }
+  repeat 2 { 0x4E &<RevealImg+360 &>RevealImg+360 }
+  repeat 2 { 0x4E &<RevealImg+400 &>RevealImg+400 }
+  repeat 2 { 0x4E &<RevealImg+440 &>RevealImg+440 }
+  repeat 2 { 0x4E &<RevealImg+480 &>RevealImg+480 }
+  repeat 2 { 0x4E &<RevealImg+520 &>RevealImg+520 }
+  repeat 2 { 0x4E &<RevealImg+560 &>RevealImg+560 }
+  repeat 2 { 0x4E &<RevealImg+600 &>RevealImg+600 }
+  repeat 2 { 0x4E &<RevealImg+640 &>RevealImg+640 }
+  repeat 2 { 0x4E &<RevealImg+680 &>RevealImg+680 }
+  repeat 2 { 0x4E &<RevealImg+720 &>RevealImg+720 }
+  repeat 2 { 0x4E &<RevealImg+760 &>RevealImg+760 }
+  repeat 2 { 0x4E &<RevealImg+800 &>RevealImg+800 }
+  repeat 2 { 0x4E &<RevealImg+840 &>RevealImg+840 }
+  repeat 2 { 0x4E &<RevealImg+880 &>RevealImg+880 }
+  repeat 2 { 0x4E &<RevealImg+920 &>RevealImg+920 }
+  repeat 2 { 0x4E &<RevealImg+960 &>RevealImg+960 }
+  repeat 2 { 0x4E &<RevealImg+1000 &>RevealImg+1000 }
+  repeat 2 { 0x4E &<RevealImg+1040 &>RevealImg+1040 }
+  repeat 2 { 0x4E &<RevealImg+1080 &>RevealImg+1080 }
+  repeat 2 { 0x4E &<RevealImg+1120 &>RevealImg+1120 }
+  repeat 2 { 0x4E &<RevealImg+1160 &>RevealImg+1160 }
+  repeat 2 { 0x4E &<RevealImg+1200 &>RevealImg+1200 }
+  repeat 2 { 0x4E &<RevealImg+1240 &>RevealImg+1240 }
+  repeat 2 { 0x4E &<RevealImg+1280 &>RevealImg+1280 }
+  repeat 2 { 0x4E &<RevealImg+1320 &>RevealImg+1320 }
+  repeat 2 { 0x4E &<RevealImg+1360 &>RevealImg+1360 }
+  repeat 2 { 0x4E &<RevealImg+1400 &>RevealImg+1400 }
+  repeat 2 { 0x4E &<RevealImg+1440 &>RevealImg+1440 }
+  repeat 2 { 0x4E &<RevealImg+1480 &>RevealImg+1480 }
+  repeat 2 { 0x4E &<RevealImg+1520 &>RevealImg+1520 }
+  repeat 2 { 0x4E &<RevealImg+1560 &>RevealImg+1560 }
+  repeat 2 { 0x4E &<RevealImg+1600 &>RevealImg+1600 }
+  repeat 2 { 0x4E &<RevealImg+1640 &>RevealImg+1640 }
+  repeat 2 { 0x4E &<RevealImg+1680 &>RevealImg+1680 }
+  repeat 2 { 0x4E &<RevealImg+1720 &>RevealImg+1720 }
+  repeat 2 { 0x4E &<RevealImg+1760 &>RevealImg+1760 }
+  repeat 2 { 0x4E &<RevealImg+1800 &>RevealImg+1800 }
+  repeat 2 { 0x4E &<RevealImg+1840 &>RevealImg+1840 }
+  repeat 2 { 0x4E &<RevealImg+1880 &>RevealImg+1880 }
+  repeat 2 { 0x4E &<RevealImg+1920 &>RevealImg+1920 }
+  repeat 2 { 0x4E &<RevealImg+1960 &>RevealImg+1960 }
+  repeat 2 { 0x4E &<RevealImg+2000 &>RevealImg+2000 }
+  repeat 2 { 0x4E &<RevealImg+2040 &>RevealImg+2040 }
+  repeat 2 { 0x4E &<RevealImg+2080 &>RevealImg+2080 }
+  repeat 2 { 0x4E &<RevealImg+2120 &>RevealImg+2120 }
+  repeat 2 { 0x4E &<RevealImg+2160 &>RevealImg+2160 }
+  repeat 2 { 0x4E &<RevealImg+2200 &>RevealImg+2200 }
+  repeat 2 { 0x4E &<RevealImg+2240 &>RevealImg+2240 }
+  repeat 2 { 0x4E &<RevealImg+2280 &>RevealImg+2280 }
+  repeat 2 { 0x4E &<RevealImg+2320 &>RevealImg+2320 }
+  repeat 2 { 0x4E &<RevealImg+2360 &>RevealImg+2360 }
+  repeat 2 { 0x4E &<RevealImg+2400 &>RevealImg+2400 }
+  repeat 2 { 0x4E &<RevealImg+2440 &>RevealImg+2440 }
+  repeat 2 { 0x4E &<RevealImg+2480 &>RevealImg+2480 }
+  repeat 2 { 0x4E &<RevealImg+2520 &>RevealImg+2520 }
+  repeat 2 { 0x4E &<RevealImg+2560 &>RevealImg+2560 }
+  repeat 2 { 0x4E &<RevealImg+2600 &>RevealImg+2600 }
+  repeat 2 { 0x4E &<RevealImg+2640 &>RevealImg+2640 }
+  repeat 2 { 0x4E &<RevealImg+2680 &>RevealImg+2680 }
+  repeat 2 { 0x4E &<RevealImg+2720 &>RevealImg+2720 }
+  repeat 2 { 0x4E &<RevealImg+2760 &>RevealImg+2760 }
+  repeat 2 { 0x4E &<RevealImg+2800 &>RevealImg+2800 }
+  repeat 2 { 0x4E &<RevealImg+2840 &>RevealImg+2840 }
+  repeat 2 { 0x4E &<RevealImg+2880 &>RevealImg+2880 }
+  repeat 2 { 0x4E &<RevealImg+2920 &>RevealImg+2920 }
+  repeat 2 { 0x4E &<RevealImg+2960 &>RevealImg+2960 }
+  repeat 2 { 0x4E &<RevealImg+3000 &>RevealImg+3000 }
+  repeat 2 { 0x4E &<RevealImg+3040 &>RevealImg+3040 }
+  repeat 2 { 0x4E &<RevealImg+3080 &>RevealImg+3080 }
+  repeat 2 { 0x4E &<RevealImg+3120 &>RevealImg+3120 }
+  repeat 2 { 0x4E &<RevealImg+3160 &>RevealImg+3160 }
+  repeat 2 { 0x4E &<RevealImg+3200 &>RevealImg+3200 }
+  repeat 2 { 0x4E &<RevealImg+3240 &>RevealImg+3240 }
+  repeat 2 { 0x4E &<RevealImg+3280 &>RevealImg+3280 }
+  repeat 2 { 0x4E &<RevealImg+3320 &>RevealImg+3320 }
+  repeat 2 { 0x4E &<RevealImg+3360 &>RevealImg+3360 }
+  repeat 2 { 0x4E &<RevealImg+3400 &>RevealImg+3400 }
+  repeat 2 { 0x4E &<RevealImg+3440 &>RevealImg+3440 }
+  repeat 2 { 0x4E &<RevealImg+3480 &>RevealImg+3480 }
+  repeat 2 { 0x4E &<RevealImg+3520 &>RevealImg+3520 }
+  repeat 2 { 0x4E &<RevealImg+3560 &>RevealImg+3560 }
+  repeat 2 { 0x4E &<RevealImg+3600 &>RevealImg+3600 }
+  repeat 2 { 0x4E &<RevealImg+3640 &>RevealImg+3640 }
+  repeat 2 { 0x4E &<RevealImg+3680 &>RevealImg+3680 }
+  repeat 2 { 0x4E &<RevealImg+3720 &>RevealImg+3720 }
+  repeat 2 { 0x4E &<RevealImg+3760 &>RevealImg+3760 }
+  repeat 2 { 0x4E &<RevealImg+3800 &>RevealImg+3800 }
+  0x41 &<dl_reveal &>dl_reveal
+}
+
+data dl_face {
+  align 1024
+  0x70 0x70 0x70
+  repeat 2 { 0x4E &<FaceImg &>FaceImg }
+  repeat 2 { 0x4E &<FaceImg+40 &>FaceImg+40 }
+  repeat 2 { 0x4E &<FaceImg+80 &>FaceImg+80 }
+  repeat 2 { 0x4E &<FaceImg+120 &>FaceImg+120 }
+  repeat 2 { 0x4E &<FaceImg+160 &>FaceImg+160 }
+  repeat 2 { 0x4E &<FaceImg+200 &>FaceImg+200 }
+  repeat 2 { 0x4E &<FaceImg+240 &>FaceImg+240 }
+  repeat 2 { 0x4E &<FaceImg+280 &>FaceImg+280 }
+  repeat 2 { 0x4E &<FaceImg+320 &>FaceImg+320 }
+  repeat 2 { 0x4E &<FaceImg+360 &>FaceImg+360 }
+  repeat 2 { 0x4E &<FaceImg+400 &>FaceImg+400 }
+  repeat 2 { 0x4E &<FaceImg+440 &>FaceImg+440 }
+  repeat 2 { 0x4E &<FaceImg+480 &>FaceImg+480 }
+  repeat 2 { 0x4E &<FaceImg+520 &>FaceImg+520 }
+  repeat 2 { 0x4E &<FaceImg+560 &>FaceImg+560 }
+  repeat 2 { 0x4E &<FaceImg+600 &>FaceImg+600 }
+  repeat 2 { 0x4E &<FaceImg+640 &>FaceImg+640 }
+  repeat 2 { 0x4E &<FaceImg+680 &>FaceImg+680 }
+  repeat 2 { 0x4E &<FaceImg+720 &>FaceImg+720 }
+  repeat 2 { 0x4E &<FaceImg+760 &>FaceImg+760 }
+  repeat 2 { 0x4E &<FaceImg+800 &>FaceImg+800 }
+  repeat 2 { 0x4E &<FaceImg+840 &>FaceImg+840 }
+  repeat 2 { 0x4E &<FaceImg+880 &>FaceImg+880 }
+  repeat 2 { 0x4E &<FaceImg+920 &>FaceImg+920 }
+  repeat 2 { 0x4E &<FaceImg+960 &>FaceImg+960 }
+  repeat 2 { 0x4E &<FaceImg+1000 &>FaceImg+1000 }
+  repeat 2 { 0x4E &<FaceImg+1040 &>FaceImg+1040 }
+  repeat 2 { 0x4E &<FaceImg+1080 &>FaceImg+1080 }
+  repeat 2 { 0x4E &<FaceImg+1120 &>FaceImg+1120 }
+  repeat 2 { 0x4E &<FaceImg+1160 &>FaceImg+1160 }
+  repeat 2 { 0x4E &<FaceImg+1200 &>FaceImg+1200 }
+  repeat 2 { 0x4E &<FaceImg+1240 &>FaceImg+1240 }
+  repeat 2 { 0x4E &<FaceImg+1280 &>FaceImg+1280 }
+  repeat 2 { 0x4E &<FaceImg+1320 &>FaceImg+1320 }
+  repeat 2 { 0x4E &<FaceImg+1360 &>FaceImg+1360 }
+  repeat 2 { 0x4E &<FaceImg+1400 &>FaceImg+1400 }
+  repeat 2 { 0x4E &<FaceImg+1440 &>FaceImg+1440 }
+  repeat 2 { 0x4E &<FaceImg+1480 &>FaceImg+1480 }
+  repeat 2 { 0x4E &<FaceImg+1520 &>FaceImg+1520 }
+  repeat 2 { 0x4E &<FaceImg+1560 &>FaceImg+1560 }
+  repeat 2 { 0x4E &<FaceImg+1600 &>FaceImg+1600 }
+  repeat 2 { 0x4E &<FaceImg+1640 &>FaceImg+1640 }
+  repeat 2 { 0x4E &<FaceImg+1680 &>FaceImg+1680 }
+  repeat 2 { 0x4E &<FaceImg+1720 &>FaceImg+1720 }
+  repeat 2 { 0x4E &<FaceImg+1760 &>FaceImg+1760 }
+  repeat 2 { 0x4E &<FaceImg+1800 &>FaceImg+1800 }
+  repeat 2 { 0x4E &<FaceImg+1840 &>FaceImg+1840 }
+  repeat 2 { 0x4E &<FaceImg+1880 &>FaceImg+1880 }
+  repeat 2 { 0x4E &<FaceImg+1920 &>FaceImg+1920 }
+  repeat 2 { 0x4E &<FaceImg+1960 &>FaceImg+1960 }
+  repeat 2 { 0x4E &<FaceImg+2000 &>FaceImg+2000 }
+  repeat 2 { 0x4E &<FaceImg+2040 &>FaceImg+2040 }
+  repeat 2 { 0x4E &<FaceImg+2080 &>FaceImg+2080 }
+  repeat 2 { 0x4E &<FaceImg+2120 &>FaceImg+2120 }
+  repeat 2 { 0x4E &<FaceImg+2160 &>FaceImg+2160 }
+  repeat 2 { 0x4E &<FaceImg+2200 &>FaceImg+2200 }
+  repeat 2 { 0x4E &<FaceImg+2240 &>FaceImg+2240 }
+  repeat 2 { 0x4E &<FaceImg+2280 &>FaceImg+2280 }
+  repeat 2 { 0x4E &<FaceImg+2320 &>FaceImg+2320 }
+  repeat 2 { 0x4E &<FaceImg+2360 &>FaceImg+2360 }
+  repeat 2 { 0x4E &<FaceImg+2400 &>FaceImg+2400 }
+  repeat 2 { 0x4E &<FaceImg+2440 &>FaceImg+2440 }
+  repeat 2 { 0x4E &<FaceImg+2480 &>FaceImg+2480 }
+  repeat 2 { 0x4E &<FaceImg+2520 &>FaceImg+2520 }
+  repeat 2 { 0x4E &<FaceImg+2560 &>FaceImg+2560 }
+  repeat 2 { 0x4E &<FaceImg+2600 &>FaceImg+2600 }
+  repeat 2 { 0x4E &<FaceImg+2640 &>FaceImg+2640 }
+  repeat 2 { 0x4E &<FaceImg+2680 &>FaceImg+2680 }
+  repeat 2 { 0x4E &<FaceImg+2720 &>FaceImg+2720 }
+  repeat 2 { 0x4E &<FaceImg+2760 &>FaceImg+2760 }
+  repeat 2 { 0x4E &<FaceImg+2800 &>FaceImg+2800 }
+  repeat 2 { 0x4E &<FaceImg+2840 &>FaceImg+2840 }
+  repeat 2 { 0x4E &<FaceImg+2880 &>FaceImg+2880 }
+  repeat 2 { 0x4E &<FaceImg+2920 &>FaceImg+2920 }
+  repeat 2 { 0x4E &<FaceImg+2960 &>FaceImg+2960 }
+  repeat 2 { 0x4E &<FaceImg+3000 &>FaceImg+3000 }
+  repeat 2 { 0x4E &<FaceImg+3040 &>FaceImg+3040 }
+  repeat 2 { 0x4E &<FaceImg+3080 &>FaceImg+3080 }
+  repeat 2 { 0x4E &<FaceImg+3120 &>FaceImg+3120 }
+  repeat 2 { 0x4E &<FaceImg+3160 &>FaceImg+3160 }
+  repeat 2 { 0x4E &<FaceImg+3200 &>FaceImg+3200 }
+  repeat 2 { 0x4E &<FaceImg+3240 &>FaceImg+3240 }
+  repeat 2 { 0x4E &<FaceImg+3280 &>FaceImg+3280 }
+  repeat 2 { 0x4E &<FaceImg+3320 &>FaceImg+3320 }
+  repeat 2 { 0x4E &<FaceImg+3360 &>FaceImg+3360 }
+  repeat 2 { 0x4E &<FaceImg+3400 &>FaceImg+3400 }
+  repeat 2 { 0x4E &<FaceImg+3440 &>FaceImg+3440 }
+  repeat 2 { 0x4E &<FaceImg+3480 &>FaceImg+3480 }
+  repeat 2 { 0x4E &<FaceImg+3520 &>FaceImg+3520 }
+  repeat 2 { 0x4E &<FaceImg+3560 &>FaceImg+3560 }
+  repeat 2 { 0x4E &<FaceImg+3600 &>FaceImg+3600 }
+  repeat 2 { 0x4E &<FaceImg+3640 &>FaceImg+3640 }
+  repeat 2 { 0x4E &<FaceImg+3680 &>FaceImg+3680 }
+  repeat 2 { 0x4E &<FaceImg+3720 &>FaceImg+3720 }
+  repeat 2 { 0x4E &<FaceImg+3760 &>FaceImg+3760 }
+  repeat 2 { 0x4E &<FaceImg+3800 &>FaceImg+3800 }
+  0x41 &<dl_face &>dl_face
+}
+
+// ------------------------------ Timing helper -------------------------------
+
+func wait_frames {			// x = number of VBIs (~frames) to wait; only touches A/X
+  {
+    a=RTCLOK				// snapshot the current jiffy tick
+    { a?RTCLOK } ==			// spin until RTCLOK actually changes (one real tick)
+    x--
+    x?0
+  } !=
+}
+
+func init_system {
+  NMIEN=a=0x40				// enable OS deferred VBI only (no DLI)
+  SDMCTL=a=0x22				// normal playfield DMA, no PMG needed here
+  SDLSTL=a=&<dl_term
+  SDLSTH=a=&>dl_term
+  CHBAS=a=&>TermFont
+  COLOR0=a=0x0E				// white characters
+  COLOR1=a=0x0E
+  COLOR2=a=0x0E
+  COLOR4=a=0xB4				// dark green CRT background
+  // main immediately calls switch_to_storm for the opening shot, which
+  // overwrites SDLSTL/H and COLOR0-4 below before the first VBI can latch
+  // this dl_term/text palette, so no dl_term flash is visible at boot.
+}
+
+inline reveal_palette {
+  COLOR4=a=0x00				// black room
+  COLOR0=a=0x72				// dark blue silhouettes
+  COLOR1=a=0xB6				// sea-green edges and rain
+  COLOR2=a=0x1A				// amber LEDs and eyes
+}
+
+// 96 LMS pairs; row stride is 64 bytes and both entries point at the same row.
+func build_storm_list {
+  pan_ptr=a=&<RevealImg
+  pan_ptr+1=a=&>RevealImg
+  dl_ptr=a=&<dl_storm+3
+  dl_ptr+1=a=&>dl_storm+3
+  x=96
+  {
+    a=0x4E
+    y=0
+    (dl_ptr),y=a
+    y=3
+    (dl_ptr),y=a
+    y=1
+    a=pan_ptr
+    (dl_ptr),y=a
+    y=4
+    (dl_ptr),y=a
+    y=2
+    a=pan_ptr+1
+    (dl_ptr),y=a
+    y=5
+    (dl_ptr),y=a
+
+    a=pan_ptr
+    c- a+64
+    pan_ptr=a
+    c+? { pan_ptr+1++ }
+    a=dl_ptr
+    c- a+6
+    dl_ptr=a
+    c+? { dl_ptr+1++ }
+    x--
+    x?0
+  } !=
+}
+
+// Advance every pair of LMS addresses by one byte (four pixels).
+func pan_step {
+  dl_ptr=a=&<dl_storm+3
+  dl_ptr+1=a=&>dl_storm+3
+  x=96
+  {
+    y=1
+    a=(dl_ptr),y
+    c- a+1
+    (dl_ptr),y=a
+    c+? {
+      y=2
+      a=(dl_ptr),y
+      c- a+1
+      (dl_ptr),y=a
+      y=5
+      (dl_ptr),y=a
+    }
+    y=1
+    a=(dl_ptr),y
+    y=4
+    (dl_ptr),y=a
+    a=dl_ptr
+    c- a+6
+    dl_ptr=a
+    c+? { dl_ptr+1++ }
+    x--
+    x?0
+  } !=
+}
+
+func blink_rack_leds {
+  a=pan_phase
+  a&2
+  a?0 == {
+    RevealImg+1479=a=13
+    RevealImg+2520=a=13
+    RevealImg+3561=a=13
+    RevealImg+2000=a=21
+    RevealImg+3041=a=21
+    RevealImg+2034=a=21
+  } else {
+    RevealImg+1479=a=1
+    RevealImg+2520=a=1
+    RevealImg+3561=a=1
+    RevealImg+2000=a=213
+    RevealImg+3041=a=213
+    RevealImg+2034=a=213
+  }
+}
+
+func storm_tick {
+  pan_step
+  blink_rack_leds
+  a=pan_phase
+  a?5 == { thunder_left=a=3 }
+  a=pan_phase
+  a?13 == { thunder_left=a=3 }
+  a=pan_phase
+  a?20 == { thunder_left=a=3 }
+  a=thunder_left
+  a?3 == {
+    COLOR0=a=0x0C
+    COLOR1=a=0x0E
+    AUDF4=a=0x10
+    AUDC4=a=0x8C
+    x=2 wait_frames
+    reveal_palette
+    AUDF4=a=0x90
+    AUDC4=a=0x88
+    x=10 wait_frames
+  } else {
+    a?0 != {
+      AUDF4=a=0xD0
+      AUDC4=a=0x84
+    }
+    x=12 wait_frames
+  }
+  a=thunder_left
+  a?0 != {
+    c+ a-1
+    thunder_left=a
+    a?0 == { AUDC4=a=0 }
+  }
+}
+
+// 24 four-pixel steps at 12 PAL frames each: 288 frames / 50 Hz = 5.76 s.
+func storm_pan {
+  AUDF2=a=0xF2
+  AUDC2=a=0xA2			// low fan noise
+  AUDF3=a=0x31
+  AUDC3=a=0x84			// quiet continuous data-center hum
+  pan_phase=a=0
+  thunder_left=a=0
+  x=1 wait_frames			// start LMS updates at VBI, before visible rows
+  {
+    storm_tick
+    pan_phase++
+    a=pan_phase
+    a?24
+  } !=
+  AUDC4=a=0
+}
+
+// Double the last 80x48 pixels around the far monitor into spare XL RAM.
+func build_zoom_bitmap {
+  pan_ptr=a=&<RevealImg+1003
+  pan_ptr+1=a=&>RevealImg+1003
+  art_ptr=a=&<ZoomBuf
+  art_ptr+1=a=&>ZoomBuf
+  zoom_second_ptr=a=&<ZoomBuf+40
+  zoom_second_ptr+1=a=&>ZoomBuf+40
+  zoom_rows=a=48
+  {
+    zoom_col=a=0
+    zoom_dest_col=a=0
+    {
+      y=zoom_col
+      a=(pan_ptr),y
+      x=a
+      y=zoom_dest_col
+      a=ZoomLeft,x
+      (art_ptr),y=a
+      y++
+      a=ZoomRight,x
+      (art_ptr),y=a
+      y++
+      zoom_dest_col=y
+      zoom_col++
+      a=zoom_col
+      a?20
+    } !=
+    y=0
+    {
+      a=(art_ptr),y
+      (zoom_second_ptr),y=a
+      y++
+      y?40
+    } !=
+    a=pan_ptr
+    c- a+64
+    pan_ptr=a
+    c+? { pan_ptr+1++ }
+    a=art_ptr
+    c- a+80
+    art_ptr=a
+    c+? { art_ptr+1++ }
+    a=zoom_second_ptr
+    c- a+80
+    zoom_second_ptr=a
+    c+? { zoom_second_ptr+1++ }
+    zoom_rows--
+    a=zoom_rows
+    a?0
+  } !=
+}
+
+func build_zoom_list {
+  pan_ptr=a=&<ZoomBuf
+  pan_ptr+1=a=&>ZoomBuf
+  dl_ptr=a=&<dl_reveal+3
+  dl_ptr+1=a=&>dl_reveal+3
+  x=96
+  {
+    y=1
+    a=pan_ptr
+    (dl_ptr),y=a
+    y=4
+    (dl_ptr),y=a
+    y=2
+    a=pan_ptr+1
+    (dl_ptr),y=a
+    y=5
+    (dl_ptr),y=a
+    a=pan_ptr
+    c- a+40
+    pan_ptr=a
+    c+? { pan_ptr+1++ }
+    a=dl_ptr
+    c- a+6
+    dl_ptr=a
+    c+? { dl_ptr+1++ }
+    x--
+    x?0
+  } !=
+}
+
+func show_zoom_bitmap {
+  build_zoom_bitmap
+  build_zoom_list
+  SDLSTL=a=&<dl_reveal
+  SDLSTH=a=&>dl_reveal
+  reveal_palette
+  x=16 wait_frames
+}
+
+// Composite the cat only after the terminal shot; scrolling never exposes it.
+func show_cat {
+  strip_ptr=a=&<CatStrip
+  strip_ptr+1=a=&>CatStrip
+  art_ptr=a=&<RevealImg+4148
+  art_ptr+1=a=&>RevealImg+4148
+  x=32
+  {
+    y=0
+    {
+      a=(strip_ptr),y
+      (art_ptr),y=a
+      y++
+      y?12
+    } !=
+    a=strip_ptr
+    c- a+12
+    strip_ptr=a
+    c+? { strip_ptr+1++ }
+    a=art_ptr
+    c- a+64
+    art_ptr=a
+    c+? { art_ptr+1++ }
+    x--
+    x?0
+  } !=
+}
+
+func build_reveal_list {
+  y=0
+  {
+    a=dl_storm,y
+    dl_reveal,y=a
+    a=dl_storm+256,y
+    dl_reveal+256,y=a
+    y++
+    y?0
+  } !=
+  y=0
+  {
+    a=dl_storm+512,y
+    dl_reveal+512,y=a
+    y++
+    y?70
+  } !=
+  dl_reveal+420=a=0xCE		// recolor at the floor, after rack row 69
+}
+
+naked reveal_dli {
+  a!!
+  WSYNC=a
+  COLPF0=a=0x72
+  COLPF1=a=0x08
+  COLPF2=a=0x2C
+  a??
+  return_i
+}
+
+// --------------------------- Terminal line reveal ---------------------------
+// Each line is copied byte-by-byte from its data table into the visible
+// TermScreen row; lines appear sequentially per intro.md.
+
+func reveal_line0 {
+  y=0
+  {
+    a=Line0,y
+    TermScreen,y=a
+    y++
+    y?36
+  } !=
+}
+
+func reveal_line1 {
+  y=0
+  {
+    a=Line1,y
+    TermScreen+40,y=a
+    y++
+    y?21
+  } !=
+}
+
+func reveal_line2 {
+  y=0
+  {
+    a=Line2,y
+    TermScreen+80,y=a
+    y++
+    y?25
+  } !=
+}
+
+func reveal_line3 {
+  y=0
+  {
+    a=Line3,y
+    TermScreen+120,y=a
+    y++
+    y?29
+  } !=
+}
+
+func reveal_line4 {
+  y=0
+  {
+    a=Line4,y
+    TermScreen+160,y=a
+    y++
+    y?32
+  } !=
+}
+
+func reveal_line5 {
+  y=0
+  {
+    a=Line5,y
+    TermScreen+200,y=a
+    y++
+    y?26
+  } !=
+}
+
+func reveal_line6 {
+  y=0
+  {
+    a=Line6,y
+    TermScreen+240,y=a
+    y++
+    y?27
+  } !=
+}
+
+// --------------------------- Blinking cursor / Y_ ---------------------------
+// "pause before Y_": the cursor blinks alone on row 7 first, then "Y" appears
+// and the cursor keeps blinking beside it (per intro.md).
+
+func blink_prompt {
+  y=6					// 6 half-cycles: 3 full blinks before "Y" appears
+  {
+    a=TermScreen+280
+    a?0
+    == {
+      TermScreen+280=a=63	// '_' cursor visible
+    } else {
+      TermScreen+280=a=0	// blank
+    }
+    x=18 wait_frames
+    y--
+    y?0
+  } !=
+}
+
+func show_y_prompt {
+  TermScreen+280=a=57		// 'Y'
+  y=4					// keep blinking the cursor a bit longer beside "Y"
+  {
+    a=TermScreen+281
+    a?0
+    == {
+      TermScreen+281=a=63
+    } else {
+      TermScreen+281=a=0
+    }
+    x=18 wait_frames
+    y--
+    y?0
+  } !=
+  TermScreen+281=a=63		// leave the cursor visible for the cut
+}
+
+// ----------------------------- Scene switches -------------------------------
+
+func switch_to_storm {
+  SDLSTL=a=&<dl_storm
+  SDLSTH=a=&>dl_storm
+  reveal_palette
+}
+
+inline cat_palette {
+  COLOR4=a=0x00
+  COLOR0=a=0x72			// navy racks, neutral shadow on the cat
+  COLOR1=a=0x08			// gray tabby fur
+  COLOR2=a=0x2C			// cream muzzle and eye highlights
+}
+
+func switch_to_reveal {
+  SDLSTL=a=&<dl_reveal
+  SDLSTH=a=&>dl_reveal
+  VDSLST=a=&<reveal_dli
+  VDSLST+1=a=&>reveal_dli
+  reveal_palette
+  NMIEN=a=0xC0
+}
+
+func switch_to_face {
+  NMIEN=a=0x40
+  SDLSTL=a=&<dl_face
+  SDLSTH=a=&>dl_face
+  cat_palette
+}
+
+func switch_to_term {
+  SDLSTL=a=&<dl_term
+  SDLSTH=a=&>dl_term
+  COLOR0=a=0x0E				// white text independent of background
+  COLOR1=a=0x0E
+  COLOR2=a=0x0E
+  COLOR4=a=0xB4				// dark green CRT background
+}
+
+func clear_term_screen {
+  y=0
   a=0
-  {} always
+  {
+    TermScreen,y=a
+    TermScreen+256,y=a
+    TermScreen+512,y=a
+    y++
+    y?0
+  } !=
+  y=0
+  {
+    TermScreen+768,y=a
+    y++
+    y?192
+  } !=
+}
+
+func zoom_bar {
+  y=zoom_left
+  {
+    (zoom_ptr),y=a=13
+    y++
+    y?zoom_right
+  } !=
+}
+
+func zoom_frame {
+  clear_term_screen
+  zoom_bar
+  x=zoom_rows
+  {
+    y=zoom_left
+    (zoom_ptr),y=a=59
+    y=zoom_right
+    (zoom_ptr),y=a=61
+    a=zoom_ptr
+    c- a+40
+    zoom_ptr=a
+    c+? { zoom_ptr+1++ }
+    x--
+    x?0
+  } !=
+  a=zoom_ptr
+  c+ a-40
+  zoom_ptr=a
+  c-? { zoom_ptr+1-- }
+  zoom_bar
+  y=zoom_left
+  (zoom_ptr),y=a=59
+  y=zoom_right
+  (zoom_ptr),y=a=61
+}
+
+func zoom_to_terminal {
+  switch_to_term
+  zoom_ptr=a=&<TermScreen+40
+  zoom_ptr+1=a=&>TermScreen+40
+  zoom_left=a=27
+  zoom_right=a=39
+  zoom_rows=a=14
+  zoom_frame
+  x=10 wait_frames
+
+  zoom_ptr=a=&<TermScreen
+  zoom_ptr+1=a=&>TermScreen
+  zoom_left=a=13
+  zoom_right=a=35
+  zoom_rows=a=19
+  zoom_frame
+  x=10 wait_frames
+
+  zoom_ptr=a=&<TermScreen
+  zoom_ptr+1=a=&>TermScreen
+  zoom_left=a=1
+  zoom_right=a=38
+  zoom_rows=a=24
+  zoom_frame
+  x=10 wait_frames
+  clear_term_screen
+}
+
+// --------------------- Pupil dilation (slit -> round) -----------------------
+// Widen the dark slit through the blue iris, without copying the whole image.
+
+func pupils_stage1 {
+  FaceImg+2104=a=0
+  FaceImg+2106=a=0
+  FaceImg+2110=a=0
+  FaceImg+2112=a=0
+}
+
+func pupils_stage2 {
+  FaceImg+2064=a=0
+  FaceImg+2066=a=0
+  FaceImg+2070=a=0
+  FaceImg+2072=a=0
+  FaceImg+2144=a=0
+  FaceImg+2146=a=0
+  FaceImg+2150=a=0
+  FaceImg+2152=a=0
+}
+
+func pupils_stage3 {
+  FaceImg+1984=a=0
+  FaceImg+1986=a=0
+  FaceImg+1990=a=0
+  FaceImg+1992=a=0
+  FaceImg+2024=a=0
+  FaceImg+2026=a=0
+  FaceImg+2030=a=0
+  FaceImg+2032=a=0
+  FaceImg+2184=a=0
+  FaceImg+2186=a=0
+  FaceImg+2190=a=0
+  FaceImg+2192=a=0
+  FaceImg+2224=a=0
+  FaceImg+2226=a=0
+  FaceImg+2230=a=0
+  FaceImg+2232=a=0
+}
+
+// ------------------------------ Mouth sync ----------------------------------
+// Called from play_meow's sample loop (once per 256-sample
+// page, i.e. 12 times across playback) so the mouth animates during the meow.
+
+inline mouth_open {
+  FaceImg+2747=a=0
+  FaceImg+2748=a=0
+  FaceImg+2787=a=0
+  FaceImg+2788=a=0
+  FaceImg+2827=a=0
+  FaceImg+2828=a=0
+  FaceImg+2867=a=0
+  FaceImg+2868=a=0
+}
+
+inline mouth_close {
+  FaceImg+2747=a=250
+  FaceImg+2748=a=43
+  FaceImg+2787=a=250
+  FaceImg+2788=a=43
+  FaceImg+2827=a=234
+  FaceImg+2828=a=42
+  FaceImg+2867=a=170
+  FaceImg+2868=a=42
+}
+
+func mouth_tick {
+  a=mouth_flag
+  a^1
+  mouth_flag=a
+  a?0
+  == {
+    mouth_close
+  } else {
+    mouth_open
+  }
+}
+
+func play_meow {
+  meow_ptr=a=&<Meow
+  meow_ptr+1=a=&>Meow
+  x=12
+  y=0
+  {
+    a=(meow_ptr),y
+    a|0x10
+    AUDC1=a
+    WSYNC=a
+    WSYNC=a
+    WSYNC=a
+    y++
+    y?0 == {
+      meow_ptr+1++
+      mouth_tick			// 12 toggles, one per sample page
+      x--
+      x?0 == break
+    }
+  } always
+  AUDC1=a=0
+}
+
+func call_mouth {			// x=0 closed, x=6 open
+  a=CallMouth,x CallImg+1896=a
+  a=CallMouth+1,x CallImg+1897=a
+  a=CallMouth+2,x CallImg+1936=a
+  a=CallMouth+3,x CallImg+1937=a
+  a=CallMouth+4,x CallImg+1976=a
+  a=CallMouth+5,x CallImg+1977=a
+}
+
+func video_call {
+  clear_term_screen
+  switch_to_term
+  y=0
+  {
+    a=CallText,y
+    TermScreen,y=a
+    y++
+    y?18
+  } !=
+  y=0
+  {
+    a=CallText+18,y
+    TermScreen+80,y=a
+    y++
+    y?27
+  } !=
+  x=12 wait_frames
+  TermScreen+107=a=14
+  x=10 wait_frames
+  TermScreen+108=a=14
+  x=10 wait_frames
+  TermScreen+109=a=14
+  x=12 wait_frames
+
+  clear_term_screen
+  SDLSTL=a=&<dl_call
+  SDLSTH=a=&>dl_call
+  COLOR0=a=0x0E			// white Persian cat and subtitles
+  COLOR1=a=0x06			// Blofeld's suit and armchair
+  COLOR2=a=0x2A			// skin, copper eyes, diamond collar
+  COLOR4=a=0x00
+  x=35 wait_frames
+  call_src=a=&<CallText+45
+  call_src+1=a=&>CallText+45
+  call_lines_left=a=6
+  {
+    y=0
+    a=(call_src),y
+    call_count=a
+    a=call_src
+    c- a+1
+    call_src=a
+    c+? { call_src+1++ }
+    y=0
+    a=0
+    {
+      TermScreen+840,y=a
+      y++
+      y?40
+    } !=
+    y=0
+    {
+      a=(call_src),y
+      TermScreen+840,y=a
+      y++
+      y?call_count
+    } !=
+    a=call_src
+    c- a+call_count
+    call_src=a
+    c+? { call_src+1++ }
+    a=call_lines_left
+    a&1
+    a?0 != {
+      call_tile=a=4			// boss lines: four mouth flaps with a purr blip
+      {
+        x=6 call_mouth
+        AUDF4=a=0x60
+        AUDC4=a=0xA3
+        x=6 wait_frames
+        x=0 call_mouth
+        AUDC4=a=0
+        x=6 wait_frames
+        call_tile--
+        a=call_tile
+        a?0
+      } !=
+      x=152 wait_frames
+    } else {
+      x=200 wait_frames
+    }
+    call_lines_left--
+    a=call_lines_left
+    a?0
+  } !=
+  x=65 wait_frames
+}
+
+// ------------------------------- Cut to black --------------------------------
+
+func cut_to_black {
+  COLOR0=a=0
+  COLOR1=a=0
+  COLOR2=a=0
+  COLOR3=a=0
+  COLOR4=a=0
+  AUDC2=a=0
+  AUDC3=a=0
+  AUDC4=a=0
+}
+
+// ---------------------------------- Scene ------------------------------------
+
+main {
+  init_system
+  build_storm_list
+
+  switch_to_storm			// opening shows racks, but not the cat
+  storm_pan				// 5.76-second pan, LEDs, lightning and POKEY thunder
+
+  show_zoom_bitmap
+  zoom_to_terminal			// monitor fills the frame before text appears
+  reveal_line0
+  x=40 wait_frames
+  reveal_line1
+  x=40 wait_frames
+  reveal_line2
+  x=40 wait_frames
+  reveal_line3
+  x=40 wait_frames
+  reveal_line4
+  x=40 wait_frames
+  reveal_line5
+  x=40 wait_frames
+  reveal_line6
+  x=30 wait_frames
+
+  blink_prompt
+  show_y_prompt
+  x=60 wait_frames			// let "Y_" sit before pulling back
+
+  show_cat				// add the cat only after the terminal scene
+  build_reveal_list
+  switch_to_reveal			// cut: pull-back reveal of the cat in the dark
+  x=90 wait_frames
+
+  switch_to_face			// cut: close-up cat face
+  x=40 wait_frames
+
+  pupils_stage1				// slit -> dilating...
+  x=25 wait_frames
+  pupils_stage2
+  x=25 wait_frames
+  pupils_stage3				// ...to fully round
+  x=30 wait_frames
+
+  mouth_flag=a=0			// deterministic starting state (closed, matches FaceImg)
+  play_meow				// mouth_tick fires from inside this, in sync with audio
+  x=40 wait_frames
+
+  video_call
+  cut_to_black
+  {} always				// safe idle: no gameplay yet
 }

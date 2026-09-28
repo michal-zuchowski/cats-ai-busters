@@ -1,7 +1,9 @@
 -system AtariXL
 -lowAddr 0x2000
+-hiaddr 0x7FFF
 
 defs.k65 main
+sample.k65 main
 main.k65 main
 
 -o out/cats-ai-busters.xex
