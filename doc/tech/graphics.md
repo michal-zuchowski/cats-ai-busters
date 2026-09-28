@@ -2,7 +2,7 @@
 
 - **Intro terminal:** ANTIC 4 character mode (40 columns, 24 rows) with a compact 3×5 font for white text on a dark-green background. ANTIC 2 mixes the text and background hues, so it cannot reproduce this color scheme. Enlarge the terminal bitmap once, push in through three growing monitor frames, then reveal the lines one at a time.
 - **Intro cinematic shots:** ANTIC E / Graphics 15 bitmap (160 × 192, four colors) for the data-center track, the cat reveal, and the close-up. Use cuts between compositions rather than implementing a real camera zoom. Animate the pupils by changing only the eye region.
-- **Gameplay:** ANTIC 4 / Graphics 12 character mode (40 × 24 tiles) for rooms and scenery. Use player/missile graphics for the cat and other moving objects that need smooth motion.
+- **Gameplay (planned):** ANTIC 4 / Graphics 12 character mode (40 × 24 tiles) for rooms and scenery. Try player/missile graphics for the cat if it remains legible at this scale. See [level 01 technical plan](gameplay.md).
 
 The intro and gameplay do not need to share a display mode. The PCM player occupies the CPU while the meow plays, so muzzle animation runs from within its playback loop.
 

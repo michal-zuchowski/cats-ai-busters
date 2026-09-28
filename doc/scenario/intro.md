@@ -49,3 +49,6 @@ Each line remains long enough to read; the boss moves his mouth on his
 replies while Blofeld sits oblivious.
 
 Cut to black.
+
+The story continues in [Level 01 — The Blind Spot](level-01.md). Gameplay
+after this cut has not been implemented yet.
