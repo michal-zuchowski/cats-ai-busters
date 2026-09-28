@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "embedded",
-  "dolt_database": "cats_ai_busters",
-  "project_id": "a5d75385-2a8f-4dc4-aad7-bbd8894af80f"
-}
