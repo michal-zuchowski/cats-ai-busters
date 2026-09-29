@@ -50,5 +50,8 @@ replies while Blofeld sits oblivious.
 
 Cut to black.
 
-The story continues in [Level 01 — The Blind Spot](level-01.md). Gameplay
-after this cut has not been implemented yet.
+During the intro, joystick fire, Space or Return skips directly to the
+first playable screen.
+
+The story continues in [Level 01 — The Blind Spot](level-01.md). The current
+build has a one-row prototype of the first level.

@@ -1,8 +1,25 @@
-# Level 01 — technical plan (not implemented)
+# Level 01 — technical plan and current preview
 
 This is the implementation target for [The Blind Spot](../scenario/level-01.md).
-The current `main.k65` still stops after the CATCOM intro; none of the
-controls or gameplay systems below exist yet.
+The first room is now a playable visual preview. `main.k65` temporarily jumps
+from hardware initialization to `intro_skip`, so the XEX starts directly in
+gameplay; remove that one `goto intro_skip` at the start of `main` to restore
+the existing intro. All three rooms use a dense Druidarium-style ANTIC 4 tile set (steel-blue
+racks with lit server bays, ceiling trays, a rust under-floor grille).
+Pixel colour 3 in inverse tiles is red (PF3): rack LEDs and the watched
+camera floor. `tools/make_level_art.py` produces the maps and tile glyphs;
+`tools/make_intro_art.py` merges the glyphs into `assets/term-font.pic`.
+
+The cat is a single-line PMG sprite, 16 × 24 pixels: P0/P1 carry the dark
+rim, stripes and far legs, P2/P3 the ginger fur. `tools/make_cat_sprite.py`
+writes `assets/cat-sprites.bin` (20 frames × 128 bytes): 8 walk frames, 2
+idle frames with a tail flick, and the mirrored set. The walk is a
+four-beat gait (near hind, near fore, far hind, far fore, a quarter cycle
+apart). The frame comes from `player_x & 7`, and the cat moves 1 pixel per
+gait phase, so planted paws do not slide. `player_col` is derived from the
+cat's middle pixel for the tile-based camera, switch and relay rules. PMG
+memory is `$B800` (players at `$BC00–$BFFF`); the linker uses `$2000–$9FFF`
+and the intro buffers remain at `$A000` (zoom) and `$B000` (screen).
 
 ## Controls and rules
 
@@ -84,3 +101,110 @@ off without a blue/blank screen or stray DLI/audio, accepts joystick movement
 and fire, visibly matches each camera's detection area, retries after an
 alert, allows the switch to open a crossing, completes the relay and hatch,
 and reaches the ending on the same 64 KB configuration.
+
+## Earlier prototype notes (historical; superseded by the preview above)
+
+`main.k65` contains a first pass at three one-row rooms. After resolving
+K65's crash on bare forward calls (use `call name` when a routine is
+declared later), a linker overflow was removed by sharing room-entry and
+redraw code. With intro skipping added, the project **compiles with 28 bytes
+free** in
+`$2000–$7FFF`; emulator playability and audiovisual quality still need
+verification. See `cats-ai-busters-ieb.4` for the remaining validation.
+
+The intro can be skipped at the next frame wait with joystick fire (port 1),
+Space or Return. `wait_frames` polls `TRIG0` and the OS `CH` key buffer only
+while `cur_room` is `$FF`; gameplay uses room IDs 0–2. All skip paths jump
+to the same handoff as a completed intro, where the stack is reset, the DLI
+is disabled and audio is stopped before displaying gameplay. The terminal
+font also includes the gameplay glyphs (`#$%*+= >@`), which were previously
+blank and left an apparently empty screen after the call. The objective
+message remains visible after the initial display and after an alert.
+
+- **Memory reuse (the "first implementation gate" above):** gameplay adds no
+  new display list, font, or palette. It reuses `dl_term`, `TermFont` and
+  `switch_to_term`'s palette verbatim (proven working since the intro's
+  terminal scene), and reuses `TermScreen` ($9000, dead the instant
+  `cut_to_black` runs) as the only gameplay screen buffer, cleared via the
+  existing `clear_term_screen`. All new gameplay code/data lives in the
+  `$2000–$7FFF` bank alongside the intro, with little free space after
+  linking. Avoid adding game data or code to this bank without first making
+  room or redesigning the memory layout.
+  New zero-page state is 22 fresh bytes at `$A3–$B8`, past the intro's own
+  vars (`$80–$A2`), so it cannot collide with anything the intro still uses.
+- **Single fixed play row:** all three rooms use one row (row 12) with
+  permanent wall rows above/below; up/down are accepted but always blocked.
+  This avoids needing a runtime row-address multiply (no hardware multiply
+  on 6502) while still exposing all four joystick directions.
+- **Tile rendering is shape-only, not color-coded:** floor/shelter/watched/
+  wall/switch/relay/hatch/cat are distinct `TermFont` glyphs (ascii-32
+  encoded, see the comment above `fill_walls` in `main.k65`), not ANTIC 4
+  color-quadrant tricks. ANTIC 4's exact color-select semantics were not
+  confirmed in `reference/` this session, so this is a deliberate,
+  documented deviation from "keep colors readable... visibly distinct" to
+  avoid shipping unverified color behavior; the HUD/status row already
+  satisfies "do not rely on color alone." A follow-up could add color once
+  verified on real hardware/emulator.
+- **Sound uses two independent POKEY channels** (ambient pulse on channel 1,
+  one-shot cues — switch/alert/success — on channel 2 with a timer that
+  auto-silences it) instead of a single shared channel with save/restore,
+  since all four channels are free once gameplay starts. Channels 3/4 stay
+  silent (already zeroed by `cut_to_black`).
+- **The cat is a character glyph, not player/missile graphics** — simpler
+  and consistent with the tile-based rendering above; camera detection was
+  always tile-based regardless of rendering, per this doc.
+- The visual cone and the collision rule are generated from the same
+  per-room column thresholds by construction: `paint_col_roomN` (what is
+  drawn) and `roomN_lit` (what can be seen) are written side-by-side in
+  `main.k65` and checked for matching thresholds by
+  `tests/test_gameplay_logic.py`.
+- Not yet verified in the emulator: camera visibility, joystick input,
+  timing of the intro handoff and POKEY volume/distortion of the cues.
+
+## Follow-up pass: mechanical bugs found by tracing the loop
+
+The source checks caught logic problems in the first pass before compilation.
+These corrections are in the successfully linked version, but have not yet
+been exercised in the emulator.
+
+- **`switch_timer` was set but never decremented.** `read_fire` sets it to
+  150 when the switch is pressed, and room entry/alert handling resets it
+  to 0, but no code ever counted it down, so once
+  pressed it never expired on its own. Added `tick_switch` (mirrors
+  `advance_camera`'s shape) and call it every non-alert frame from
+  `game_frame`.
+- **The switch's safe/danger polarity was inverted**, independent of the
+  missing decrement. `switch_timer`'s own doc comment says it counts "frames
+  the switch keeps segment A dark" (safe), but `paint_col_room1` and
+  `room1_lit` both treated `switch_timer == 0` as safe and `switch_timer > 0`
+  as dangerous — backwards, and it made the switch puzzle pointless (the
+  segment was safe by default and only became dangerous right after using
+  the switch). Fixed both to match the documented intent.
+- **`redraw_zone` erased the cat glyph.** It repaints every tile in the
+  current room's monitored zones every single frame (needed so camera/switch
+  state animates), but it does not special-case the player's own column, and
+  `draw_player` was only called on movement. Any frame where the player
+  stood still inside a monitored zone — including the entire time they hold
+  the relay terminal in room 2, which is itself inside `redraw_zone`'s
+  range — silently erased the cat until the next keypress. Fixed by calling
+  `draw_player` immediately after every `redraw_zone` call (both call sites,
+  in `game_frame`'s normal and alert-recovery branches).
+- **Room 2's detection didn't match what was rendered at the relay terminal
+  and hatch.** `paint_col_room2` always draws columns 33 (relay terminal)
+  and 38 (hatch) as fixed glyphs, never camera-colored, but `room2_lit` fell
+  through to the camera-gated bucket for those same columns, so a lit
+  camera could trigger an alert while the player stood on a tile that never
+  visually showed any danger. Fixed `room2_lit` to explicitly treat columns
+  33 and 38 as always-safe, matching the rendering.
+- **The HUD objective vanished after the first alert.** The initial
+  `hint_timer` never cleared the text at zero, and alert recovery blanked
+  the row permanently. Removed the countdown: the objective stays visible
+  during play and is restored after an alert.
+
+`tests/test_gameplay_logic.py` was extended to check the *behavior* implied
+by these fixes, not just the presence of code: it asserts the literal `a=`
+value selected by each branch of the switch logic (not just that the
+branches exist), asserts every `redraw_zone` call site is immediately
+followed by `draw_player`, asserts `room2_lit` special-cases columns 33/38
+the same way `paint_col_room2` does, and asserts post-alert objective
+restoration.

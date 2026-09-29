@@ -1,0 +1,15 @@
+{
+  "setupScript": "",
+  "archiveScript": "",
+  "deleteScript": "",
+  "runScript": "",
+  "openActionID": "auto",
+  "scripts": [
+    {
+      "id": "319135F4-A119-4D2E-A294-18EEAC3AF672",
+      "kind": "run",
+      "name": "Run",
+      "command": "./tools/run.sh"
+    }
+  ]
+}

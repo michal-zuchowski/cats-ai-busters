@@ -43,14 +43,87 @@ var face_groups = 0x9E
 var meow_page = 0x9F
 var audc_ptr[2] = 0xA0		// AUDC1 while the meow plays, else meow_sink
 var meow_sink = 0xA2
-var ZoomBuf = 0x8000
+var ZoomBuf = 0xA000
+
+// ------------------------- Level 01 gameplay state --------------------------
+// Fresh zero-page bytes (no aliasing with intro vars, to avoid any risk of
+// two `var` declarations sharing one address); only ever touched after
+// cut_to_black, when the intro's own zero-page vars are already dead.
+var cur_room = 0xA3		// 0 = corridor, 1 = server aisle, 2 = relay room
+var player_col = 0xA4		// 2..38, column of the cat on the play row
+var move_timer = 0xA5		// frames until another joystick move is accepted
+var fire_prev = 0xA6		// 1 = TRIG0 seen released (arms the next press)
+var switch_timer = 0xA7	// room1: frames the switch keeps segment A dark
+var art_base[2] = 0xA8		// RoomArt of the current room
+var floor_ptr[2] = 0xAA		// art_base + 880: the room's floor row (FLOOR = seen by cameras)
+var relay_progress = 0xAC	// frames spent holding the relay terminal
+var relay_done = 0xAD		// 1 once the relay is diverted; never cleared by alerts
+var relay_active = 0xAE	// 1 while the player is working the relay terminal
+var alert_timer = 0xAF		// >0 while "UNRECOGNIZED DEVICE" freezes play
+var sfx_timer = 0xB1		// frames left for the current one-shot cue
+var bg_pulse_timer = 0xB2	// frames until the ambient pulse toggles
+var bg_pulse_state = 0xB3	// shadow bit for AUDC1 (POKEY write-only regs)
+var level_finished = 0xB4	// 1 once the ending has played; freezes game_frame
+var entry_col = 0xB5		// player_x to enter the destination room at
+var msg_src[2] = 0xB6		// HUD string read pointer (low, high)
+var msg_len = 0xB8		// HUD string length for the current row message
+var walk_timer = 0xB9		// frames until walking pose returns to idle
+var idle_timer = 0xBB		// periodic tail flick while standing still
+var player_x = 0xBC		// left pixel of the PMG cat, 0..140 (144 on the exit)
+var facing = 0xBD		// 0 = right, 1 = left
+var spr_ptr[2] = 0xBE		// CatSprites frame being shown
+
+// Single-line PMG at $B800 (free after the intro): players at $BC00-$BFFF.
+// Each base is (player page + 152 scanlines) minus the frame chunk offset
+// (0/32/64/96) so one y index walks both the frame and the player.
+var PmMem = 0xBC00
+var PmP0 = 0xBCB8
+var PmP1 = 0xBD98
+var PmP2 = 0xBE78
+var PmP3 = 0xBF58
 
 // ------------------------------- Terminal text -----------------------------
 // ANTIC 4 uses a 3x5 font for ASCII 32..95 mapped to internal (ascii-32).
 // Separate foreground and background colors keep white text on green CRT.
 
 // 24 rows x 40 cols in free RAM after ZoomBuf; cleared before each use.
-var TermScreen = 0x9000
+var TermScreen = 0xB000
+
+// Camera cones (page 6 is free on the Atari OS). Two camera slots per room,
+// loaded from CamCfg (tools/make_level_art.py CAMERAS); old* hold the cone
+// span drawn on each of the 17 rows so it can be erased from RoomArt.
+var hud_n = 0x06A0		// HUD bar: filled cells
+var hud_col = 0x06A1		// HUD bar colour (state)
+var cone_i = 0x0600
+var cone_L = 0x0601
+var cone_R = 0x0602
+var cone_cxl = 0x0603
+var cone_cxh = 0x0604
+var cone_hwl = 0x0605
+var cone_hwh = 0x0606
+var cone_sl = 0x0607
+var cone_sh = 0x0608
+var cone_lc = 0x0609
+var cone_rc = 0x060A
+var cone_end = 0x060B
+var cone_dirty = 0x060C
+var cone_hws = 0x060D
+var cone_base = 0x060E
+var cone_t = 0x060F
+var sl_cam = 0x0610		// camera column, 0 = slot unused
+var sl_min = 0x0612		// sweep limits (footprint centre column)
+var sl_max = 0x0614
+var sl_speed = 0x0616		// frames per column
+var sl_pause = 0x0618		// frames held at each end
+var sl_hw = 0x061A		// footprint half-width in columns
+var sl_gate = 0x061C		// 1 = powered down while switch_timer > 0
+var sl_hwstep = 0x061E
+var sl_c = 0x0620		// footprint centre column
+var sl_dir = 0x0622		// 0 = sweeping right, 1 = left
+var sl_wait = 0x0624
+var sl_on = 0x0626
+var oldL = 0x0630		// 2 x 17 rows, 0xFF = nothing drawn
+var oldR = 0x0660
 
 data TermFont {
   align 1024
@@ -109,6 +182,58 @@ data Line6 { // 27 bytes: 'BEGIN WORLD TAKEOVER? [Y/N]'
     47 54 37 50 31 0 59 57 15 46 61
 }
 
+// --------------------------- Level 01 HUD strings ---------------------------
+// Same ascii-32 encoding as Line0..Line6, reused for the gameplay HUD rows.
+data MsgHud { // 'ROOM 1/3' ... 'LEVEL 01'
+  50 47 47 45 0 17 15 19
+}
+data MsgLevel { // 'LEVEL 01'
+  44 37 54 37 44 0 16 17
+}
+data MsgCamOff { // 'CAM OFF'
+  35 33 45 0 47 38 38
+}
+data MsgRelayHud { // 'RELAY  '
+  50 37 44 33 57 0 0
+}
+data MsgFireHud { // 'FIRE!  '
+  38 41 50 37 1 0 0
+}
+data MsgHiddenHud { // 'HIDDEN '
+  40 41 36 36 37 46 0
+}
+data MsgAlertHud { // 'ALERT  '
+  33 44 37 50 52 0 0
+}
+data MsgStop { // 28 bytes: 'STOP THE RELAY. STAY UNSEEN.'
+  51 52 47 48 0 52 40 37 0 50 37 44 33 57 14 0
+  51 52 33 57 0 53 46 51 37 37 46 14
+}
+
+data MsgAlert { // 19 bytes: 'UNRECOGNIZED DEVICE'
+  53 46 50 37 35 47 39 46 41 58 37 36 0 36 37 54
+  41 35 37
+}
+
+data MsgRoute { // 22 bytes: 'ROUTE: TEST / ISOLATED'
+  50 47 53 52 37 26 0 52 37 51 52 0 15 0 41 51
+  47 44 33 52 37 36
+}
+
+data MsgEnding { // 36 bytes: 'PHASE 02 DELAYED. AGENCY UNDETECTED.'
+  48 40 33 51 37 0 16 18 0 36 37 44 33 57 37 36
+  14 0 33 39 37 46 35 57 0 53 46 36 37 52 37 35
+  52 37 36 14
+}
+
+data CamCfg { binary "assets/level-cams.bin" }	// 3 rooms x 2 slots x 8 bytes
+data ConeStep { binary "assets/cone-step.bin" }	// d=-40..39: lo[80], hi[80]
+data CatSprites { // 28 frames x 128 bytes, see tools/make_cat_sprite.py
+  align 256
+  binary "assets/cat-sprites.bin"
+}
+data RoomArt { binary "assets/level-rooms.pic" }
+
 // The panorama is 256x96; the visible window is 160 pixels (40 bytes) wide.
 data RevealImg { // 64 bytes x 96 rows, two scanlines per row
   align 4096
@@ -142,6 +267,8 @@ data dl_term {
   0x70 0x70				// 16 blank scanlines top margin
   0x44 &<TermScreen &>TermScreen	// row 0 (8 scanlines)
   for x=0..22 eval [0x04]	// rows 1..23 (24 rows total, 192 scanlines)
+  0x90					// 2-line gap under the floor; DLI recolours the HUD
+  0x04					// row 24: HUD (TermScreen+960)
   0x41 &<dl_term &>dl_term
 }
 
@@ -440,12 +567,28 @@ func wait_frames {			// x = number of VBIs (~frames) to wait; only touches A/X
   {
     a=RTCLOK				// snapshot the current jiffy tick
     { a?RTCLOK } ==			// spin until RTCLOK actually changes (one real tick)
+    a=cur_room
+    a?0xFF
+    == {
+      a=TRIG0
+      a&1
+      a?0
+      == { goto intro_skip }
+      a=CH
+      a?0x21				// Space
+      == { goto intro_skip }
+      a?0x0C				// Return
+      == { goto intro_skip }
+    }
     x--
     x?0
   } !=
 }
 
 func init_system {
+  a=PORTB a|2 PORTB=a		// BASIC ROM off; RAM at $A000-$BFFF holds intro buffers
+  cur_room=a=0xFF			// wait_frames checks skip keys only during the intro
+  CH=a=0xFF				// discard a key used to launch the XEX
   NMIEN=a=0x40				// enable OS deferred VBI only (no DLI)
   SDMCTL=a=0x22				// normal playfield DMA, no PMG needed here
   SDLSTL=a=&<dl_term
@@ -947,7 +1090,7 @@ func clear_term_screen {
   {
     TermScreen+768,y=a
     y++
-    y?192
+    y?232
   } !=
 }
 
@@ -1234,10 +1377,1001 @@ func cut_to_black {
   AUDC4=a=0
 }
 
+// ------------------------------ Level 01 gameplay ----------------------------
+// Illustrated 40x24 rooms share a walkable row 22; RoomArt provides
+// the background, tile IDs 64..124 in TermFont the graphics.
+// Ceiling cameras sweep a light cone; the floor under its footprint is seen
+// unless a rack stands there (the art's floor row holds SHADOW, not FLOOR).
+// cam_sees is both what repaint_current draws and what check_detection uses.
+
+func clear_row0 {
+  x=0
+  a=0
+  {
+    TermScreen,x=a
+    x++
+    x?40
+  } !=
+}
+
+func clear_row1 {
+  x=0
+  a=0
+  {
+    TermScreen+40,x=a
+    x++
+    x?40
+  } !=
+}
+
+func draw_row0_msg {			// msg_src/msg_len set by the caller
+  y=0
+  {
+    a=(msg_src),y
+    TermScreen,y=a
+    y++
+    y?msg_len
+  } !=
+}
+
+func draw_row1_msg {			// msg_src/msg_len set by the caller
+  y=0
+  {
+    a=(msg_src),y
+    TermScreen+40,y=a
+    y++
+    y?msg_len
+  } !=
+}
+
+func draw_room_header {		// row 1: reuses "CONTROL INFRASTRUCTURE"
+  a=cur_room				// from the intro's Line4, or MsgRoute once
+  a?2					// the relay in room 2 is diverted
+  == {
+    a=relay_done
+    a?0
+    != {
+      msg_src=a=&<MsgRoute
+      msg_src+1=a=&>MsgRoute
+      msg_len=a=22
+      draw_row1_msg
+      return
+    }
+  }
+  msg_src=a=&<Line4+10
+  msg_src+1=a=&>Line4+10
+  msg_len=a=22
+  draw_row1_msg
+}
+
+func draw_player {			// PMG cat: stride frame from x (paws stay planted), else idle
+  a=walk_timer
+  a?0
+  == {
+    a=idle_timer
+    a?30
+    >= { a=13 } else { a=12 }
+  } else {
+    a=player_x			// 1 drawing per colour clock
+    { a?12 >= { c+ a-12 } } >=	// mod 12: 12-drawing stride
+    x=facing
+    x?0
+    != { a^0xFF c- a+12 }		// mirrored frames play forward while x falls
+  }
+  x=facing
+  x?0
+  != { c- a+14 }
+  x=a
+  a&1
+  a?0
+  == { a=0 } else { a=0x80 }
+  spr_ptr=a
+  a=x
+  a>>
+  c- a+&>CatSprites
+  spr_ptr+1=a
+  y=0
+  { a=(spr_ptr),y PmP0,y=a y++ y?24 } !=
+  y=32
+  { a=(spr_ptr),y PmP1,y=a y++ y?56 } !=
+  y=64
+  { a=(spr_ptr),y PmP2,y=a y++ y?88 } !=
+  y=96
+  { a=(spr_ptr),y PmP3,y=a y++ y?120 } !=
+  a=player_x
+  c- a+48
+  HPOSP0=a
+  HPOSP2=a
+  c- a+8
+  HPOSP1=a
+  HPOSP3=a
+}
+
+func set_col {				// player_col = column under the cat's middle
+  a=player_x
+  c- a+2
+  a>>
+  a>>
+  c- a+2
+  player_col=a
+}
+
+func cat_stepped {			// 1 px per 3 frames: half-size cat, same leg cadence
+  walk_timer=a=4
+  move_timer=a=2
+  set_col
+}
+
+func tick_cat {
+  a=walk_timer
+  a?0
+  != { walk_timer-- }
+  idle_timer++
+  a=idle_timer
+  a?40
+  >= { idle_timer=a=0 }
+}
+
+func repaint_current {			// repaints play-row column x for the current room
+  a=cur_room
+  a?2
+  == {
+    x?33
+    == {
+      a=relay_done
+      a?0
+      == { a=83 } else { a=84 }
+      TermScreen+880,x=a
+      return
+    }
+    x?38
+    == {
+      a=relay_done
+      a?0
+      == { a=81 } else { a=85 }
+      TermScreen+880,x=a
+      return
+    }
+  }
+  call cam_sees
+  a?0
+  != { a=117 TermScreen+880,x=a return }
+  a=x
+  y=a
+  a=(floor_ptr),y
+  TermScreen+880,x=a
+}
+
+func init_pmg {
+  a=0
+  y=0
+  {
+    PmMem,y=a
+    PmMem+256,y=a
+    PmMem+512,y=a
+    PmMem+768,y=a
+    y++
+    y?0
+  } !=
+  a=0					// normal-width players: half-size cat
+  SIZEP0=a
+  SIZEP1=a
+  SIZEP2=a
+  SIZEP3=a
+  PMBASE=a=0xB8
+  GRACTL=a=2				// players only
+  SDMCTL=a=0x3A				// playfield + single-line player DMA
+  GPRIOR=a=1				// cat in front of the racks
+  PCOLR0=a=0x28				// P0/P1: stripes, eye, far legs (shaded ginger)
+  PCOLR1=a=0x28
+  PCOLR2=a=0x2C				// P2/P3: ginger fur
+  PCOLR3=a=0x2C
+}
+
+// ---- Room 0: corridor. cols 2..14 shelter, 15..24 camera strip, 25..37 open.
+
+
+
+
+
+
+func redraw_zone {
+  x=2
+  { repaint_current x++ x?40 } !=
+}
+
+func cam_sees {				// x = column -> a: 1 if a live camera footprint covers open floor
+  a=x
+  cone_t=a
+  y=a
+  a=(floor_ptr),y
+  a?70
+  != { a=0 return }
+  y=0
+  {
+    a=sl_cam,y
+    a?0
+    != {
+      a=sl_on,y
+      a?0
+      != {
+        a=cone_t
+        c+ a-sl_c,y
+        < { a^0xFF c- a+1 }		// |x - centre|
+        a?sl_hw,y
+        < { a=1 return }
+        == { a=1 return }
+      }
+    }
+    y++
+    y?2
+  } !=
+  a=0
+}
+
+func load_cams {			// CamCfg row for cur_room -> both slots, sweeps restart
+  a=cur_room
+  a<<
+  a<<
+  a<<
+  a<<
+  y=a
+  x=0
+  {
+    a=CamCfg,y sl_cam,x=a y++
+    a=CamCfg,y sl_min,x=a sl_c,x=a y++
+    a=CamCfg,y sl_max,x=a y++
+    a=CamCfg,y sl_speed,x=a sl_wait,x=a y++
+    a=CamCfg,y sl_pause,x=a y++
+    a=CamCfg,y sl_hw,x=a y++
+    a=CamCfg,y sl_gate,x=a y++
+    a=CamCfg,y sl_hwstep,x=a y++
+    a=0
+    sl_dir,x=a
+    sl_on,x=a
+    x++
+    x?2
+  } !=
+  x=0
+  { a=0xFF oldL,x=a x++ x?34 } !=
+  cone_dirty=a=1
+}
+
+func tick_cam {				// x = slot
+  a=sl_cam,x
+  a?0
+  != {
+    a=sl_gate,x
+    a?0
+    != {
+      a=switch_timer
+      a?0
+      == { a=1 } else { a=0 }
+    } else { a=1 }
+    a?sl_on,x
+    != { sl_on,x=a cone_dirty=a=1 }
+    a=sl_wait,x
+    a?0
+    == {
+      a=sl_speed,x
+      sl_wait,x=a
+      a=sl_dir,x
+      a?0
+      == { a=sl_c,x c- a+1 } else { a=sl_c,x c+ a-1 }
+      sl_c,x=a
+      a?sl_max,x
+      == { a=1 sl_dir,x=a a=sl_pause,x sl_wait,x=a }
+      a=sl_c,x
+      a?sl_min,x
+      == { a=0 sl_dir,x=a a=sl_pause,x sl_wait,x=a }
+      cone_dirty=a=1
+    } else {
+      c+ a-1
+      sl_wait,x=a
+    }
+  }
+}
+
+func tick_cams {			// sweep each camera; redraw cones when anything moved
+  x=0
+  tick_cam
+  x=1
+  tick_cam
+  a=cone_dirty
+  a?0
+  != { cone_dirty=a=0 call redraw_cones }
+}
+
+func cone_rows_start {			// zoom_ptr/art_ptr -> row 5 of screen/room art
+  zoom_ptr=a=&<TermScreen+200
+  zoom_ptr+1=a=&>TermScreen+200
+  a=art_base
+  c- a+200
+  art_ptr=a
+  a=art_base+1
+  a+0
+  art_ptr+1=a
+}
+
+func cone_rows_next {
+  a=zoom_ptr
+  c- a+40
+  zoom_ptr=a
+  a=zoom_ptr+1
+  a+0
+  zoom_ptr+1=a
+  a=art_ptr
+  c- a+40
+  art_ptr=a
+  a=art_ptr+1
+  a+0
+  art_ptr+1=a
+}
+
+func erase_slot {			// cone_base = 0/17: restore that slot's spans from RoomArt
+  cone_rows_start
+  cone_i=a=0
+  {
+    a=cone_base
+    c- a+cone_i
+    x=a
+    a=oldL,x
+    a?0xFF
+    != {
+      y=a
+      a=oldR,x
+      c- a+1
+      cone_end=a
+      {
+        a=(art_ptr),y
+        (zoom_ptr),y=a
+        y++
+        a=y
+        a?cone_end
+      } !=
+      a=0xFF
+      oldL,x=a
+    }
+    cone_rows_next
+    cone_i++
+    a=cone_i
+    a?17
+  } !=
+}
+
+func cone_row {				// one row of the cone: advance the DDA, draw its span
+  a=cone_cxl
+  c- a+cone_sl
+  cone_cxl=a
+  a=cone_cxh
+  a+cone_sh
+  cone_cxh=a
+  a=cone_hwl
+  c- a+cone_hws
+  cone_hwl=a
+  a=cone_hwh
+  a+0
+  cone_hwh=a
+  a=cone_cxh
+  c+ a-cone_hwh
+  < { a=0 }
+  cone_L=a
+  a=cone_cxh
+  c- a+cone_hwh
+  >= { a=159 }
+  a?160
+  >= { a=159 }
+  cone_R=a
+  a=cone_L
+  a>>
+  a>>
+  cone_lc=a
+  a=cone_R
+  a>>
+  a>>
+  cone_rc=a
+  c- a+1
+  cone_end=a
+  a=cone_base
+  c- a+cone_i
+  x=a
+  a=cone_lc
+  oldL,x=a
+  y=a
+  a=cone_rc
+  oldR,x=a
+  {
+    a=(art_ptr),y
+    a?64
+    == {
+      a=y
+      a?cone_lc
+      == {
+        a=cone_L
+        a&3
+        c- a+109
+      } else {
+        a?cone_rc
+        == {
+          a=cone_R
+          a&3
+          c- a+113
+        } else { a=109 }
+      }
+      (zoom_ptr),y=a
+    }
+    y++
+    a=y
+    a?cone_end
+  } !=
+}
+
+func draw_cone {			// x = slot: 17 rows of light from the lens to the floor
+  a=sl_cam,x
+  a?0
+  == { return }
+  a=sl_on,x
+  a?0
+  == { return }
+  a=x
+  a?0
+  == { a=0 } else { a=17 }
+  cone_base=a
+  a=sl_hwstep,x
+  cone_hws=a
+  a=sl_c,x
+  c+ a-sl_cam,x
+  c- a+40
+  y=a
+  a=ConeStep,y
+  cone_sl=a
+  a=ConeStep+80,y
+  cone_sh=a
+  a=sl_cam,x
+  a<<
+  a<<
+  c- a+2
+  cone_cxh=a
+  cone_cxl=a=0x80
+  cone_hwl=a=0
+  cone_hwh=a=1
+  cone_rows_start
+  cone_i=a=0
+  {
+    cone_row
+    cone_rows_next
+    cone_i++
+    a=cone_i
+    a?17
+  } !=
+}
+
+func cam_tiles {			// camera glyph turns with the sweep; lens red while live
+  x=0
+  {
+    a=sl_cam,x
+    a?0
+    != {
+      y=a
+      a=sl_c,x
+      c- a+1
+      a?sl_cam,x
+      < { a=118 } else {
+        a=sl_cam,x
+        c- a+1
+        a?sl_c,x
+        < { a=119 } else { a=68 }
+      }
+      cone_t=a
+      a=sl_on,x
+      a?0
+      != { a=cone_t a|0x80 cone_t=a }
+      a=cone_t
+      TermScreen+160,y=a
+    }
+    x++
+    x?2
+  } !=
+}
+
+func redraw_cones {
+  cone_base=a=0
+  erase_slot
+  cone_base=a=17
+  erase_slot
+  x=0
+  draw_cone
+  x=1
+  draw_cone
+  cam_tiles
+}
+
+
+func tick_switch {			// switch_timer was set-but-never-decremented; without
+  a=switch_timer			// this the segment stayed dark (or watched, after the
+  a?0				// polarity fix above) forever instead of timing out.
+  == { return }
+  switch_timer--
+}
+
+func check_detection {
+  x=player_col
+  cam_sees
+  a?0
+  != { call trigger_alert }
+}
+
+func trigger_alert {			// ignored while already alerting; relay_done is untouched
+  a=alert_timer
+  a?0
+  != { return }
+  alert_timer=a=90
+  relay_progress=a=0
+  relay_active=a=0
+  switch_timer=a=0
+  player_x=a=0
+  facing=a=0
+  set_col
+  walk_timer=a=0
+  draw_player
+  clear_row0
+  msg_src=a=&<MsgAlert
+  msg_src+1=a=&>MsgAlert
+  msg_len=a=19
+  draw_row0_msg
+  call sfx_alert
+}
+
+func handle_relay {
+  a=relay_active
+  a?0
+  == { return }
+  a=player_col
+  a?33
+  != { relay_active=a=0 relay_progress=a=0 return }
+  relay_progress++
+  a=relay_progress
+  a?90
+  >= {
+    relay_done=a=1
+    relay_active=a=0
+    x=33
+    repaint_current
+    x=38
+    repaint_current
+    clear_row1
+    msg_src=a=&<MsgRoute
+    msg_src+1=a=&>MsgRoute
+    msg_len=a=22
+    draw_row1_msg
+    call sfx_success
+  }
+}
+
+func read_fire {			// edge-triggered: one action per press-release cycle
+  a=TRIG0
+  a&1
+  a?0
+  != { fire_prev=a=1 return }
+  a=fire_prev
+  a?0
+  == { return }
+  fire_prev=a=0
+  a=cur_room
+  a?1
+  == {
+    a=player_col
+    a?6
+    == { switch_timer=a=250 call sfx_switch }
+    return
+  }
+  a=cur_room
+  a?2
+  == {
+    a=player_col
+    a?33
+    == {
+      a=relay_done
+      a?0
+      == { relay_active=a=1 }
+    }
+  }
+}
+
+func read_and_move {
+  a=move_timer
+  a?0
+  != { move_timer-- return }
+
+  a=PORTA
+  a&4
+  a?0
+  == {
+    facing=a=1
+    a=player_x
+    a?0
+    == {
+      a=cur_room
+      a?0
+      != {
+        entry_col=a=136
+        cur_room--
+        call enter_room
+      }
+      move_timer=a=6
+      return
+    }
+    player_x--
+    cat_stepped
+    return
+  }
+
+  a=PORTA
+  a&8
+  a?0
+  == {
+    facing=a=0
+    a=player_x
+    a?140
+    == {
+      a=cur_room
+      a?2
+      == {
+        a=relay_done
+        a?0
+        == { move_timer=a=6 return }
+        player_x=a=144
+        cat_stepped
+        draw_player
+        call level_ending
+        return
+      }
+      entry_col=a=0
+      cur_room++
+      call enter_room
+      move_timer=a=6
+      return
+    }
+    player_x++
+    cat_stepped
+    return
+  }
+}
+
+func sfx_switch { AUDF2=a=80 AUDC2=a=0xA8 sfx_timer=a=8 }
+func sfx_alert { AUDF2=a=40 AUDC2=a=0xAF sfx_timer=a=20 }
+func sfx_success { AUDF2=a=100 AUDC2=a=0xA6 sfx_timer=a=40 }
+
+func tick_audio {
+  a=sfx_timer
+  a?0
+  != {
+    sfx_timer--
+    a=sfx_timer
+    a?0
+    == { AUDC2=a=0 }
+  }
+  bg_pulse_timer--
+  a=bg_pulse_timer
+  a?0
+  != { return }
+  bg_pulse_timer=a=30
+  a=bg_pulse_state
+  a?0
+  == {
+    bg_pulse_state=a=1
+    AUDF1=a=200
+    AUDC1=a=0x82
+    return
+  }
+  bg_pulse_state=a=0
+  AUDC1=a=0
+}
+
+func load_room_art {
+  art_ptr=a=&<RoomArt
+  art_ptr+1=a=&>RoomArt
+  a=cur_room
+  a?1
+  == {
+    art_ptr=a=&<RoomArt+960
+    art_ptr+1=a=&>RoomArt+960
+  }
+  a=cur_room
+  a?2
+  == {
+    art_ptr=a=&<RoomArt+1920
+    art_ptr+1=a=&>RoomArt+1920
+  }
+  a=art_ptr
+  art_base=a
+  c- a+0x70
+  floor_ptr=a
+  a=art_ptr+1
+  art_base+1=a
+  a+0x03
+  floor_ptr+1=a
+  zoom_ptr=a=&<TermScreen
+  zoom_ptr+1=a=&>TermScreen
+  x=3
+  {
+    y=0
+    {
+      a=(art_ptr),y
+      (zoom_ptr),y=a
+      y++
+      y?0
+    } !=
+    art_ptr+1++
+    zoom_ptr+1++
+    x--
+    x?0
+  } !=
+  y=0
+  {
+    a=(art_ptr),y
+    (zoom_ptr),y=a
+    y++
+    y?192
+  } !=
+}
+
+func enter_room {
+  a=entry_col
+  player_x=a
+  set_col
+  switch_timer=a=0
+  relay_active=a=0
+  relay_progress=a=0
+  walk_timer=a=0
+  idle_timer=a=0
+  load_room_art
+  load_cams
+  call draw_hud_static
+  clear_row1
+  draw_room_header
+  msg_src=a=&<MsgStop
+  msg_src+1=a=&>MsgStop
+  msg_len=a=28
+  draw_row0_msg
+  redraw_zone
+  draw_player
+}
+
+func level_ending {
+  level_finished=a=1
+  clear_row0
+  clear_row1
+  msg_src=a=&<MsgEnding
+  msg_src+1=a=&>MsgEnding
+  msg_len=a=36
+  draw_row0_msg
+  sfx_success
+  x=150
+  wait_frames
+  COLOR0=a=0
+  COLOR1=a=0
+  COLOR2=a=0
+  COLOR4=a=0
+  PCOLR0=a=0
+  PCOLR1=a=0
+  PCOLR2=a=0
+  PCOLR3=a=0
+  AUDC1=a=0
+  AUDC2=a=0
+}
+
+func blink_leds {			// toggle the LED pixel in the SRV_B/SRV_D glyphs (tiles 73/75)
+  a=RTCLOK
+  a&0x20					// slow blink, ~0.6 s
+  a>> a>> a>>
+  a|0xAA
+  TermFont+586=a			// 73*8+2: "2232" / "2222"
+  a=RTCLOK
+  a&0x08					// fast activity flicker
+  a<<
+  a|0xAA
+  TermFont+604=a			// 75*8+4: "2322" / "2222"
+}
+
+// Row 24 HUD: "ROOM n/3", a status label with a 12-cell bar, "LEVEL 01".
+func draw_hud_static {
+  y=0
+  {
+    a=MsgHud,y
+    TermScreen+961,y=a
+    a=MsgLevel,y
+    TermScreen+992,y=a
+    y++
+    y?8
+  } !=
+  a=cur_room
+  c- a+17				// '1'..'3'
+  TermScreen+966=a
+}
+
+func hud_label {			// msg_src -> 7 cells at column 11
+  y=0
+  {
+    a=(msg_src),y
+    TermScreen+971,y=a
+    y++
+    y?7
+  } !=
+}
+
+func hud_bar {				// hud_n filled of 11 cells at columns 19..29
+  TermScreen+978=a=122			// HUD_L
+  TermScreen+990=a=123			// HUD_R
+  x=0
+  {
+    a=121				// HUD_EMPTY
+    x?hud_n
+    < { a=120 }				// HUD_FULL
+    TermScreen+979,x=a
+    x++
+    x?11
+  } !=
+}
+
+naked hud_dli {			// HUD row: gold text, state-coloured bar, blue frame
+  a!!
+  WSYNC=a
+  COLPF0=a=0x1C
+  a=hud_col
+  COLPF1=a
+  COLPF2=a=0x86
+  a??
+  return_i
+}
+
+func fire_prompt {
+  hud_col=a=0x1C			// gold
+  msg_src=a=&<MsgFireHud
+  msg_src+1=a=&>MsgFireHud
+  hud_label
+  a=RTCLOK				// blinking full bar
+  a&16
+  == { hud_n=a=11 } else { hud_n=a=0 }
+  hud_bar
+}
+
+func draw_hud {				// status: alert > switch > relay > blank
+  a=alert_timer
+  a?0
+  != {
+    hud_col=a=0x36			// red
+    msg_src=a=&<MsgAlertHud
+    msg_src+1=a=&>MsgAlertHud
+    hud_label
+    a=alert_timer			// drains as the alert runs out
+    a>> a>> a>>
+    hud_n=a
+    hud_bar
+    return
+  }
+  a=switch_timer
+  a?0
+  != {
+    hud_col=a=0xC8			// green
+    msg_src=a=&<MsgCamOff
+    msg_src+1=a=&>MsgCamOff
+    hud_label
+    a=switch_timer			// 250 frames -> 11 cells: t/32 + t/64 + 1
+    a>> a>> a>> a>> a>>
+    hud_n=a
+    a=switch_timer
+    a>> a>> a>> a>> a>> a>>
+    c- a+hud_n
+    c- a+1
+    hud_n=a
+    hud_bar
+    return
+  }
+  a=relay_active
+  a?0
+  != {
+    hud_col=a=0x2C			// orange
+    msg_src=a=&<MsgRelayHud
+    msg_src+1=a=&>MsgRelayHud
+    hud_label
+    a=relay_progress
+    a>> a>> a>>
+    hud_n=a
+    hud_bar
+    return
+  }
+  a=cur_room				// on the room-2 switch: prompt for fire
+  a?1
+  == {
+    a=player_col
+    a?6
+    == { fire_prompt return }
+  }
+  a=cur_room				// on the room-3 relay, until diverted
+  a?2
+  == {
+    a=relay_done
+    a?0
+    == {
+      a=player_col
+      a?33
+      == { fire_prompt return }
+    }
+  }
+  hud_col=a=0x0C			// white: how far through the room
+  msg_src=a=&<MsgHiddenHud
+  msg_src+1=a=&>MsgHiddenHud
+  hud_label
+  a=player_x
+  a>> a>> a>> a>>
+  c- a+2
+  hud_n=a
+  hud_bar
+}
+
+func game_frame {
+  blink_leds
+  draw_hud
+  a=alert_timer
+  a?0
+  == {
+    read_fire
+    read_and_move
+    tick_cat
+    tick_cams
+    tick_switch
+    redraw_zone		// repaints the gated play-row tiles
+    draw_player		// PMG frame + position
+    check_detection
+    handle_relay
+    tick_audio
+    return
+  }
+  alert_timer--
+  a=alert_timer
+  a?0
+  == {
+    clear_row0
+    redraw_zone
+    draw_player
+    msg_src=a=&<MsgStop
+    msg_src+1=a=&>MsgStop
+    msg_len=a=28
+    draw_row0_msg
+  }
+  tick_audio
+}
+
+func init_gameplay {
+  switch_to_term
+  COLOR0=a=0x0A				// light steel: highlights and HUD text
+  COLOR1=a=0x82				// dark blue steel racks
+  COLOR2=a=0x26				// rust cables
+  COLOR3=a=0x34				// red: LEDs and watched floor (inverse tiles)
+  COLOR4=a=0x00
+  init_pmg
+  VDSLST=a=&<hud_dli
+  VDSLST+1=a=&>hud_dli
+  NMIEN=a=0xC0
+  cur_room=a=0
+  move_timer=a=0
+  fire_prev=a=1
+  relay_done=a=0
+  alert_timer=a=0
+  sfx_timer=a=0
+  bg_pulse_timer=a=30
+  bg_pulse_state=a=0
+  level_finished=a=0
+  entry_col=a=0
+  enter_room
+}
+
 // ---------------------------------- Scene ------------------------------------
 
 main {
   init_system
+  goto intro_skip			// temporary level-only preview; remove to restore the intro
   build_storm_list
 
   switch_to_storm			// opening shows racks, but not the cat
@@ -1284,6 +2418,18 @@ main {
   x=40 wait_frames
 
   video_call
+intro_skip:
+  NMIEN=a=0x40
+  s=x=0xFF				// discard nested intro return addresses after a skip
+  AUDC1=a=0
   cut_to_black
-  {} always				// safe idle: no gameplay yet
+
+  init_gameplay
+  {
+    x=1
+    wait_frames
+    a=level_finished
+    a?0
+    == { game_frame }
+  } always				// gameplay loop; idles forever once level_finished=1
 }

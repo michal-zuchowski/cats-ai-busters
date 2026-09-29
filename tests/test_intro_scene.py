@@ -73,6 +73,8 @@ assert all(font[(ord(char) - 32) * 8 + y] & 0x03 == 0
 assert any(font[(ord(char) - 32) * 8 + y]
            for char in "GLOBAL POWER STRUCTURE: ANALYZING..." for y in range(8)
            if char != " ")
+for char in "#$%*+= >@".replace(" ", ""):
+    assert any(font[(ord(char) - 32) * 8 + y] for y in range(8)), char
 
 
 assert pixel(face, 102, 30) == 2  # desk terminal right of the cat (mirrored scene)
@@ -200,6 +202,21 @@ beats = ("build_storm_list", "switch_to_storm", "storm_pan", "show_zoom_bitmap",
          "pupils_stage1", "pupils_stage2", "pupils_stage3",
          "play_meow", "video_call", "cut_to_black")
 assert [scene.index(beat) for beat in beats] == sorted(scene.index(beat) for beat in beats)
-assert "{} always" in scene[scene.index("cut_to_black"):]
+wait = body("wait_frames")
+assert all(token in wait for token in
+           ("a=cur_room", "a?0xFF", "a=TRIG0", "a&1",
+            "a=CH", "a?0x21", "a?0x0C"))
+assert wait.count("goto intro_skip") == 3
+assert "cur_room=a=0xFF" in body("init_system") and "CH=a=0xFF" in body("init_system")
+skip = scene[scene.index("intro_skip:"):scene.index("init_gameplay")]
+assert all(token in skip for token in ("NMIEN=a=0x40", "s=x=0xFF", "AUDC1=a=0",
+                                       "cut_to_black"))
+
+# The intro used to idle forever after cut_to_black ("{} always", no gameplay
+# yet); it now hands off into Level 01 immediately afterwards.
+tail = scene[scene.index("cut_to_black"):]
+assert "init_gameplay" in tail
+assert tail.index("cut_to_black") < tail.index("init_gameplay")
+assert "} always" in tail[tail.index("init_gameplay"):]  # gameplay loop, not the old idle
 
 print("test_intro_scene.py: all checks passed")

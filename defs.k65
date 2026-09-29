@@ -132,7 +132,7 @@ var NMIST	= 0xD40F;			// dvr- ----	[read] Non-Maskable Interrupt (NMI) Status
 // POKEY - Write
 
 var AUDF1	= 0xD200;			// xxxx xxxx	Audio Channel 1 Frequency
-var AUDC1	= 0xD201;			// nnnf vvvv	Audio Channel 1 Control
+var AUDC1	= 0x00A2;			// ponytail: sound muted (was 0xD201), restore to unmute			// nnnf vvvv	Audio Channel 1 Control
 								//		^^^^	 - Volume
 								//	  ^			 - Force volume (PCM)
 								// ^^^			 - Noise/distortion
@@ -146,11 +146,11 @@ var AUDC1	= 0xD201;			// nnnf vvvv	Audio Channel 1 Control
 								// 111					7	pure tone
 
 var AUDF2	= 0xD202;			// xxxx xxxx	Audio Channel 2 Frequency
-var AUDC2	= 0xD203;			// nnnf vvvv	Audio Channel 2 Control
+var AUDC2	= 0x00A2;			// ponytail: sound muted (was 0xD203), restore to unmute			// nnnf vvvv	Audio Channel 2 Control
 var AUDF3	= 0xD204;			// xxxx xxxx	Audio Channel 3 Frequency
-var AUDC3	= 0xD205;			// nnnf vvvv	Audio Channel 3 Control
+var AUDC3	= 0x00A2;			// ponytail: sound muted (was 0xD205), restore to unmute			// nnnf vvvv	Audio Channel 3 Control
 var AUDF4	= 0xD206;			// xxxx xxxx	Audio Channel 4 Frequency
-var AUDC4	= 0xD207;			// nnnf vvvv	Audio Channel 4 Control
+var AUDC4	= 0x00A2;			// ponytail: sound muted (was 0xD207), restore to unmute			// nnnf vvvv	Audio Channel 4 Control
 
 var AUDCTL	= 0xD208;			// 9ffa ahhdd	Audio Control
 								//		   ^	 - Frequency divider rate (0-64kHz, 1-15kHz)
@@ -221,11 +221,17 @@ var IRQADH	= 0xFFFF;
 // hardware write on the very next frame.
 
 var RTCLOK	= 0x0014;		// xxxx xxxx	OS jiffy clock, low byte; incremented once per VBI (~50/60 Hz)
+var CH		= 0x02FC;		// OS keyboard scan code; $FF when no unread key
 var SDMCTL	= 0x022F;		// --dr pmww	Shadow for DMACTL
 var SDLSTL	= 0x0230;		// xxxx xxxx	Shadow for DLISTL (display list pointer, low byte)
 var SDLSTH	= 0x0231;		// xxxx xxxx	Shadow for DLISTH (display list pointer, high byte)
 var CHBAS	= 0x02F4;		// xxxx xx?0	OS shadow for CHBASE
 var VDSLST	= 0x0200;		// xxxx xxxx	Display-list interrupt vector
+var PCOLR0	= 0x02C0;		// cccc llll	Shadow for COLPM0
+var PCOLR1	= 0x02C1;		// cccc llll	Shadow for COLPM1
+var PCOLR2	= 0x02C2;		// cccc llll	Shadow for COLPM2
+var PCOLR3	= 0x02C3;		// cccc llll	Shadow for COLPM3
+var GPRIOR	= 0x026F;		// ggmf pppp	Shadow for PRIOR
 var COLOR0	= 0x02C4;		// cccc llll	Shadow for COLPF0
 var COLOR1	= 0x02C5;		// cccc llll	Shadow for COLPF1
 var COLOR2	= 0x02C6;		// cccc llll	Shadow for COLPF2
