@@ -145,11 +145,16 @@ message remains visible after the initial display and after an alert.
   avoid shipping unverified color behavior; the HUD/status row already
   satisfies "do not rely on color alone." A follow-up could add color once
   verified on real hardware/emulator.
-- **Sound uses two independent POKEY channels** (ambient pulse on channel 1,
-  one-shot cues — switch/alert/success — on channel 2 with a timer that
-  auto-silences it) instead of a single shared channel with save/restore,
-  since all four channels are free once gameplay starts. Channels 3/4 stay
-  silent (already zeroed by `cut_to_black`).
+- **Sound**: a looping original spy-funk theme (`tools/make_music.py` →
+  `assets/music.bin`, D minor, 4/4, 16 bars with a bridge and a drum fill
+  every 4th bar, 16th = 5 frames), all short plucks, driven from the
+  deferred VBI (`music_vbi`) so the tempo never drags on slow frames.
+  8-bit 64 kHz pure tones are out of tune above C4, so the lead uses
+  channels 1+2 joined as a 16-bit 1.79 MHz voice (AUDCTL `$50`); the bass
+  stays 8-bit on channel 3 (C3–A3 are within 3 cents); channel 4 plays the
+  drums and yields to the switch/alert/success cues while `sfx_timer`
+  runs. The program loads from `$1000` (`-lowAddr`) for room; this assumes
+  a DOS-less XEX loader, as in the emulator.
 - **The cat is a character glyph, not player/missile graphics** — simpler
   and consistent with the tile-based rendering above; camera detection was
   always tile-based regardless of rendering, per this doc.

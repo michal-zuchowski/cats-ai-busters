@@ -96,12 +96,13 @@ for pos in redraw_call_sites:
 
 # The cat is a 16x24 PMG sprite (P0/P1 dark, P2/P3 fur): a
 # 12-drawing stride picked from the pixel x (planted paws do not slide),
-# 2 idle, mirrored set.  Both leg colours must reach the floor (far legs show).
+# 2 idle, mirrored set.  All four legs are fur (P2/P3), so the near and far
+# pairs look alike and the stride repeats after 6 drawings.
 sprites = (root / "assets/cat-sprites.bin").read_bytes()
 assert len(sprites) == 28 * 128
 frames = [sprites[i * 128:(i + 1) * 128] for i in range(28)]
-assert len(set(frames[:12])) == 12 and frames[12] != frames[13]
-assert all(f[23] | f[32 + 23] | f[22] | f[32 + 22] for f in frames[:12])
+assert len(set(frames[:12])) == 6 and frames[12] != frames[13]
+assert all(f[23] | f[32 + 23] | f[22] | f[32 + 22] == 0 for f in frames[:14])  # no dark legs
 for f in frames:
     assert all(b == 0 for chunk in range(4) for b in f[chunk * 32 + 24:chunk * 32 + 32])
 assert sum(bool(f[64 + 23] | f[96 + 23]) for f in frames[:12]) >= 8
@@ -200,6 +201,19 @@ assert "y?232" in body("clear_term_screen")  # 25 rows = 1000 bytes
 assert "MsgFireHud" in body("fire_prompt")
 assert body("draw_hud").count("fire_prompt") == 2 and "a?6" in body("draw_hud") and "a?33" in body("draw_hud")  # switch + relay prompts
 
+import math
+music = (root / "assets/music.bin").read_bytes()
+assert len(music) == 432 and 'binary "assets/music.bin"' in main
+assert "AUDCTL=a=0x50" in body("init_gameplay")  # 16-bit 1.79 MHz lead on ch1+2
+for k in set(music[:256]) - {0, 1}:  # every lead note in tune within 2 cents
+    f = 1789790 / (2 * (music[336 + k - 2] + 256 * music[352 + k - 2] + 7))
+    assert abs(1200 * math.log2(f / 440) % 100 - 50) > 48, f
+assert set(music[256:272]) <= {0, 1, 2} and set(music[272:304]) <= {0, 1, 2, 3}
+assert "a&127" not in body("music_step") and "Music+400,x" in body("tick_music")  # 256-step song
+assert "sfx_timer" in body("tick_music") and "AUDC4" in body("sfx_alert")  # drums yield to SFX
+assert "tick_audio" in body("music_vbi") and "tick_audio" not in body("game_frame")  # steady tempo
+assert "VVBLKD" in body("init_gameplay")
+assert "tick_music" in body("tick_audio") and "AUDC3=a=0" in body("level_ending")
 print("test_gameplay_logic.py: all checks passed")
 
 font = (root / "assets/term-font.pic").read_bytes()

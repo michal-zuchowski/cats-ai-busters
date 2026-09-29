@@ -22,8 +22,8 @@ UPPER = (  # rows 0..14 facing right: round head with ears, tabby stripes
     "...........F..F.",
     "...........FF.FF",
     "...........FFFFF",
-    "..........FFFFFF",
-    "...FFFFFF.FFFdFF",
+    "..........FFF.FF",  # eye: a see-through slit, the dark room shows through
+    "...FFFFFF.FFF.FF",
     "..FdFFdFFdFFFFFF",
     "..FFdFFdFFdFFFFd",
     "..FFFFFFFFFFFFF.",
@@ -89,9 +89,9 @@ def drawing(tail, k=None):
     img = [[0] * W for _ in range(DROP)] + img
     img += [[0] * W for _ in range(H - len(img))]
     if k is None:
-        legs = (((5, 0), (12, 0), DARK), ((4, 0), (11, 0), FILL))
+        legs = (((5, 0), (12, 0), FILL), ((4, 0), (11, 0), FILL))
     else:
-        legs = ((HIND[(k + 6) % 12], FORE[(k + 6) % 12], DARK), (HIND[k], FORE[k], FILL))
+        legs = ((HIND[(k + 6) % 12], FORE[(k + 6) % 12], FILL), (HIND[k], FORE[k], FILL))
     for (h, f, c), o in zip(legs, (0, 0)):
         hind(img, *h, c, o)
         fore(img, *f, c, o)

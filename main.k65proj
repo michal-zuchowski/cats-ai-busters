@@ -1,5 +1,5 @@
 -system AtariXL
--lowAddr 0x2000
+-lowAddr 0x1000
 -hiaddr 0x9FFF
 
 defs.k65 main
