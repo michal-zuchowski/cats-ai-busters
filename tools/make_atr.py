@@ -14,12 +14,14 @@ payload sectors directly to $1000 and finally JMPs there (the XEX's RUNAD
 segment always points at $1000, a `JMP main`, so we don't need to load or
 honor RUNAD at runtime -- see doc/tech/gameplay.md).
 
-After the resident program's sectors, extra named "chunks" are appended
-(currently one proof-of-concept chunk, a copy of assets/level-cams.bin);
-assets/disk-chunks.bin records, per chunk, a 5-byte entry:
-  word start_sector, word sector_count, byte checksum (sum of the padded
-  on-disk bytes, mod 256). main.k65's `disk_read` func + `disk_selftest`
-  reads chunk 0 with SIOV and checks the checksum -- see doc/tech/gameplay.md.
+After the resident program's sectors, extra named "chunks" are appended:
+room 0/1/2 art (960-byte slices of assets/level-rooms.pic), CamCfg
+(assets/level-cams.bin) and ConeStep (assets/cone-step.bin) -- level 01's
+disk-streamed assets (a3e.3). assets/disk-chunks.bin records, per chunk,
+a 5-byte entry: word start_sector, word sector_count, byte checksum (sum
+of the padded on-disk bytes, mod 256). main.k65's `disk_read` func loads
+each chunk with SIOV; `disk_selftest` re-checks chunk 0's (room 0 art)
+checksum as a boot-time smoke test -- see doc/tech/gameplay.md.
 """
 import struct
 import sys
@@ -32,7 +34,11 @@ CHUNKS_PATH = ROOT / "assets" / "disk-chunks.bin"
 # Proof-of-concept extra chunks appended after the resident program. Each is
 # (name, source file); a3e.3 will replace/extend this with real level assets.
 EXTRA_CHUNKS = [
-    ("level-cams-test", ROOT / "assets" / "level-cams.bin"),
+    ("room0-art", ROOT / "assets" / "level-rooms.pic", 0, 960),
+    ("room1-art", ROOT / "assets" / "level-rooms.pic", 960, 960),
+    ("room2-art", ROOT / "assets" / "level-rooms.pic", 1920, 960),
+    ("cam-cfg", ROOT / "assets" / "level-cams.bin"),
+    ("cone-step", ROOT / "assets" / "cone-step.bin"),
 ]
 
 SECTOR_SIZE = 128
@@ -226,8 +232,13 @@ def build_atr(payload, extra_chunks):
 
     chunk_table = bytearray()
     next_sector = FIRST_DATA_SECTOR + sector_count
-    for name, path in extra_chunks:
-        data = path.read_bytes()
+    for entry in extra_chunks:
+        if len(entry) == 4:
+            name, path, offset, length = entry
+            data = path.read_bytes()[offset:offset + length]
+        else:
+            name, path = entry
+            data = path.read_bytes()
         padded = -(-len(data) // SECTOR_SIZE) * SECTOR_SIZE
         data = data + b"\x00" * (padded - len(data))
         count = padded // SECTOR_SIZE

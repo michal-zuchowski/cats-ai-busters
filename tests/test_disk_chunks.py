@@ -26,9 +26,14 @@ def main():
         off = (n - 1) * m.SECTOR_SIZE
         return body[off:off + m.SECTOR_SIZE]
 
-    for i, (name, path) in enumerate(m.EXTRA_CHUNKS):
+    for i, entry in enumerate(m.EXTRA_CHUNKS):
+        if len(entry) == 4:
+            name, path, offset, length = entry
+            data = path.read_bytes()[offset:offset + length]
+        else:
+            name, path = entry
+            data = path.read_bytes()
         start, count, checksum = struct.unpack_from("<HHB", chunk_table, i * 5)
-        data = path.read_bytes()
         padded_len = -(-len(data) // m.SECTOR_SIZE) * m.SECTOR_SIZE
         padded = data + b"\x00" * (padded_len - len(data))
         assert count == padded_len // m.SECTOR_SIZE, name

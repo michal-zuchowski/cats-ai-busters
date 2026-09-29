@@ -268,16 +268,17 @@ quiet for the read's duration; the lead itself stays audible throughout,
 and `disk_busy` (see "Disk loads and music" below) keeps `tick_music`
 from fighting SIO for `AUDF3`/`AUDC3`/`AUDF4`/`AUDC4`.
 
-`func disk_selftest` is a proof-of-concept exerciser: it reads chunk 0 of
-`ChunkTable` (a disk copy of `assets/level-cams.bin`) into the intro's
-unused `ZoomBuf` scratch (`$A000`, dead once gameplay starts), recomputes
-the same checksum `make_atr.py` stored for that chunk, and flashes
-`MsgDiskOk`/`MsgDiskErr` on the term screen for 90 frames via
-`clear_term_screen`/`hud_label`/`wait_frames`. `init_gameplay` calls it
-right after `switch_to_term`, before any HUD/room state is set up, so it
-never touches live gameplay memory. Verified in the emulator with the
-flash duration temporarily lengthened: `DISK OK` renders correctly before
-level 1 starts.
+`func disk_selftest` reads chunk 0 of `ChunkTable` (room 0's art, since
+a3e.3) into the intro's unused `ZoomBuf` scratch (`$A000`, dead once
+gameplay starts, and the same address `load_room_art` itself streams into
+as `RoomArtBuf`), recomputes the same checksum `make_atr.py` stored for
+that chunk, and flashes `MsgDiskOk`/`MsgDiskErr` on the term screen for 90
+frames via `clear_term_screen`/`hud_label`/`wait_frames`. `init_gameplay`
+calls it right after `switch_to_term`, before any HUD/room state is set
+up, so it never touches live gameplay memory; `load_room_art` reloads the
+same chunk for real once room 0 is entered. Verified in the emulator with
+the flash duration temporarily lengthened: `DISK OK` renders correctly
+before level 1 starts.
 
 ### Disk loads and music (a3e.4)
 
@@ -323,3 +324,51 @@ exit 134, no diagnostic) on the `data ChunkTable { binary ... }` line —
 this looks identical to the classic "forward bare-call" abort, so if a
 build aborts silently after adding a new `binary`-included data block,
 check that the referenced file actually exists first.
+
+### Streaming room art and level assets from disk (a3e.3)
+
+Level 01's room art (three 960-byte rooms, `assets/level-rooms.pic`) and
+per-level camera config (`CamCfg`, `assets/level-cams.bin`, 48 bytes) and
+sweep timing (`ConeStep`, `assets/cone-step.bin`, 160 bytes) used to be
+resident `data { binary ... }` blocks baked into the XEX. They are now
+five disk chunks (`ChunkTable+0`/`+5`/`+10` = room 0/1/2 art, `+15` =
+CamCfg, `+20` = ConeStep — 5 bytes/entry, so these are compile-time
+constant offsets, not a runtime multiply) built by `tools/make_atr.py`,
+which now supports an optional `(offset, length)` per `EXTRA_CHUNKS`
+entry to slice a byte range out of a source file (used for the three
+960-byte room slices; CamCfg/ConeStep still take a whole file).
+
+They stream into three fixed RAM buffers inside the intro's unused
+`ZoomBuf` region (`$A000-$AFFF`, dead once gameplay starts, same region
+`disk_selftest` already borrows): `RoomArtBuf=$A000` (960 bytes, the
+current room's clean tiles — reloaded by `load_room_art` every room
+entry, since only one room's art needs to be resident at a time),
+`CamCfg=$A400` and `ConeStep=$A480` (loaded once per level by the new
+`func load_level_assets`, called from `init_gameplay` right after
+`disk_selftest`). None of the consumers (`load_cams`, `tick_cam`,
+`cone_rows_start`, `erase_slot`, `art_base`/`floor_ptr`) needed to change:
+they already reference `RoomArt`/`CamCfg`/`ConeStep` purely through
+indexed addressing or pointer vars, so repointing the labels at RAM
+addresses populated at runtime is transparent to that code. `load_room_art`
+itself changed from a resident-to-resident copy into a `disk_read` call
+that picks `disk_sector`/`disk_count` from the room-indexed `ChunkTable`
+offset and reads into `RoomArtBuf`; the `art_base`/`floor_ptr` 880-byte
+pointer arithmetic and the TermScreen copy loop are unchanged, just
+re-sourced from `RoomArtBuf`.
+
+Net effect: resident free space grew from 3409 to 6356 bytes (a build
+right before this change, with a3e.2/a3e.4 already applied, had 3409
+free; after moving RoomArt/CamCfg/ConeStep off the binary it's 6356),
+freeing roughly the ~2880 (room art) + 48 (CamCfg) + 160 (ConeStep) bytes
+that moved to disk, minus the small amount of new `load_room_art`/
+`load_level_assets` code and the 20 extra `ChunkTable` bytes now resident
+for the two new chunk entries. Verified: build succeeds (6356 free
+bytes), `tests/test_disk_chunks.py` confirms all five chunks' on-disk
+bytes and checksums match the corresponding slices of
+`assets/level-rooms.pic`/`level-cams.bin`/`cone-step.bin` byte-for-byte,
+full test suite passes, and the emulator boots straight into level 1
+with room 0's art, HUD and camera cone rendering identically to before
+the change; moving the cat right showed the camera cone tracking
+correctly against the disk-streamed `ConeStep` data (confirming
+`load_level_assets` populated it correctly, not just `load_room_art`'s
+room-0 chunk).

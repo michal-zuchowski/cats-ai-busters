@@ -244,13 +244,21 @@ data MsgEnding { // 36 bytes: 'PHASE 02 DELAYED. AGENCY UNDETECTED.'
   52 37 36 14
 }
 
-data CamCfg { binary "assets/level-cams.bin" }	// 3 rooms x 2 slots x 8 bytes
-data ConeStep { binary "assets/cone-step.bin" }	// d=-40..39: lo[80], hi[80]
+// CamCfg/ConeStep/RoomArt now live on disk (a3e.3) and are streamed into
+// RAM: RoomArtBuf/CamCfg/ConeStep share the intro's unused 4K ZoomBuf
+// scratch (dead once gameplay starts), each at a fixed offset so a
+// per-room RoomArtBuf reload (load_room_art) never disturbs the
+// once-per-level CamCfg/ConeStep loads (load_level_assets).
+var RoomArtBuf = 0xA000		// = ZoomBuf; current room's 960-byte clean tiles
+var CamCfg = 0xA400		// 3 rooms x 2 slots x 8 bytes (48 bytes)
+var ConeStep = 0xA480		// d=-40..39: lo[80], hi[80] (160 bytes)
 
-// Disk chunk table (a3e.2): one 5-byte entry per chunk appended to the ATR
-// after the resident program -- word start_sector, word sector_count, byte
-// checksum. tools/make_atr.py emits this; chunk 0 is a proof-of-concept
-// on-disk copy of level-cams.bin, read by disk_selftest below.
+// Disk chunk table (a3e.2/a3e.3): one 5-byte entry per chunk appended to
+// the ATR after the resident program -- word start_sector, word
+// sector_count, byte checksum. tools/make_atr.py emits this; chunks are,
+// in order: room0/room1/room2 art (level-rooms.pic, 960 bytes each),
+// CamCfg (level-cams.bin), ConeStep (cone-step.bin). disk_selftest below
+// verifies chunk 0 (room0 art) as a real, load-bearing smoke test.
 data ChunkTable { binary "assets/disk-chunks.bin" }
 
 data MsgDiskOk { // 'DISK OK'
@@ -264,7 +272,6 @@ data CatSprites { // 28 frames x 128 bytes, see tools/make_cat_sprite.py
   align 256
   binary "assets/cat-sprites.bin"
 }
-data RoomArt { binary "assets/level-rooms.pic" }
 
 // The panorama is 256x96; the visible window is 160 pixels (40 bytes) wide.
 data RevealImg { // 64 bytes x 96 rows, two scanlines per row
@@ -2191,21 +2198,34 @@ naked music_vbi_imm {			// hooked into VVBLKI (immediate stage): unlike VVBLKD,
   goto (old_vviblki)
 }
 
-func load_room_art {
-  art_ptr=a=&<RoomArt
-  art_ptr+1=a=&>RoomArt
+func load_room_art {			// streams cur_room's 960-byte art (ChunkTable[cur_room]) into
+					// RoomArtBuf (a3e.3), then paints it onto TermScreen as before
+  disk_sector=a=ChunkTable
+  disk_sector+1=a=ChunkTable+1
+  disk_count=a=ChunkTable+2
+  disk_count+1=a=ChunkTable+3
   a=cur_room
   a?1
   == {
-    art_ptr=a=&<RoomArt+960
-    art_ptr+1=a=&>RoomArt+960
+    disk_sector=a=ChunkTable+5
+    disk_sector+1=a=ChunkTable+6
+    disk_count=a=ChunkTable+7
+    disk_count+1=a=ChunkTable+8
   }
   a=cur_room
   a?2
   == {
-    art_ptr=a=&<RoomArt+1920
-    art_ptr+1=a=&>RoomArt+1920
+    disk_sector=a=ChunkTable+10
+    disk_sector+1=a=ChunkTable+11
+    disk_count=a=ChunkTable+12
+    disk_count+1=a=ChunkTable+13
   }
+  disk_dest=a=&<RoomArtBuf
+  disk_dest+1=a=&>RoomArtBuf
+  call disk_read
+
+  art_ptr=a=&<RoomArtBuf
+  art_ptr+1=a=&>RoomArtBuf
   a=art_ptr
   art_base=a
   c- a+0x70
@@ -2560,9 +2580,29 @@ func disk_selftest {
   wait_frames
 }
 
+func load_level_assets {		// CamCfg/ConeStep (a3e.3): shared by all 3 rooms, loaded
+					// once per level rather than reloaded on every room entry
+  disk_sector=a=ChunkTable+15
+  disk_sector+1=a=ChunkTable+16
+  disk_count=a=ChunkTable+17
+  disk_count+1=a=ChunkTable+18
+  disk_dest=a=&<CamCfg
+  disk_dest+1=a=&>CamCfg
+  call disk_read
+
+  disk_sector=a=ChunkTable+20
+  disk_sector+1=a=ChunkTable+21
+  disk_count=a=ChunkTable+22
+  disk_count+1=a=ChunkTable+23
+  disk_dest=a=&<ConeStep
+  disk_dest+1=a=&>ConeStep
+  call disk_read
+}
+
 func init_gameplay {
   switch_to_term
   disk_selftest
+  load_level_assets
   COLOR0=a=0x0A				// light steel: highlights and HUD text
   COLOR1=a=0x82				// dark blue steel racks
   COLOR2=a=0x26				// rust cables

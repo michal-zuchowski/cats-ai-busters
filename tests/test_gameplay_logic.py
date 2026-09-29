@@ -179,7 +179,8 @@ enter_room = body("enter_room")
 assert "redraw_zone" in enter_room and "repaint_current" in body("redraw_zone")
 assert enter_room.index("load_room_art") < enter_room.index("load_cams")
 loader = body("load_room_art")
-assert "&<RoomArt+960" in loader and "&<RoomArt+1920" in loader
+assert "a=ChunkTable+5" in loader and "a=ChunkTable+10" in loader  # a3e.3: per-room disk chunk
+assert "call disk_read" in loader and "&<RoomArtBuf" in loader
 assert "cur_room--" in body("read_and_move")
 assert "cur_room++" in body("read_and_move")
 
