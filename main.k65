@@ -69,6 +69,15 @@ var bass_vol = 0xC4
 var drum_type = 0xC5		// 0 none, 1 kick, 2 snare, 3 hat
 var drum_t = 0xC6		// frame of the drum's 8-frame table
 
+// -------------------------- Disk I/O (no DOS) --------------------------
+// disk_read params: caller sets these three, then `call disk_read`. Free
+// zero-page bytes right after drum_t; nothing else is alive while loading.
+var disk_sector[2] = 0xC7	// starting sector number (low, high)
+var disk_count[2] = 0xC9	// sectors to read; destroyed by disk_read
+var disk_dest[2] = 0xCB	// destination address; DBUFLO/DBUFHI track it live
+var disk_chk = 0xCD		// disk_selftest: running checksum accumulator
+var disk_ptr[2] = 0xCE		// disk_selftest: read-back pointer while checksumming
+
 var level_finished = 0xB4	// 1 once the ending has played; freezes game_frame
 var entry_col = 0xB5		// player_x to enter the destination room at
 var msg_src[2] = 0xB6		// HUD string read pointer (low, high)
@@ -234,6 +243,20 @@ data MsgEnding { // 36 bytes: 'PHASE 02 DELAYED. AGENCY UNDETECTED.'
 
 data CamCfg { binary "assets/level-cams.bin" }	// 3 rooms x 2 slots x 8 bytes
 data ConeStep { binary "assets/cone-step.bin" }	// d=-40..39: lo[80], hi[80]
+
+// Disk chunk table (a3e.2): one 5-byte entry per chunk appended to the ATR
+// after the resident program -- word start_sector, word sector_count, byte
+// checksum. tools/make_atr.py emits this; chunk 0 is a proof-of-concept
+// on-disk copy of level-cams.bin, read by disk_selftest below.
+data ChunkTable { binary "assets/disk-chunks.bin" }
+
+data MsgDiskOk { // 'DISK OK'
+  36 41 51 43 0 47 43
+}
+data MsgDiskErr { // 'DISKERR'
+  36 41 51 43 37 50 50
+}
+
 data CatSprites { // 28 frames x 128 bytes, see tools/make_cat_sprite.py
   align 256
   binary "assets/cat-sprites.bin"
@@ -2425,8 +2448,101 @@ func game_frame {
   }
 }
 
+// Reads disk_count sectors starting at disk_sector into disk_dest via SIOV
+// (params in zero page; see the disk_* vars above). SIO drives POKEY ch3/ch4
+// as its baud clock and needs a clean AUDCTL, so channels 3/4 are silenced
+// and AUDCTL is zeroed for the transfer; callers get AUDCTL back at 0x50
+// (ch1 at 1.79MHz, ch1+2 joined for the 16-bit lead -- see init_gameplay).
+// a3e.4 will keep the lead itself audible during the read.
+func disk_read {
+  AUDC3=a=0
+  AUDC4=a=0
+  AUDCTL=a=0
+
+  a=disk_dest DBUFLO=a
+  a=disk_dest+1 DBUFHI=a
+  a=disk_sector DAUX1=a
+  a=disk_sector+1 DAUX2=a
+
+  {
+    DDEVIC=a=0x31			// disk drive 1
+    DUNIT=a=1
+    DCOMND=a=0x52			// 'R' read sector
+    DSTATS=a=0x40			// peripheral -> memory
+    DTIMLO=a=0x0F
+    DBYTLO=a=128
+    DBYTHI=a=0
+    call SIOV
+
+    a=DBUFLO
+    c- a+128
+    DBUFLO=a
+    c+? { DBUFHI++ }
+
+    DAUX1++
+    z+? { DAUX2++ }
+
+    a=disk_count
+    z+? { disk_count+1-- }
+    disk_count--
+    a=disk_count
+    a|disk_count+1
+  } !=
+
+  AUDCTL=a=0x50
+}
+
+// Proof-of-concept for a3e.2: loads ChunkTable's chunk 0 (a disk copy of
+// level-cams.bin) into the unused intro ZoomBuf scratch, checksums it, and
+// flashes "DISK OK"/"DISKERR" on the term screen for 90 frames before
+// gameplay starts. Never touches any resident gameplay state.
+func disk_selftest {
+  disk_sector=a=ChunkTable
+  disk_sector+1=a=ChunkTable+1
+  disk_count=a=ChunkTable+2
+  disk_count+1=a=ChunkTable+3
+  disk_dest=a=&<ZoomBuf
+  disk_dest+1=a=&>ZoomBuf
+  call disk_read
+
+  disk_chk=a=0
+  disk_ptr=a=&<ZoomBuf
+  disk_ptr+1=a=&>ZoomBuf
+  x=ChunkTable+2
+  {
+    y=0
+    {
+      a=(disk_ptr),y
+      c- a+disk_chk
+      disk_chk=a
+      y++
+      y?128
+    } !=
+    a=disk_ptr
+    c- a+128
+    disk_ptr=a
+    c+? { disk_ptr+1++ }
+    x--
+    x?0
+  } !=
+
+  msg_src=a=&<MsgDiskErr
+  msg_src+1=a=&>MsgDiskErr
+  a=disk_chk
+  c+ a-ChunkTable+4
+  == {
+    msg_src=a=&<MsgDiskOk
+    msg_src+1=a=&>MsgDiskOk
+  }
+  clear_term_screen
+  hud_label
+  x=90
+  wait_frames
+}
+
 func init_gameplay {
   switch_to_term
+  disk_selftest
   COLOR0=a=0x0A				// light steel: highlights and HUD text
   COLOR1=a=0x82				// dark blue steel racks
   COLOR2=a=0x26				// rust cables

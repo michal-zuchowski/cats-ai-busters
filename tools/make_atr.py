@@ -14,8 +14,12 @@ payload sectors directly to $1000 and finally JMPs there (the XEX's RUNAD
 segment always points at $1000, a `JMP main`, so we don't need to load or
 honor RUNAD at runtime -- see doc/tech/gameplay.md).
 
-cats-ai-busters-a3e.2 will extend this to also lay out extra data chunks
-(assets/disk-chunks.bin) for the resident disk_read routine.
+After the resident program's sectors, extra named "chunks" are appended
+(currently one proof-of-concept chunk, a copy of assets/level-cams.bin);
+assets/disk-chunks.bin records, per chunk, a 5-byte entry:
+  word start_sector, word sector_count, byte checksum (sum of the padded
+  on-disk bytes, mod 256). main.k65's `disk_read` func + `disk_selftest`
+  reads chunk 0 with SIOV and checks the checksum -- see doc/tech/gameplay.md.
 """
 import struct
 import sys
@@ -24,6 +28,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 XEX_PATH = ROOT / "out" / "cats-ai-busters.xex"
 ATR_PATH = ROOT / "out" / "cats-ai-busters.atr"
+CHUNKS_PATH = ROOT / "assets" / "disk-chunks.bin"
+# Proof-of-concept extra chunks appended after the resident program. Each is
+# (name, source file); a3e.3 will replace/extend this with real level assets.
+EXTRA_CHUNKS = [
+    ("level-cams-test", ROOT / "assets" / "level-cams.bin"),
+]
 
 SECTOR_SIZE = 128
 TOTAL_SECTORS = 720          # 90K single-density disk
@@ -191,12 +201,10 @@ def parse_xex_main_segment(xex_bytes):
     raise SystemExit("no segment starting at 0x%04X found in %s" % (PAYLOAD_ADDR, XEX_PATH))
 
 
-def build_atr(payload):
+def build_atr(payload, extra_chunks):
     padded_len = -(-len(payload) // SECTOR_SIZE) * SECTOR_SIZE
     payload = payload + b"\x00" * (padded_len - len(payload))
     sector_count = padded_len // SECTOR_SIZE
-    if FIRST_DATA_SECTOR + sector_count - 1 > TOTAL_SECTORS:
-        raise SystemExit("payload does not fit on a 90K disk")
 
     code_origin = BLDADR + 6
     code = assemble_loader(FIRST_DATA_SECTOR, sector_count, code_origin)
@@ -216,12 +224,27 @@ def build_atr(payload):
     for n in range(sector_count):
         sectors[FIRST_DATA_SECTOR - 1 + n] = payload[n * SECTOR_SIZE:(n + 1) * SECTOR_SIZE]
 
+    chunk_table = bytearray()
+    next_sector = FIRST_DATA_SECTOR + sector_count
+    for name, path in extra_chunks:
+        data = path.read_bytes()
+        padded = -(-len(data) // SECTOR_SIZE) * SECTOR_SIZE
+        data = data + b"\x00" * (padded - len(data))
+        count = padded // SECTOR_SIZE
+        if next_sector + count - 1 > TOTAL_SECTORS:
+            raise SystemExit("chunk %r does not fit on a 90K disk" % name)
+        for n in range(count):
+            sectors[next_sector - 1 + n] = data[n * SECTOR_SIZE:(n + 1) * SECTOR_SIZE]
+        checksum = sum(data) & 0xFF
+        chunk_table += struct.pack("<HHB", next_sector, count, checksum)
+        next_sector += count
+
     body = b"".join(sectors)
     paragraphs = len(body) // 16
     header = struct.pack(
         "<HHHH", 0x0296, paragraphs & 0xFFFF, SECTOR_SIZE, paragraphs >> 16
     ) + b"\x00" * 8
-    return header + body, sector_count
+    return header + body, sector_count, bytes(chunk_table)
 
 
 def main():
@@ -229,11 +252,12 @@ def main():
         raise SystemExit("missing %s; build main.k65proj first" % XEX_PATH)
     xex = XEX_PATH.read_bytes()
     payload = parse_xex_main_segment(xex)
-    atr, sector_count = build_atr(payload)
+    atr, sector_count, chunk_table = build_atr(payload, EXTRA_CHUNKS)
     ATR_PATH.parent.mkdir(parents=True, exist_ok=True)
     ATR_PATH.write_bytes(atr)
-    print("wrote %s (%d bytes, %d payload sectors from sector %d)"
-          % (ATR_PATH, len(atr), sector_count, FIRST_DATA_SECTOR))
+    CHUNKS_PATH.write_bytes(chunk_table)
+    print("wrote %s (%d bytes, %d payload sectors from sector %d, %d extra chunk(s))"
+          % (ATR_PATH, len(atr), sector_count, FIRST_DATA_SECTOR, len(EXTRA_CHUNKS)))
 
 
 if __name__ == "__main__":

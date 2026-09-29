@@ -205,6 +205,25 @@ var PBCTL	= 0xD303;
 
 
 
+// ================================ SIO (disk I/O, no DOS) ================================
+// Fixed OS RAM/ROM locations, always present without DOS: the Device Control
+// Block SIOV reads its parameters from, and SIOV itself.
+
+var DDEVIC	= 0x0300;		// xxxx xxxx	Device ID ($31 = disk drive 1..4, + DUNIT-1)
+var DUNIT	= 0x0301;		// xxxx xxxx	Device unit (1-based)
+var DCOMND	= 0x0302;		// xxxx xxxx	Command ($52 = 'R' read sector, $50 = 'W' write)
+var DSTATS	= 0x0303;		// xxxx xxxx	Transfer direction ($40 read, $80 write)
+var DBUFLO	= 0x0304;		// xxxx xxxx	Data buffer address, low byte
+var DBUFHI	= 0x0305;		// xxxx xxxx	Data buffer address, high byte
+var DTIMLO	= 0x0306;		// xxxx xxxx	Device timeout, seconds
+var DBYTLO	= 0x0308;		// xxxx xxxx	Byte count, low byte (128 per SD sector)
+var DBYTHI	= 0x0309;		// xxxx xxxx	Byte count, high byte
+var DAUX1	= 0x030A;		// xxxx xxxx	Sector number, low byte
+var DAUX2	= 0x030B;		// xxxx xxxx	Sector number, high byte
+var SIOV	= 0xE459;		// OS serial I/O vector (JSR here to run the DCB above)
+
+
+
 // ================================ Vectors ================================
 
 var NMIADL	= 0xFFFA;

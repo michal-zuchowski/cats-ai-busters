@@ -237,3 +237,48 @@ that starts at `-lowAddr` (0x1000 — the resident program), and writes:
 Atari800MacX (no more raw `.xex` launches). `tests/test_atr.py` re-parses
 the ATR and asserts the header, boot sector fields, and that the sector
 payload matches the XEX segment byte-for-byte.
+
+### Resident `disk_read` and the chunk table
+
+`tools/make_atr.py` also appends an `EXTRA_CHUNKS` list of files after the
+resident payload's sectors, and writes `assets/disk-chunks.bin`: one 5-byte
+entry per chunk (`<HHB>` = start sector, sector count, checksum — the sum
+of the chunk's padded on-disk bytes mod 256). `main.k65` includes this as
+`data ChunkTable { binary "assets/disk-chunks.bin" }`, so, like the other
+generated `assets/*.bin` files (`cat-sprites.bin`, `level-cams.bin`, ...),
+it's committed to git rather than built on the fly — a missing or stale
+`assets/disk-chunks.bin` makes the K65 compiler abort silently on that
+`data` line (see the gotcha below). Re-run `python3 tools/make_atr.py`
+and commit the result whenever `EXTRA_CHUNKS` changes. `tools/run.sh`
+builds the XEX, then re-runs `make_atr.py` (refreshing the chunk table
+and building the ATR from the new XEX in one pass) before launching the
+emulator.
+
+`func disk_read` (params in the zero-page `disk_*` vars, `0xC7-0xCF`, right
+after the audio vars) reads `disk_count` sectors starting at `disk_sector`
+into `disk_dest` via `SIOV`, incrementing the DCB's buffer pointer and
+sector number after each sector. Since SIO drives POKEY channels 3/4 as
+its baud-rate clock, `disk_read` silences `AUDC3`/`AUDC4` and zeroes
+`AUDCTL` for the transfer, then restores `AUDCTL=0x50` (ch1 at 1.79 MHz,
+ch1+2 joined for the 16-bit lead) afterward — the bass/drum channels go
+quiet for the read's duration; a3e.4 covers keeping the lead audible
+through a real level-data load.
+
+`func disk_selftest` is a proof-of-concept exerciser: it reads chunk 0 of
+`ChunkTable` (a disk copy of `assets/level-cams.bin`) into the intro's
+unused `ZoomBuf` scratch (`$A000`, dead once gameplay starts), recomputes
+the same checksum `make_atr.py` stored for that chunk, and flashes
+`MsgDiskOk`/`MsgDiskErr` on the term screen for 90 frames via
+`clear_term_screen`/`hud_label`/`wait_frames`. `init_gameplay` calls it
+right after `switch_to_term`, before any HUD/room state is set up, so it
+never touches live gameplay memory. Verified in the emulator with the
+flash duration temporarily lengthened: `DISK OK` renders correctly before
+level 1 starts.
+
+**Gotcha**: an absent/stale `assets/disk-chunks.bin` at K65 compile time
+(e.g. running the compiler directly without first running
+`tools/make_atr.py`) causes a *silent* compiler abort (`Abort trap: 6`,
+exit 134, no diagnostic) on the `data ChunkTable { binary ... }` line —
+this looks identical to the classic "forward bare-call" abort, so if a
+build aborts silently after adding a new `binary`-included data block,
+check that the referenced file actually exists first.
