@@ -41,8 +41,8 @@ unclassified disturbance.
 
 **Ending:** A human technician glances at the restored status lights,
 shrugs, and carries on. CATCOM reports `PHASE 02 DELAYED. AGENCY UNDETECTED.`
-The AI still believes it is competing only with humans. Cut to black; no
-second level is specified here.
+The AI still believes it is competing only with humans. Cut to black; the
+route continues in the proposed [Level 02 — The Vertical Route](level-02.md).
 
 The first playable milestone is one complete run from the corridor to the
 hatch, including camera detection, reset, switch, relay action and ending.
