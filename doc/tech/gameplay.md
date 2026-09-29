@@ -213,3 +213,27 @@ branches exist), asserts every `redraw_zone` call site is immediately
 followed by `draw_player`, asserts `room2_lit` special-cases columns 33/38
 the same way `paint_col_room2` does, and asserts post-alert objective
 restoration.
+
+## Disk boot (no DOS)
+
+`tools/make_atr.py` builds `out/cats-ai-busters.atr`, a 90K single-density
+image (720 × 128-byte sectors) that boots straight into the game without
+any DOS. It parses `out/cats-ai-busters.xex`, pulls out the one segment
+that starts at `-lowAddr` (0x1000 — the resident program), and writes:
+
+- **Sector 1**: the standard Atari cold-boot header (`BFLAG=0`, `BRCNT=1`,
+  `BLDADR=$0700`, `BINITAD=$0706`) followed by a ~110-byte hand-assembled
+  6502 loader. The loader only needs one boot sector, so the OS's own
+  cold-start code loads it in one shot. It repeatedly pokes the DCB
+  (`$0300-$030B`, `DDEVIC=$31`, `DCOMND='R'`) and calls `SIOV` ($E459,
+  always resident in OS ROM, no DOS required) to read the payload sectors
+  straight to `$1000`, then `JMP $1000`.
+- **Sectors 2..N**: the resident program's bytes verbatim, zero-padded to a
+  sector boundary. The loader never parses or honors the XEX's `RUNAD`
+  segment (always `$1000`, a `JMP main`) — since the entry address is
+  static, the loader just jumps there directly once every sector is in.
+
+`tools/run.sh` builds the XEX, then the ATR, then opens the `.atr` in
+Atari800MacX (no more raw `.xex` launches). `tests/test_atr.py` re-parses
+the ATR and asserts the header, boot sector fields, and that the sector
+payload matches the XEX segment byte-for-byte.

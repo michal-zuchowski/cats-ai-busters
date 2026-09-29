@@ -7,6 +7,7 @@ K65=${K65:-$(ls -t "$HOME"/Library/Caches/JetBrains/*/k65-intellij/*/out/k65.exe
 [ -x "$K65" ] || { echo "k65 compiler not found; set K65=/path/to/k65.exe" >&2; exit 1; }
 "$K65" @main.k65proj
 git checkout -q -- test_raw.sym 2>/dev/null || true
+python3 tools/make_atr.py
 osascript -e 'quit app "Atari800MacX"' 2>/dev/null || true
 sleep 1
-open -a Atari800MacX out/cats-ai-busters.xex
+open -a Atari800MacX out/cats-ai-busters.atr
