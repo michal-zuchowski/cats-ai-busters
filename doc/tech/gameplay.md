@@ -148,7 +148,10 @@ message remains visible after the initial display and after an alert.
 - **Sound**: a looping original spy-funk theme (`tools/make_music.py` →
   `assets/music.bin`, D minor, 4/4, 16 bars with a bridge and a drum fill
   every 4th bar, 16th = 5 frames), all short plucks, driven from the
-  deferred VBI (`music_vbi`) so the tempo never drags on slow frames.
+  immediate VBI (`music_vbi_imm`, hooked into `VVBLKI` and chained to the
+  saved OS vector) so the tempo never drags on slow frames *and* keeps
+  running while `disk_read` (a3e.2) has SIO set `CRITIC` and skip the
+  deferred stage -- see "Disk loads and music" below.
   8-bit 64 kHz pure tones are out of tune above C4, so the lead uses
   channels 1+2 joined as a 16-bit 1.79 MHz voice (AUDCTL `$50`); the bass
   stays 8-bit on channel 3 (C3–A3 are within 3 cents); channel 4 plays the
@@ -261,8 +264,9 @@ sector number after each sector. Since SIO drives POKEY channels 3/4 as
 its baud-rate clock, `disk_read` silences `AUDC3`/`AUDC4` and zeroes
 `AUDCTL` for the transfer, then restores `AUDCTL=0x50` (ch1 at 1.79 MHz,
 ch1+2 joined for the 16-bit lead) afterward — the bass/drum channels go
-quiet for the read's duration; a3e.4 covers keeping the lead audible
-through a real level-data load.
+quiet for the read's duration; the lead itself stays audible throughout,
+and `disk_busy` (see "Disk loads and music" below) keeps `tick_music`
+from fighting SIO for `AUDF3`/`AUDC3`/`AUDF4`/`AUDC4`.
 
 `func disk_selftest` is a proof-of-concept exerciser: it reads chunk 0 of
 `ChunkTable` (a disk copy of `assets/level-cams.bin`) into the intro's
@@ -274,6 +278,43 @@ right after `switch_to_term`, before any HUD/room state is set up, so it
 never touches live gameplay memory. Verified in the emulator with the
 flash duration temporarily lengthened: `DISK OK` renders correctly before
 level 1 starts.
+
+### Disk loads and music (a3e.4)
+
+The OS's vertical blank interrupt has two stages: an *immediate* stage
+(always runs, updates `RTCLOK` etc., entered via `VVBLKI`) and a
+*deferred* stage (entered via `VVBLKD`, but skipped whenever `CRITIC` is
+set — which SIO does for the duration of a transfer). The music tick used
+to live in the deferred stage (`music_vbi`, exiting via `XITVBV`), so a
+multi-sector `disk_read` would silently pause the whole band for the
+transfer's length.
+
+`music_vbi_imm` now hooks `VVBLKI` instead: `init_gameplay` saves the OS's
+existing immediate-stage vector into `old_vviblki`, installs
+`music_vbi_imm`, and `music_vbi_imm` ends with `goto (old_vviblki)` — an
+indirect jump, not `XITVBV` — chaining into the original handler so
+`RTCLOK` and the OS's own stage-2 dispatch still happen exactly as before.
+This is safe without extra register saves because the OS's NMI entry
+already pushes A/X/Y before reaching `VVBLKI`, the same convention
+`music_vbi`'s `XITVBV` exit already relied on.
+
+Since `disk_read` drives POKEY channels 3/4 as SIO's baud-rate clock, the
+now-always-running `tick_audio`/`tick_music` must not fight it for those
+registers mid-transfer. `disk_read` sets `disk_busy=1` before muting
+`AUDC3`/`AUDC4`/`AUDCTL` and clears it back to 0 only after `AUDCTL` is
+restored to `$50`. `tick_music` checks `disk_busy` right after updating
+the lead (`AUDC2`, ch1+2 — untouched by SIO, so it keeps sounding through
+the whole load) and returns before touching `AUDF3`/`AUDC3`/`AUDF4`/
+`AUDC4` while busy; `music_step`'s bass-note writes go through a
+`bass_freq` scratch var instead of `AUDF3` directly, so a note picked
+mid-load is queued and applied on the first `tick_music` after the load
+clears, rather than lost or written unsafely during it. Net effect: only
+the 16-bit lead is audible during a load (bass/drums stay silent, as
+`disk_read` already left them), and the full band resumes on the next
+tick once `disk_busy` clears — matching a3e.4's acceptance criteria.
+Verified: build succeeds, full test suite passes, and the emulator boots
+and plays level 1 normally (camera sweep, HUD, movement) with the new
+`VVBLKI` hook installed and no hang/crash over 30+ seconds of run time.
 
 **Gotcha**: an absent/stale `assets/disk-chunks.bin` at K65 compile time
 (e.g. running the compiler directly without first running

@@ -246,6 +246,9 @@ var SDLSTL	= 0x0230;		// xxxx xxxx	Shadow for DLISTL (display list pointer, low 
 var SDLSTH	= 0x0231;		// xxxx xxxx	Shadow for DLISTH (display list pointer, high byte)
 var CHBAS	= 0x02F4;		// xxxx xx?0	OS shadow for CHBASE
 var VVBLKD	= 0x0224;		// xxxx xxxx	Deferred VBI vector (exit via XITVBV)
+var VVBLKI	= 0x0222;		// xxxx xxxx	Immediate VBI vector; always runs (even while SIO sets
+					// CRITIC and skips stage 2/VVBLKD). A/X/Y are already pushed by
+					// the OS's NMI entry; chain onward via `goto (old_vector)`.
 var XITVBV	= 0xE462;		// OS VBI exit
 var VDSLST	= 0x0200;		// xxxx xxxx	Display-list interrupt vector
 var PCOLR0	= 0x02C0;		// cccc llll	Shadow for COLPM0

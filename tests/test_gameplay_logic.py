@@ -211,8 +211,8 @@ for k in set(music[:256]) - {0, 1}:  # every lead note in tune within 2 cents
 assert set(music[256:272]) <= {0, 1, 2} and set(music[272:304]) <= {0, 1, 2, 3}
 assert "a&127" not in body("music_step") and "Music+400,x" in body("tick_music")  # 256-step song
 assert "sfx_timer" in body("tick_music") and "AUDC4" in body("sfx_alert")  # drums yield to SFX
-assert "tick_audio" in body("music_vbi") and "tick_audio" not in body("game_frame")  # steady tempo
-assert "VVBLKD" in body("init_gameplay")
+assert "tick_audio" in body("music_vbi_imm") and "tick_audio" not in body("game_frame")  # steady tempo
+assert "VVBLKI" in body("init_gameplay")
 assert "tick_music" in body("tick_audio") and "AUDC3=a=0" in body("level_ending")
 print("test_gameplay_logic.py: all checks passed")
 

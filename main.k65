@@ -77,6 +77,9 @@ var disk_count[2] = 0xC9	// sectors to read; destroyed by disk_read
 var disk_dest[2] = 0xCB	// destination address; DBUFLO/DBUFHI track it live
 var disk_chk = 0xCD		// disk_selftest: running checksum accumulator
 var disk_ptr[2] = 0xCE		// disk_selftest: read-back pointer while checksumming
+var disk_busy = 0xD0		// 1 while disk_read owns ch3/ch4; tick_music mutes around it
+var old_vviblki[2] = 0xD1	// saved OS VVBLKI, chained from music_vbi_imm
+var bass_freq = 0xD3		// note picked by music_step, applied to AUDF3 once disk_busy clears
 
 var level_finished = 0xB4	// 1 once the ending has played; freezes game_frame
 var entry_col = 0xB5		// player_x to enter the destination room at
@@ -2078,7 +2081,11 @@ func tick_audio {
     sfx_timer--
     a=sfx_timer
     a?0
-    == { AUDC4=a=0 }
+    == {
+      a=disk_busy			// ch4 is disk_read's during a load; don't re-arm it
+      a?0
+      == { AUDC4=a=0 }
+    }
   }
   call tick_music
 }
@@ -2123,10 +2130,10 @@ func music_step {
   x=a
   a=Music+256,x				// bass: 1 root, 2 octave up
   a?1
-  == { a=Music+304,y AUDF3=a bass_vol=a=12 }
+  == { a=Music+304,y bass_freq=a bass_vol=a=12 }
   a=Music+256,x
   a?2
-  == { a=Music+320,y AUDF3=a bass_vol=a=12 }
+  == { a=Music+320,y bass_freq=a bass_vol=a=12 }
   mus_step++				// wraps at 256 = 16 bars
 }
 
@@ -2144,7 +2151,14 @@ func tick_music {
   }
   a=lead_vol
   a|0xA0
-  AUDC2=a				// the joined pair's volume lives in AUDC2
+  AUDC2=a				// the joined pair's volume lives in AUDC2; SIO never
+					// touches ch1/2, so the lead keeps sounding through a
+					// disk_read unattended (a3e.4).
+  a=disk_busy				// ch3/ch4 are disk_read's baud clock during a load:
+  a?0				// bass/drums stay muted (as disk_read already left them)
+  != { return }			// until the load clears, then resume from queued state
+  a=bass_freq
+  AUDF3=a
   a=bass_vol
   a?0
   != { bass_vol-- }
@@ -2166,11 +2180,15 @@ func tick_music {
   != { drum_t++ }
 }
 
-naked music_vbi {			// deferred VBI: steady tempo however long a frame takes
+naked music_vbi_imm {			// hooked into VVBLKI (immediate stage): unlike VVBLKD,
+					// this still runs while SIO sets CRITIC and skips stage 2,
+					// so the lead (ch1+2) keeps ticking through a disk_read.
+					// Chains to the saved OS vector -- NOT XITVBV -- so RTCLOK
+					// and the OS's own stage-2 dispatch still happen.
   a=level_finished
   a?0
   == { tick_audio }
-  goto XITVBV
+  goto (old_vviblki)
 }
 
 func load_room_art {
@@ -2455,6 +2473,7 @@ func game_frame {
 // (ch1 at 1.79MHz, ch1+2 joined for the 16-bit lead -- see init_gameplay).
 // a3e.4 will keep the lead itself audible during the read.
 func disk_read {
+  disk_busy=a=1				// tick_music (a3e.4) mutes ch3/ch4 while this is set
   AUDC3=a=0
   AUDC4=a=0
   AUDCTL=a=0
@@ -2490,6 +2509,7 @@ func disk_read {
   } !=
 
   AUDCTL=a=0x50
+  disk_busy=a=0
 }
 
 // Proof-of-concept for a3e.2: loads ChunkTable's chunk 0 (a disk copy of
@@ -2566,9 +2586,12 @@ func init_gameplay {
   drum_type=a=0
   AUDCTL=a=0x50				// ch1 at 1.79 MHz, ch1+ch2 joined (16-bit lead)
   AUDC1=a=0
+  disk_busy=a=0
   NMIEN=a=0x80				// no VBI while the vector is half written
-  VVBLKD=a=&<music_vbi
-  VVBLKD+1=a=&>music_vbi
+  a=VVBLKI old_vviblki=a		// save the OS's stage-1 handler, then chain to it so
+  a=VVBLKI+1 old_vviblki+1=a	// RTCLOK/stage-2 dispatch keep working (a3e.4)
+  VVBLKI=a=&<music_vbi_imm
+  VVBLKI+1=a=&>music_vbi_imm
   NMIEN=a=0xC0
   entry_col=a=0
   enter_room
