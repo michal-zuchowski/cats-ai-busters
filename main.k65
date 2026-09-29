@@ -80,6 +80,7 @@ var disk_ptr[2] = 0xCE		// disk_selftest: read-back pointer while checksumming
 var disk_busy = 0xD0		// 1 while disk_read owns ch3/ch4; tick_music mutes around it
 var old_vviblki[2] = 0xD1	// saved OS VVBLKI, chained from music_vbi_imm
 var bass_freq = 0xD3		// note picked by music_step, applied to AUDF3 once disk_busy clears
+var next_chunk_ok = 0xD4	// prefetch_next_level (a3e.5): 1 if the placeholder chunk checksummed OK
 
 var level_finished = 0xB4	// 1 once the ending has played; freezes game_frame
 var entry_col = 0xB5		// player_x to enter the destination room at
@@ -2290,7 +2291,11 @@ func level_ending {
   msg_len=a=36
   draw_row0_msg
   sfx_success
-  x=150
+  x=75
+  wait_frames
+  call prefetch_next_level		// a3e.5: load next level's data mid-ending; music
+					// keeps playing via VVBLKI (a3e.4), no stutter
+  x=75
   wait_frames
   COLOR0=a=0
   COLOR1=a=0
@@ -2532,8 +2537,8 @@ func disk_read {
   disk_busy=a=0
 }
 
-// Proof-of-concept for a3e.2: loads ChunkTable's chunk 0 (a disk copy of
-// level-cams.bin) into the unused intro ZoomBuf scratch, checksums it, and
+// Boot-time smoke test: loads ChunkTable's chunk 0 (room 0's disk-streamed
+// art, a3e.3) into the unused intro ZoomBuf scratch, checksums it, and
 // flashes "DISK OK"/"DISKERR" on the term screen for 90 frames before
 // gameplay starts. Never touches any resident gameplay state.
 func disk_selftest {
@@ -2597,6 +2602,49 @@ func load_level_assets {		// CamCfg/ConeStep (a3e.3): shared by all 3 rooms, loa
   disk_dest=a=&<ConeStep
   disk_dest+1=a=&>ConeStep
   call disk_read
+}
+
+// a3e.5: prefetches and checksums a placeholder "next level" chunk during
+// the level-ending pause, proving the continuous-loading trick (load while
+// the ending plays, no stutter) ahead of level 2 actually existing. Reuses
+// RoomArtBuf as scratch -- room art is done being read for this level by
+// the time level_ending runs. next_chunk_ok mirrors disk_selftest's
+// checksum check but isn't shown on screen; the ending's visuals/audio are
+// unaffected either way, matching this task's placeholder scope.
+func prefetch_next_level {
+  disk_sector=a=ChunkTable+25
+  disk_sector+1=a=ChunkTable+26
+  disk_count=a=ChunkTable+27
+  disk_count+1=a=ChunkTable+28
+  disk_dest=a=&<RoomArtBuf
+  disk_dest+1=a=&>RoomArtBuf
+  call disk_read
+
+  disk_chk=a=0
+  disk_ptr=a=&<RoomArtBuf
+  disk_ptr+1=a=&>RoomArtBuf
+  x=ChunkTable+27
+  {
+    y=0
+    {
+      a=(disk_ptr),y
+      c- a+disk_chk
+      disk_chk=a
+      y++
+      y?128
+    } !=
+    a=disk_ptr
+    c- a+128
+    disk_ptr=a
+    c+? { disk_ptr+1++ }
+    x--
+    x?0
+  } !=
+
+  next_chunk_ok=a=0
+  a=disk_chk
+  c+ a-ChunkTable+29
+  == { next_chunk_ok=a=1 }
 }
 
 func init_gameplay {

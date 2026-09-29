@@ -372,3 +372,42 @@ the change; moving the cat right showed the camera cone tracking
 correctly against the disk-streamed `ConeStep` data (confirming
 `load_level_assets` populated it correctly, not just `load_room_art`'s
 room-0 chunk).
+
+### Prefetching during the level ending (a3e.5)
+
+`level_ending` (fires when the cat exits room 2 at `player_x=140` with
+`relay_done` set) shows `MsgEnding`, plays `sfx_success`, then pauses for
+150 frames before fading colors/PMG/audio to black. To prove the
+continuous-loading trick works, that pause is now split in half (`x=75`
+`wait_frames` twice) around a `call prefetch_next_level`: level 2 doesn't
+exist yet, so a sixth `ChunkTable` entry (`+25`, `assets/next-level-
+placeholder.bin`, a 512-byte deterministic filler) stands in for its data.
+`prefetch_next_level` `disk_read`s it into `RoomArtBuf` (dead scratch by
+the time the level ends) and checksums it exactly like `disk_selftest`
+checksums chunk 0, storing 1/0 in `next_chunk_ok` — not shown on screen,
+since a placeholder load shouldn't change the ending's look.
+
+No new stutter risk: `disk_read` already sets `disk_busy` and mutes only
+ch3/ch4 (a3e.4), and `music_vbi_imm` already keeps ticking via `VVBLKI`
+regardless of `CRITIC`/SIO activity, so the lead keeps sounding through
+the prefetch exactly as it does through any other `disk_read` call —
+`level_ending`'s own `AUDC1..4=a=0` fade-out afterward is unaffected by
+whether the load happened first.
+
+Verified: build succeeds (6250 free bytes, down slightly from 6356 for
+`prefetch_next_level`'s code and the 6th `ChunkTable` entry's 5 resident
+bytes); `tests/test_disk_chunks.py`'s generic per-entry loop picked up
+the new chunk automatically and confirms its on-disk bytes/checksum
+match `assets/next-level-placeholder.bin`; `tests/test_gameplay_logic.py`
+gained assertions that `level_ending` calls `prefetch_next_level` between
+`sfx_success` and the color fade-out, and that `prefetch_next_level`
+reads `ChunkTable+25` and checks against `ChunkTable+29`; full test suite
+passes. The emulator boots and runs stably with the new build (process
+alive, clean audio-init log, no crash/signal), but the interactive
+session was screen-locked for this task (`CGWindowListCopyWindowInfo`
+reports `onscreen=false` for all windows) — the same environment
+limitation noted for a3e.4 — so reaching the actual level-1 ending
+in-emulator (finish room 2's relay, then exit right) to screenshot the
+pause could not be completed live; the mechanism was instead verified by
+code parity with `disk_selftest`/`load_room_art`/`load_level_assets`
+(already screenshot-verified in a3e.2/a3e.3) and by the checksum test.

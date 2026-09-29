@@ -17,11 +17,14 @@ honor RUNAD at runtime -- see doc/tech/gameplay.md).
 After the resident program's sectors, extra named "chunks" are appended:
 room 0/1/2 art (960-byte slices of assets/level-rooms.pic), CamCfg
 (assets/level-cams.bin) and ConeStep (assets/cone-step.bin) -- level 01's
-disk-streamed assets (a3e.3). assets/disk-chunks.bin records, per chunk,
-a 5-byte entry: word start_sector, word sector_count, byte checksum (sum
-of the padded on-disk bytes, mod 256). main.k65's `disk_read` func loads
-each chunk with SIOV; `disk_selftest` re-checks chunk 0's (room 0 art)
-checksum as a boot-time smoke test -- see doc/tech/gameplay.md.
+disk-streamed assets (a3e.3) -- plus a next-level-placeholder chunk
+standing in for level 2's not-yet-authored data (a3e.5). assets/disk-chunks.bin
+records, per chunk, a 5-byte entry: word start_sector, word sector_count,
+byte checksum (sum of the padded on-disk bytes, mod 256). main.k65's
+`disk_read` func loads each chunk with SIOV; `disk_selftest` re-checks
+chunk 0's (room 0 art) checksum as a boot-time smoke test, and
+`prefetch_next_level` re-checks the placeholder chunk's checksum during
+the level-ending pause -- see doc/tech/gameplay.md.
 """
 import struct
 import sys
@@ -39,6 +42,10 @@ EXTRA_CHUNKS = [
     ("room2-art", ROOT / "assets" / "level-rooms.pic", 1920, 960),
     ("cam-cfg", ROOT / "assets" / "level-cams.bin"),
     ("cone-step", ROOT / "assets" / "cone-step.bin"),
+    # a3e.5: level 2 doesn't exist yet, so this stands in for its data; the
+    # level-ending prefetch (main.k65's prefetch_next_level) reads and
+    # checksums this chunk to prove the continuous-loading trick works.
+    ("next-level-placeholder", ROOT / "assets" / "next-level-placeholder.bin"),
 ]
 
 SECTOR_SIZE = 128

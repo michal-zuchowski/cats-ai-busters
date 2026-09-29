@@ -221,3 +221,14 @@ font = (root / "assets/term-font.pic").read_bytes()
 assert font[73 * 8 + 2] == 0xAE and font[75 * 8 + 4] == 0xBA  # LED bytes blink_leds toggles
 assert "TermFont+586" in body("blink_leds") and "TermFont+604" in body("blink_leds")
 assert "blink_leds" in body("game_frame")
+
+# a3e.5: level_ending prefetches a placeholder "next level" chunk mid-pause
+# (proving loads can happen during a scripted sequence) without touching the
+# ending's audio/visual logic; prefetch_next_level checksums it the same way
+# disk_selftest checksums chunk 0.
+ending = body("level_ending")
+assert "call prefetch_next_level" in ending
+assert ending.index("sfx_success") < ending.index("call prefetch_next_level") < ending.index("COLOR0=a=0")
+prefetch = body("prefetch_next_level")
+assert "a=ChunkTable+25" in prefetch and "call disk_read" in prefetch
+assert "c+ a-ChunkTable+29" in prefetch and "next_chunk_ok=a=1" in prefetch
