@@ -10,3 +10,10 @@ Target platform: Atari XE/XL. This is a K65 language project, not C or a generic
 - Build using the K65 run configuration or manually invoke **Build K65 Project** on the project's `.k65proj`. The plugin supplies its own compiler; no local K65 checkout is needed for standalone projects.
 - The bundled compiler currently runs on macOS/Linux amd64/arm64; creating or editing a project on Windows works, but compiling there is not yet supported by this plugin.
 - K65 project lists may execute Squirrel (`$`) or shell commands (`!`). Do not execute example lists, untrusted project files, or build commands automatically during editing, indexing, or on save. Compile only after an explicit user request.
+
+## Model Usage Policy
+
+- Expensive, high-capability models (e.g. Claude Opus, GPT-*-sol class) are reserved for planning, task breakdown, delegation, supervision, code review and verification.
+- Implementation is delegated to cheaper models (e.g. Claude Sonnet, Haiku, GPT-*-mini/luna class) running as sub-agents with complete context, a bounded scope and explicit verification steps.
+- The planning model reviews every delegated diff, runs the build/tests/linters itself, and fixes only review findings directly; it does not write bulk implementation code.
+- Small, trivial edits (a few lines, docs, config) may be done directly when delegation would cost more than the change.
