@@ -34,7 +34,9 @@ def thresholds(name):
 
 
 def data_bytes(name):
-    b = body(name)
+    match = re.search(r"data " + name + r" \{([^}]*)\}", main, re.S)
+    assert match, name
+    b = match.group(1)
     b = re.sub(r"//[^\n]*", "", b)  # strip line comments (they may contain digits)
     return [int(n) for n in re.findall(r"\d+", b)]
 
@@ -99,20 +101,204 @@ for pos in redraw_call_sites:
 # 2 idle, mirrored set.  All four legs are fur (P2/P3), so the near and far
 # pairs look alike and the stride repeats after 6 drawings.
 sprites = (root / "assets/cat-sprites.bin").read_bytes()
-assert len(sprites) == 28 * 128
-frames = [sprites[i * 128:(i + 1) * 128] for i in range(28)]
+# Packed atlas: identical drawings share a physical frame; FrameMap maps logical -> physical.
+frame_map = (root / "assets/cat-frame-map.bin").read_bytes()
+assert len(frame_map) == 54 and len(sprites) == (max(frame_map) + 1) * 128
+assert len(sprites) == 40 * 128 and 'binary "assets/cat-frame-map.bin"' in main
+assert sorted(set(frame_map)) == list(range(40))
+frames = [sprites[p * 128:(p + 1) * 128] for p in frame_map]
+assert len(frames) == 54
+assert len({f for f in frames}) == 40 and len(sprites) < 50 * 128  # 14 duplicates removed
+import hashlib
+assert hashlib.sha256(b"".join(frames[:50])).hexdigest() == "015127fe60b2317ff0b6e85f8503c8a8d122624b32cfdaa93b57af2003c159b6"
+assert re.search(r"func draw_frame \{[^}]*?x=a\s*a=FrameMap,x\s*x=a", main, re.S)
 assert len(set(frames[:12])) == 6 and frames[12] != frames[13]
 assert all(f[23] | f[32 + 23] | f[22] | f[32 + 22] == 0 for f in frames[:14])  # no dark legs
 for f in frames:
     assert all(b == 0 for chunk in range(4) for b in f[chunk * 32 + 24:chunk * 32 + 32])
 assert sum(bool(f[64 + 23] | f[96 + 23]) for f in frames[:12]) >= 8
-draw = body("draw_player")
-assert all(p in draw for p in ("PmP0,y", "PmP1,y", "PmP2,y", "PmP3,y", "HPOSP0", "HPOSP3"))
-assert "a=player_x" in draw and "a?12" in draw and "c- a+14" in draw
-for base, off in (("PmP0", 0), ("PmP1", 32), ("PmP2", 64), ("PmP3", 96)):
-    addr = int(re.search(r"var " + base + r" = 0x([0-9A-F]+)", main).group(1), 16)
-    player = (addr + off - 0xBC00) // 256
-    assert (player, (addr + off) % 256) == (int(base[-1]), 184), base
+def fur_pixels(frame, row):
+    return [x for x in range(16) if frame[64 + (x // 8) * 32 + row] & (0x80 >> (x % 8))]
+
+for frame in frames[29:32]:
+    paws = [x for row in range(18, 24) for x in fur_pixels(frame, row)]
+    assert paws and min(paws) >= 1 and max(paws) <= 14
+for frame in frames[29:31]:
+    muzzle = max(x for row in range(4, 12) for x in fur_pixels(frame, row))
+    assert max(fur_pixels(frame, 12)) > muzzle
+    assert max(fur_pixels(frame, 14)) > muzzle
+    assert fur_pixels(frame, 12)[-3:] == [13, 14, 15]
+    assert fur_pixels(frame, 14)[-3:] == [13, 14, 15]
+assert any(fur_pixels(frames[30], row) != fur_pixels(frames[12], row) for row in range(10, 17))
+assert len(set(frames[28:36])) == 8
+# Fore paws touch the floor before the hind paws (frame 32).
+assert fur_pixels(frames[32], 23) and min(fur_pixels(frames[32], 23)) >= 11
+for frame in frames[31:33]:
+    hind_lowest = max(row for row in range(17, 24) if any(x < 8 for x in fur_pixels(frame, row)))
+    fore_lowest = max(row for row in range(17, 24) if any(x >= 10 for x in fur_pixels(frame, row)))
+    assert fore_lowest == 23 and hind_lowest <= 20
+assert any(x < 8 for x in fur_pixels(frames[33], 23))
+assert fur_pixels(frames[33], 23) == fur_pixels(frames[34], 23)  # planted paws do not slide
+assert frames[35] == frames[12]  # recovery joins the idle pose without a snap
+head_rows = [min(row for row in range(24) if any(x >= 10 for x in fur_pixels(frames[k], row)))
+             for k in (33, 34, 35)]
+assert head_rows[0] > head_rows[1] > head_rows[2]
+for k in range(8):
+    for row in range(24):
+        assert fur_pixels(frames[36 + k], row) == sorted(15 - x for x in fur_pixels(frames[28 + k], row))
+assert 14 in fur_pixels(frames[44], 3) and 0 in fur_pixels(frames[45], 19)
+assert 15 in fur_pixels(frames[48], 18) and {13, 14} <= set(fur_pixels(frames[48], 19))
+assert frames[44] != frames[45] and frames[44] != frames[12]
+for k in range(2):
+    for row in range(24):
+        assert fur_pixels(frames[46 + k], row) == sorted(15 - x for x in fur_pixels(frames[44 + k], row))
+for row in range(24):
+    assert fur_pixels(frames[49], row) == sorted(15 - x for x in fur_pixels(frames[48], row))
+draw = body("draw_frame")
+assert all(p in draw for p in ("PmMem,x", "PmMem+256,x", "PmMem+512,x", "PmMem+768,x", "HPOSP0", "HPOSP3"))
+dp = body("draw_player")
+assert "a=player_x" in dp and "a?12" in dp and "c- a+14" in dp
+assert "jprep--" in body("plat_input") and "jprep=a=3" in body("plat_input")
+assert "a=jprep" in dp and "a=28 jump_facing return" in dp
+assert re.search(r"a\?1\s+>= \{ a=31 \} else \{ a=30 \}", dp)
+assert "lnd=a=10" in body("plat_phys")
+assert re.search(r"a\?9\s+>= \{ a=32 \}", dp)
+assert re.search(r"a\?6\s+>= \{ a=33 \}", dp)
+assert re.search(r"a\?3\s+>= \{ a=34 \} else \{ a=35 \}", dp)
+assert re.search(r"a=lnd\s+a\?0\s+!= \{ return \}", body("plat_input"))
+assert "c- a+8" in body("jump_facing")
+assert re.search(r"a=vy\s+a\?0\s+== \{ gt=a=2 \}", body("plat_phys"))
+assert "paw_t--" in dp and "c- a+44" in dp and "c- a+2" in dp
+assert re.search(r"paw_t--\s+a=paw_t\s+a\?3\s+< \{ a=28 jump_facing return \}", dp)
+assert "a=48" in dp and "a=49" in dp and "a?7" in dp
+swat = body("swat")
+assert swat.index("paw_t=a=10") < swat.index("on_vacuum")
+assert "paw_kind=a=2" in swat  # seated: hind shove; grounded stays the forepaw swat
+assert "act_wob=" not in swat and "act_dir=" not in swat  # FIRE alone cannot frighten the vacuum
+contact = body("paw_contact")
+assert re.search(r"a=paw_t\s+a\?4\s+< \{ return \}\s+a\?8\s+>= \{ return \}", contact)
+assert "a=paw_hit" in contact and "paw_hit=a=1" in contact and "paw_hit=a" in swat
+assert re.search(r"a\?kk\s+== \{ return \}\s+\} always", contact)  # loop needs JMP, not a relative branch
+assert "a=(sp),y" in contact and "a&PixelMask,x" in contact and "a^1" in contact
+assert body("plat_frame").index("plat_actor") < body("plat_frame").index("paw_both") < body("plat_frame").index("plat_hit")
+assert "paw_contact" in body("paw_both") and body("paw_both").count("paw_contact") == 2
+tips = list(zip(data_bytes("PawX"), data_bytes("PawY")))
+assert len(tips) == 7 and data_bytes("PawK") == [0, 3, 5] and data_bytes("PawE") == [3, 5, 7]
+for frame, mirror, group in ((48, False, tips[:3]), (49, True, tips[:3]), (45, False, tips[3:5]),
+                             (47, True, tips[3:5]), (52, False, tips[5:]), (53, True, tips[5:])):
+    for x, y in group:
+        assert (15 - x if mirror else x) in fur_pixels(frames[frame], y)
+for frame in (52, 53):  # seated shove: toes on the floor row, haunch folded above them
+    assert fur_pixels(frames[frame], 23) and fur_pixels(frames[frame - 2], 23)
+    assert max(row for row in range(24) if fur_pixels(frames[frame], row)) == 23
+assert frames[50] != frames[52] and frames[51] != frames[53] and frames[50] != frames[12]
+assert fur_pixels(frames[50], 0) == [9, 12]  # seated head/ears, not the standing back and raised tail
+assert all(not any(x < 5 for x in fur_pixels(frames[50], y)) for y in range(9))
+assert all(len(fur_pixels(frames[50], y)) <= 7 for y in range(8))
+assert all(x in fur_pixels(frames[50], y) for y in range(18, 24) for x in (12,))
+assert fur_pixels(frames[50], 21) == list(range(1, 9)) + [12]
+assert fur_pixels(frames[50], 22) == list(range(9)) + [12]
+assert fur_pixels(frames[50], 23) == list(range(9)) + [11, 12, 13]  # original roof/catch footprint
+for row in range(24):
+    assert fur_pixels(frames[51], row) == sorted(15 - x for x in fur_pixels(frames[50], row))
+    assert fur_pixels(frames[53], row) == sorted(15 - x for x in fur_pixels(frames[52], row))
+font = (root / "assets/term-font.pic").read_bytes()
+actor_tiles = data_bytes("ActT")
+
+def paw_touches(px, py, facing, col=10, row=21, timer=7):
+    if not 4 <= timer < 8:
+        return False
+    for x, y in tips[:3]:
+        x = px + (15 - x if facing else x) - col * 4
+        y = py + y - (24 + row * 8)
+        if 0 <= x < 12 and 0 <= y < 16:
+            tile = actor_tiles[(y // 8) * 3 + x // 4]
+            if font[tile * 8 + y % 8] & (192 >> (2 * (x % 4))):
+                return True
+    return False
+
+assert not paw_touches(24, 184, 0) and paw_touches(25, 184, 0)  # one-pixel gap vs contact
+assert not paw_touches(52, 184, 1) and paw_touches(51, 184, 1)
+assert not paw_touches(25, 185, 0) and paw_touches(26, 185, 0)  # transparent silhouette corner
+assert not paw_touches(25, 184, 0, timer=10)  # raised paw does not hit
+assert not paw_touches(25, 184, 0, timer=3)  # recoil cannot hit
+assert not paw_touches(25, 160, 0)  # wrong height cannot hit
+def seated_touch(px, facing, bcol, timer=7):
+    # seated rider origin 171 on a row-21 carrier; pursuer dome tiles drawn with the chase lamp glyphs
+    if not 4 <= timer < 8:
+        return False
+    for x, y in tips[5:]:
+        wx = px + (15 - x if facing else x) - bcol * 4
+        wy = 171 + y - (24 + 21 * 8)
+        if 0 <= wx < 12 and 0 <= wy < 16:
+            tile = actor_tiles[6 + (wy // 8) * 3 + wx // 4]
+            if font[tile * 8 + wy % 8] & (192 >> (2 * (wx % 4))):
+                return True
+    return False
+
+assert max(y for x, y in tips[5:]) == 23  # toes reach world Y 194, the dome's first visible row
+cat_x = lambda col: col * 4 - 8  # player_col = ((x+2)//4)+2 -> col -2 gives the sprite origin
+# right-facing rider (hind paw trailing left): pursuer dome ends just behind the toes
+assert seated_touch(cat_x(20), 0, 16) and not seated_touch(cat_x(20), 0, 14)
+assert not seated_touch(cat_x(20), 0, 16, timer=3) and not seated_touch(cat_x(20), 0, 16, timer=10)
+# mirrored left-facing rider reaches a pursuer on the right only, never the one behind
+assert [b for b in range(10, 40) if seated_touch(cat_x(20), 1, b)] == [20, 21]
+assert not any(seated_touch(cat_x(20), 1, b) for b in range(10, 20))
+assert [b for b in range(10, 40) if seated_touch(cat_x(20), 0, b)] == [16, 17]
+# pursuer spacing 4 behind a carrier at col 19: reachable from cat cols 18..19, not from the far end of the roof
+assert seated_touch(cat_x(18), 0, 15) and seated_touch(cat_x(19), 0, 15) and not seated_touch(cat_x(21), 0, 15)
+brushes = (root / "assets/vacuum-brushes.bin").read_bytes()
+assert len(brushes) == 24 and len({brushes[i:i + 3] for i in range(0, 12, 3)}) == 4
+assert "TermFont+765,y=a" in body("spin_brushes") and "TermFont+1005,y=a" in body("spin_brushes")
+assert "spin_brushes" in body("plat_actor")
+assert "c- a+3" in body("vacuum_roof")
+for name in ("under", "swat", "plat_actor"):
+    assert "on_vacuum" in body(name)
+assert "vacuum_roof" in body("hit_check")
+assert "a?91" not in body("under") and "a?94" in body("under")
+assert re.search(r"player_y\+\+\s+under\s+a\?0", body("plat_phys"))
+assert body("plat_actor").index("ride=a=0") < body("plat_actor").index("a?m_aspd")
+# The paws rest on the first visible roof row, not five pixels into its dome.
+for row in (18, 21):
+    roof = row * 8 + 3
+    assert roof + 23 == 24 + row * 8 + 2
+    for speed in range(1, 6):
+        y = roof - 1
+        for _ in range(speed):
+            y += 1
+            if y == roof:
+                break
+        assert y == roof  # a non-tile-aligned roof cannot be skipped while falling
+assert re.search(r"a=act_wob,x\s+a\?0\s+!= \{ return \}", body("hit_check"))
+
+# Exit gates precede both room advancement and the level-ending hand-off.
+exit_body = body("plat_exit")
+assert re.match(r"\s*plat_exit_allowed\s+a\?0\s+== \{ return \}", re.sub(r"//[^\n]*", "", exit_body))
+assert exit_body.index("plat_exit_allowed") < exit_body.index("cur_room++")
+assert exit_body.index("plat_exit_allowed") < exit_body.index("call level_ending")
+gate = re.sub(r"//[^\n]*", "", body("plat_exit_allowed"))
+# unrestricted -> controller gate (sw_on) -> grounded -> exact exit height
+assert re.search(r"a=m_exit\s+a\?0\s+== \{ a=1 return \}\s+a=m_swy\s+a\?0\s+!= \{\s+a=sw_on\s+"
+                 r"a\?0\s+== \{ return \}\s+\}\s+a=air\s+a\?0\s+!= \{ a=0 return \}\s+"
+                 r"a=player_y\s+a\?m_exit\s+== \{ a=1 return \}\s+a=0$", gate.strip())
+
+# Metadata layout: 32 bytes copied, new fields directly after m_exit and below lift_row.
+plat_rooms = (root / "assets/plat-rooms.bin").read_bytes()
+assert len(plat_rooms) == 10 * 1024
+addr = {n: int(a, 16) for n, a in re.findall(r"var (m_\w+) = (0x[0-9A-Fa-f]+)", main)}
+assert addr["m_exit"] - addr["m_sx"] == 18
+assert [addr[n] - addr["m_sx"] for n in ("m_swy", "m_swc", "m_lpow", "m_fc1", "m_fr0", "m_fr1", "m_lspd")] \
+    == [19, 20, 21, 22, 23, 24, 25]
+assert "y?32" in body("enter_plat_room")
+assert 0x06B0 + 32 <= int(re.search(r"var lift_row = (0x[0-9A-Fa-f]+)", main).group(1), 16)
+rooms = [plat_rooms[i * 1024:(i + 1) * 1024] for i in range(10)]
+# Level 04 redesign has its own route, hazard and cinematic checks.
+import runpy
+runpy.run_path(str(root / "tests/test_level04.py"), run_name="level04")
+
+# Level 02 mechanics/route proofs on the frame model (tests/test_level02.py).
+runpy.run_path(str(root / "tests/test_level02.py"), run_name="level02")
+
 init_pmg = body("init_pmg")
 assert "PMBASE=a=0xB8" in init_pmg and "SDMCTL=a=0x3A" in init_pmg and "GRACTL=a=2" in init_pmg
 assert "init_pmg" in body("init_gameplay")
@@ -152,8 +338,8 @@ hud_strings = {
     "MsgStop": "STOP THE RELAY. STAY UNSEEN.",
     "MsgAlert": "UNRECOGNIZED DEVICE",
     "MsgRoute": "ROUTE: TEST / ISOLATED",
-    "MsgEnding": "PHASE 02 DELAYED. AGENCY UNDETECTED.",
 }
+assert '"PHASE 02 DELAYED. AGENCY UNDETECTED."' in body("Txt") and "TxtOff { 0 36" in main
 for name, text in hud_strings.items():
     assert data_bytes(name) == ascii32(text), name
     length = len(text)
@@ -179,17 +365,18 @@ enter_room = body("enter_room")
 assert "redraw_zone" in enter_room and "repaint_current" in body("redraw_zone")
 assert enter_room.index("load_room_art") < enter_room.index("load_cams")
 loader = body("load_room_art")
-assert "a=ChunkTable+5" in loader and "a=ChunkTable+10" in loader  # a3e.3: per-room disk chunk
-assert "call disk_read" in loader and "&<RoomArtBuf" in loader
+assert "call load_room_chunk" in loader and "&<RoomArtBuf" in loader  # a3e.3: per-room disk chunk
+assert "call disk_read" in body("load_room_chunk") and "a=ChunkTable,x" in body("load_room_chunk")
 assert "cur_room--" in body("read_and_move")
 assert "cur_room++" in body("read_and_move")
 
 # The gameplay hand-off must happen after cut_to_black, and level_finished
 # must gate the main loop so the ending freezes the game once it plays.
 scene = re.search(r"main \{(.*)\}\s*$", main, re.S).group(1)
-assert scene.index("init_system") < scene.index("goto intro_skip") < scene.index("build_storm_list")
+assert scene.index("init_system") < scene.index("build_storm_list") < scene.index("video_call")
+assert "goto intro_skip" not in scene[:scene.index("build_storm_list")]  # intro enabled
 tail = scene[scene.index("cut_to_black"):]
-assert tail.index("cut_to_black") < tail.index("init_gameplay") < tail.index("game_frame")
+assert tail.index("cut_to_black") < tail.index("init_gameplay") < tail.index("frame_any")
 assert "level_finished" in tail
 
 # HUD row 24 sits below the floor, recoloured by its own DLI, refreshed every frame.
@@ -204,8 +391,8 @@ assert body("draw_hud").count("fire_prompt") == 2 and "a?6" in body("draw_hud") 
 
 import math
 music = (root / "assets/music.bin").read_bytes()
-assert len(music) == 432 and 'binary "assets/music.bin"' in main
-assert "AUDCTL=a=0x50" in body("init_gameplay")  # 16-bit 1.79 MHz lead on ch1+2
+assert len(music) == 435 and 'binary "assets/music.bin"' not in main
+assert "init_audio" in body("init_gameplay") and "AUDCTL=a=0x50" in body("init_audio")
 for k in set(music[:256]) - {0, 1}:  # every lead note in tune within 2 cents
     f = 1789790 / (2 * (music[336 + k - 2] + 256 * music[352 + k - 2] + 7))
     assert abs(1200 * math.log2(f / 440) % 100 - 50) > 48, f
@@ -213,8 +400,10 @@ assert set(music[256:272]) <= {0, 1, 2} and set(music[272:304]) <= {0, 1, 2, 3}
 assert "a&127" not in body("music_step") and "Music+400,x" in body("tick_music")  # 256-step song
 assert "sfx_timer" in body("tick_music") and "AUDC4" in body("sfx_alert")  # drums yield to SFX
 assert "tick_audio" in body("music_vbi_imm") and "tick_audio" not in body("game_frame")  # steady tempo
-assert "VVBLKI" in body("init_gameplay")
-assert "tick_music" in body("tick_audio") and "AUDC3=a=0" in body("level_ending")
+assert "VVBLKI" in body("init_audio")
+audio = re.sub(r"//[^\n]*", "", body("tick_audio"))
+assert "call tick_music" in audio and "music_ready" in audio and "sfx_timer--" in audio
+assert "AUDC3=a=0" in body("level_ending")
 print("test_gameplay_logic.py: all checks passed")
 
 font = (root / "assets/term-font.pic").read_bytes()
@@ -222,13 +411,6 @@ assert font[73 * 8 + 2] == 0xAE and font[75 * 8 + 4] == 0xBA  # LED bytes blink_
 assert "TermFont+586" in body("blink_leds") and "TermFont+604" in body("blink_leds")
 assert "blink_leds" in body("game_frame")
 
-# a3e.5: level_ending prefetches a placeholder "next level" chunk mid-pause
-# (proving loads can happen during a scripted sequence) without touching the
-# ending's audio/visual logic; prefetch_next_level checksums it the same way
-# disk_selftest checksums chunk 0.
+# level_ending shows the per-level message from Txt/TxtOff (a3e.5 prefetch placeholder is gone)
 ending = body("level_ending")
-assert "call prefetch_next_level" in ending
-assert ending.index("sfx_success") < ending.index("call prefetch_next_level") < ending.index("COLOR0=a=0")
-prefetch = body("prefetch_next_level")
-assert "a=ChunkTable+25" in prefetch and "call disk_read" in prefetch
-assert "c+ a-ChunkTable+29" in prefetch and "next_chunk_ok=a=1" in prefetch
+assert "TxtOff,x" in ending and "prefetch_next_level" not in main

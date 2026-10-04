@@ -1,10 +1,11 @@
 # Level 01 — technical plan and current preview
 
 This is the implementation target for [The Blind Spot](../scenario/level-01.md).
-The first room is now a playable visual preview. `main.k65` temporarily jumps
-from hardware initialization to `intro_skip`, so the XEX starts directly in
-gameplay; remove that one `goto intro_skip` at the start of `main` to restore
-the existing intro. All three rooms use a dense Druidarium-style ANTIC 4 tile set (steel-blue
+The game plays the intro after hardware initialization, then enters Level 01;
+fire, Space or Return can skip the intro through the same gameplay handoff.
+Returning from the face close-up disables its DLI before the CATCOM
+terminal display list is shown; gameplay installs its own HUD DLI later.
+All three rooms use a dense Druidarium-style ANTIC 4 tile set (steel-blue
 racks with lit server bays, ceiling trays, a rust under-floor grille).
 Pixel colour 3 in inverse tiles is red (PF3): rack LEDs and the watched
 camera floor. `tools/make_level_art.py` produces the maps and tile glyphs;
@@ -145,9 +146,11 @@ message remains visible after the initial display and after an alert.
   avoid shipping unverified color behavior; the HUD/status row already
   satisfies "do not rely on color alone." A follow-up could add color once
   verified on real hardware/emulator.
-- **Sound**: a looping original spy-funk theme (`tools/make_music.py` →
+- **Sound**: music is enabled again in `tick_audio`, alongside sound effects
+  and PCM. The looping original spy-funk theme (`tools/make_music.py` →
   `assets/music.bin`, D minor, 4/4, 16 bars with a bridge and a drum fill
-  every 4th bar, 16th = 5 frames), all short plucks, driven from the
+  every 4th bar, 16th = 5 frames) belongs only to the title screen.
+  Four separate level scores are described below; all are driven from the
   immediate VBI (`music_vbi_imm`, hooked into `VVBLKI` and chained to the
   saved OS vector) so the tempo never drags on slow frames *and* keeps
   running while `disk_read` (a3e.2) has SIO set `CRITIC` and skip the
@@ -290,7 +293,7 @@ to live in the deferred stage (`music_vbi`, exiting via `XITVBV`), so a
 multi-sector `disk_read` would silently pause the whole band for the
 transfer's length.
 
-`music_vbi_imm` now hooks `VVBLKI` instead: `init_gameplay` saves the OS's
+`music_vbi_imm` now hooks `VVBLKI` instead: `init_audio` saves the OS's
 existing immediate-stage vector into `old_vviblki`, installs
 `music_vbi_imm`, and `music_vbi_imm` ends with `goto (old_vviblki)` — an
 indirect jump, not `XITVBV` — chaining into the original handler so
@@ -411,3 +414,181 @@ in-emulator (finish room 2's relay, then exit right) to screenshot the
 pause could not be completed live; the mechanism was instead verified by
 code parity with `disk_selftest`/`load_room_art`/`load_level_assets`
 (already screenshot-verified in a3e.2/a3e.3) and by the checksum test.
+
+## Poziomy platformowe 02–04
+
+- Silnik: `init_plat`, `plat_frame`, `frame_any` (main.k65). Pokoje: 10 chunków 1 KB (`assets/plat-rooms.bin`, 960 B grafiki + 64 B meta), generowane przez `tools/make_plat_levels.py`; chunk 15 = krzyk PCM (`CryBuf` $A600, ładowany przy wejściu do L04 R1).
+- Mapa pamięci: `RoomArtBuf` $A000, `CamCfg` $A400, `ConeStep` $A480, `CryBuf` $A600, `TermScreen` $B000.
+- Platformy jednokierunkowe (FLOOR), skok vy=-4, grawitacja co 3 klatki; na szczycie vy=0 przez 1 klatkę zamiast 3 (bez zmiany wysokości skoku). Upadek poniżej y=196 = `respawn`.
+- L02 (4 pokoje, bez odkurzaczy), wejście→wyjście: 184→112→96→80→56 (`exit_y`); pokój n+1 startuje na wysokości wyjścia pokoju n, więc wysokość nie jest gubiona. Wyjście wymaga lądowania na oznaczonej platformie po prawej (`exit_y`), a w pokojach ze sterownikiem (`swy`≠0) także `sw_on`; brama (kolumna 39) jest ścianą, dopóki sterownik nie zostanie włączony. 0 zachowuje dotychczasowe wyjścia L03/L04.
+- Pokój 1 (szyb): zygzak lewo–prawo–lewo do sterownika (rząd 12, kolumna 9). FIRE (zbocze naciśnięcia, na ziemi, w ±2 kolumnach i na wysokości `swy`; `sw_ready` pokazuje podpowiedź FIRE) uruchamia stojącą dotąd (czerwoną) windę `lpow=1`; wjazd na platformę wyjścia (rząd 13). Brak obejścia po podłodze.
+- Pokój 2 (pomosty): krótszy środek po kruszących się kafelkach (`CRUMB`=127, trzy platformy) lub dłuższe stałe schody. Kontakt → ostrzeżenie (kafel czerwony) od razu, po 40 klatkach kafel znika, po 120 wraca (`cr_t/cr_r/cr_c`, 8 slotów; `respawn` → `crumble_reset`). Podłoga jest siatką bezpieczeństwa.
+- Pokój 3 (chłodnia): wentylator (łopatki `FanT`, 2×2 kafle, 2 pozy obracane co 4 klatki; szybciej w podmuchu) i smugi powietrza (glify 8/9) rysowane dokładnie w strefie (`m_fan`..`m_fc1-1`, rzędy `m_fr0`..`m_fr1-1`). Podmuch (`fan_t&64`, okres 128: 64 spokój/64 podmuch) przesuwa o +1 px/klatkę wyłącznie kota w powietrzu w strefie; kolumny 0–9 to osłonięta wnęka. Luka A→B jest do pokonania tylko z wiatrem; dłuższe stałe schody to alternatywa. HUD: WAIT/GUST.
+- Pokój 4 (winda dachowa): winda z podłogi do rzędu 6 (`lspd`=12), przesiadka na półkę sterownika (rząd 10, kol. 26), FIRE otwiera bramę, ponowne wsiadanie, skok na kruchy pomost (rząd 6) i wyjście na dach. Chybione skoki lądują na półce lub podłodze.
+- Metadane rozszerzone do 26 pól (`swy,swc,lpow,fc1,fr0,fr1,lspd` na offsetach 19–25); `enter_plat_room` kopiuje 32 B do `m_sx`. Nowe zmienne: `sw_on` 06E4, `fan_t` 06E5, `cr_*` 06E7–06FF.
+- Weryfikacja źródłowa: `python3 tests/test_level02.py` (model `tools/plat_model.py`, klatka po klatce; nie uruchamia XEX). Podgląd map: `cd tools && python3 show_room.py <0-9>`.
+- Od pierwszej dodatniej prędkości pionowej (`vy>=1`) kot sięga przednimi łapami w dół. W pozach opadania i pierwszego kontaktu przód jest opuszczony, zad uniesiony, a tylne łapy pozostają co najmniej 3 piksele ponad przednimi.
+- Mechaniki: wentylator (podmuch), winda, odkurzacz (patrol, drap = ucieczka), hazard na rzędzie 22, dialog, scena końcowa L04.
+- Weryfikacja: `cd tools && python3 solve_levels.py [1|2|3]` (BFS bot na `sim.py`, wolny).
+- Skok: osiem póz dla obu kierunków. Przysiad przed odbiciem trwa 3 klatki, potem kot unosi przód tułowia i prostuje przednie łapy przed pyskiem (bez zawinięcia nadgarstków z animacji chodu). Lądowanie: 2 klatki kontaktu przednich łap i opuszczenia przodu tułowia, 3 klatki dosiadu tylnych i amortyzacji, 3 klatki prostowania, 2 klatki stania. Łapy pozostają oparte w tym samym miejscu podczas amortyzacji i prostowania. Wysokość i grawitacja bez zmian; podczas przysiadu i lądowania kot zatrzymuje ruch poziomy.
+- FIRE na poziomie 03: na podłożu pacnięcie przednią łapą z góry (3 klatki uniesienia, 4 klatki uderzenia z podgiętymi palcami, 3 klatki cofnięcia), podczas jazdy kopnięcie tylną. `paw_contact` sprawdza wyłącznie cztery klatki uderzenia, najwyżej jedno trafienie na zamach: widoczne piksele końcówki łapy muszą pokryć niezerowy piksel aktualnego glifu odkurzacza. Sam FIRE, odległość w kolumnach ani puste narożniki sylwetki nie wywołują ucieczki. Trafienie odwraca odkurzacz od użytej łapy i rozbraja go na 40 klatek; na czas rozbrojenia czerwienieje. Ruch poziomy jest zatrzymany podczas zamachu.
+- Odkurzacz ma dwie animowane szczotki pod obudową: cztery fazy obrotu co 4 klatki, generowane w `assets/vacuum-brushes.bin`. Obrót trwa także między krokami patrolu; kolizja używa aktualnej grafiki.
+- Dach odkurzacza podpiera łapy na pierwszym widocznym rzędzie kopuły, nie na dolnej krawędzi jej kafelka: `player_y = m_arow*8 + 3` (dla rzędu 21: 171 zamiast 176). Wspólne `on_vacuum` obsługuje podparcie, przewożenie i wybór tylnej łapy; opadanie sprawdza powierzchnię po każdym pikselu, także poza granicą kafelka.
+- Aktualny L03 używa dwóch odkurzaczy: kopnięcie podczas jazdy trafia osobnego prześladowcę, nigdy maszynę pod kotem.
+
+## L03 actors (cur_level==2 only)
+Two slots: A (act_*, slot 0) and pursuer B (bcol/bdir/bt/bwob at 06E8-06EB, slot 21 offset). State: carrier 06EC, slot 06ED, dk 06EE (dock/laser timer), gate 06EF (R2 dock achieved / R4 reader crossed), bw 06F0, bk 06F1 (catch), e_mode 06F2, e_bspd 06F3.
+These bytes alias L02 crumble slots, including `e_mode`/`e_bspd`. L03 frame helpers and objective gates check `cur_level==2` before accessing them; zeroing mode at entry alone is insufficient once L02 fills crumble slots.
+Metadata aliases: m_xmax 06B3, m_dock 06B4, m_z0 06B6, m_z1 06B7, m_bcol 06CA, m_bmin 06CB, m_bmax 06CC, m_bspd 06CD, m_mode 06CE (offsets 26-30; 32-byte copy) (mode bit0 dock, bit1 reader/gate).
+Wsparcie: `roof_on` = oryginalne 3 kolumny `(player_col-act_col)<3` (bez nawisu); `under` traktuje podstawę robota (95/124/125) jako podłoże tylko gdy kafel w art (RoomArtBuf) to FLOOR, belka dołu (BEAM) nie podpiera.
+Pościg B: `b_touch` sprawdza brzeg siedzącej sylwetki w rzędzie 23 z kopułą B (+2 px gdy kot patrzy w lewo), tylko dla jeźdźca (carrier==0), po zakończeniu lądowania i poza przygotowaniem skoku. `bk` rośnie o 1 na klatkę kontaktu, maleje o 1 bez kontaktu; 48 = złapany (respawn). Kot na samym przednim brzegu dachu (A+2) nie styka się z B (odstęp 3) - alternatywny unik. Kopnięcie siedzące (hit21) odpycha B przez 40 klatek bez zmiany ruchu nośnika; sylwetka rozróżnia pozycję złożoną i wyprost nogi w aktywnej części ataku.
+Laser R2 (`plat_beam`): pas Y 176..183 w z0..z1, wyłączony podczas dokowania. Kolizja wymaga przecięcia pasa przez 24-pikselowe ciało (origin Y 153..183); podłoga Y 184 i pozycja całkowicie ponad pasem są bezpieczne. Dokowanie wymaga ruchu w prawo po trafieniu. `dk` daje 240 klatek wyłączenia lasera, ale pierwsze poprawne dokowanie trwale ustawia `gate` do następnego respawnu. Brama jest widocznie zamknięta przed wykonaniem celu i otwarta po nim; HUD pokazuje EXIT. Wyjście R2 jest na podłodze Y184, bez półki na wysokości głowy i końcowego skoku. Samo podejście do drzwi nie pomija celu; upływ czasu lasera nie zatrzaskuje otwartych drzwi.
+Weryfikacja bez kompilacji: `python3 tests/test_l03_routes.py` używa modelu `tests/l03_model.py` (R1 pacnięcie/skok/nisza, R2 dok/timeout/retry/laser, R3 jazda/pościg/zeskok/retry, R4 czytnik/brama/jazda/dwie przerwy/wyjście na podłodze, bez pościgu). Zasięg modelu: logika L03; nie jest to dowód uruchomienia K65.
+### L03 R4 (reader room, one carrier)
+- Metadata: `mode`=2 (reader), `bspd`=0 (no pursuer B), `amax`=10 / `xmax`=19, reader z0=z1=12, `exit_y`=184 (floor-height hatch). A's patrol is 8..10 (`amin`=8, start 8; the old minimum 7 left a connected hit one column short of the reader); the gate (`a_events` after the reader crossing) switches the limit to `m_xmax` in reader mode only (`a_step`), so the R2 permanent dock latch no longer widens patrol after wobble recovery.
+- Bug fixed: with B at column 0 the initial UP landed on B (ride, carrier 21, y 171) and, while `gate`=0, `plat_pursuer` never moved it - a stationary-rear-robot trap in the user's Oct 4 17:09 build. B was removed and `on_vacuum` returns 0 for an inactive reader-mode B (`e_mode&2`, gate 0) even if metadata adds one later.
+- Steps: (1) walk right to the forepaw reach (cat x 17..21), swing, and swing again after a miss; every connected hit at patrol columns 8..10 carries it into the reader (column 12) about 17..32 frames later, inside the 40-frame stun, so a hit always opens the gate; standing further right (x >= 22) is within the robot's contact distance; (2) gate: reader tiles 83 `RELAY` -> 84 `DONE` (`draw_reader`, called after the actual crossing and from `act_init`/reset; R2 dock does not call it); (3) wait at the first pit edge and jump to the roof when A is 5..7 columns away and heading left (~24-frame window; ride y 171); (4) ride, jump to the balcony (row 18, cols 23..27, y 152) at A column >=19; (5) walk off the balcony or land on the lower mid floor (row 22, cols 23..29) and jump the second gap (cols 30..32) to floor 33..39 (the mid-floor take-off window is x 99..109, 11 px; the first pit, cols 14..22, is unchanged), walk to the floor-height exit. Walking the floor, or riding before the gate, never reaches the exit. A missed roof jump drops into the pit (respawn resets gate/reader).
+- Captions: `r4_goal` writes four 36-character strings from `R4Goal` (`nocross`, charset ASCII-32) to TermScreen row 0 col 0 through `draw_row0_msg`, chosen by gate and `player_col` (0: SWAT, 1: RIDE/BALCONY, col>=23: GAP/EXIT, col>=33: ACCESS OPEN); the HUD action comes from `R4Hint` {SWAT, RIDE, JUMP, EXIT}.
+- Checks: `python3 tests/test_l03_assets.py`; `python3 tests/test_l03_routes.py` (model bots: 36 stand/boarding/rear variants with 0 respawns, every swing phase at x 17..21 gating inside the stun, early dismount with mid-floor take-offs at x 99/103/106/109, late jump retry, pre-gate rider, captions/hook source checks); `python3 tests/test_l03_runtime.py --asset-overlay` runs the real 6502 `enter_plat_room`/`plat_frame` on the existing XEX via `tools/sim.py` with only the R4 ATR chunk 12 (and its checksum entry) replaced in memory; bot uses joystick/FIRE only, counts real `respawn` calls. Limits: no VBI/display/audio; overlay mode runs the old compiled code on the new room data only; the new captions, reader redraw/reset, door state and the gate-0/gate-1 root guard are checked only in the default branch, which needs a fresh authorised build and has not been run. `out/level03-room4-preview.png` is rendered from source data (initial `Game(3)` screen, font/palette, cat from the sprite atlas), not from a compiled emulator frame.
+
+Sprites: 54 logical frames (50-53 seated/shove) map through assets/cat-frame-map.bin to 40 physical frames (saves 1280 B, +54 B map).
+Siedzenie (50/51) ma osobny, pionowy tułów, podniesiony pysk, złożone tylne
+łapy i niski zawinięty ogon; nie używa poziomego grzbietu animacji stania.
+Rzędy styku 21–23 oraz palce aktywnego kopnięcia pozostają bez zmian, więc
+poprawa sylwetki nie poszerza kolizji z prześladowcą. Podgląd 2:1:
+`out/cat-seated-preview.png`.
+
+## L04: defenses and animated AI confrontation
+
+Two rebuilt rooms preserve L01–L03 data. The first has three rising ledges
+(standing Y168/152/136), a Y152 boarding dock and a lift (rows 9–18,
+12 frames per step) reaching the Y80 exit. The next room enters at Y80,
+crosses Y96/Y112 ledges, has a Y136 recovery ledge and keeps the final
+Y120 desk, glass column 33 and computer in their existing animation positions.
+The exit height is enforced; no floor-walking shortcut reaches the core.
+
+Both electric bands span columns 7–34 on tile row 22. `RTCLOK&32` controls
+32 frames lit / 32 unlit. A lit tile over original FLOOR remains supporting
+in L04, but `plat_haz` immediately respawns a cat touching Y184 inside the
+band; the unlit state restores original art. Airborne cats and elevated
+ledges are safe. L03 pit/laser BEAM tiles remain non-supporting.
+
+`plat_dlg` triggers once on a grounded core perch (column >=20, Y<=136).
+The existing `dlg_done` ($06D8) persists across falls and resets in `init_plat`.
+The blocking `ai_cutscene` freezes movement, keeps the L04 VBI soundtrack
+playing, hides PMG and disables the HUD DLI. ANTIC D shows a 160x80 AI
+monitor with two mouth states and pulsing circuitry, plus five 36-character
+subtitles held for 180 PAL frames each. Only AI lines animate the mouth
+and use channel-4 speech bleeps; the cat replies leave it closed.
+FIRE or any key skips after a release; cleanup disarms the FIRE edge so
+the skip cannot also shove the glass. `plat_push` and its HUD prompt require
+`dlg_done`; watching/skipping the exchange never performs the final action.
+
+`tools/make_ai_scene.py` generates streamed chunk 25:
+`assets/ai-portrait.pic`, 3200 bitmap bytes + two 30-byte mouth patches,
+padded to 26 sectors (3328 B), loaded at $A000. It fits within one ANTIC
+4K block and does not touch Music, PMG or the resident cat atlas.
+It does overwrite RoomArtBuf and part of CryBuf. Every completion/skip
+path checks and reloads the current room and chunk 15 (entire 2560-byte
+cry), repaints the glass/HUD, and restores the gameplay display list,
+palette and PMG without resetting player/objective state.
+
+`python3 tests/test_level04.py` replays both no-death routes in a source-level
+jump/lift/floor model and checks mandatory lift geometry, all 64 hazard
+phases and contact boundaries, scene/finale gates and cinematic data/cleanup.
+It does not execute K65 or establish emulator display/audio acceptance.
+The preview is `out/ai-cutscene-preview.png`; rebuild XEX and pack its
+matching ATR after preparing `assets/disk-chunks.bin`.
+
+### Cat atlas streamed after the intro
+
+The 5120-byte packed atlas is no longer a resident `CatSprites` section.
+Disk chunk 16 loads it into the existing 6144-byte, 4K-aligned `RevealImg`
+panorama region after `cut_to_black`/`switch_to_term`, before the first PMG
+frame. The intro image stays in the XEX and works on a fresh boot; its RAM
+is reused only after the intro ends. Room, camera, death-cry and PMG buffers
+remain separate. Debug level changes never restart the intro.
+
+Chunks now start at sector 290, after the reserved `$1000..$9FFF` resident
+bank; the boot loader still reads only the actual resident payload.
+Consequently changing the linked program size does not move disk chunks
+or require a table/link/table/relink cycle. Chunk indices 0..15 are
+unchanged. `python3 tests/test_cat_streaming.py` checks source wiring,
+overlay bounds, logical frames and disk layout using synthetic payloads,
+not a compiled game. A fresh XEX and ATR are still required together.
+Prepare the stable table with `python3 tools/make_atr.py --table-only`,
+build `main.k65proj`, then run `python3 tools/make_atr.py` to pack that XEX.
+Table-only mode does not read or modify XEX/ATR and works before the first build.
+
+### Title and level soundtracks
+
+The intro is enabled again. FIRE or any keyboard key skips to the approved
+bitmap title screen, which also appears after a complete intro. Skip polling
+continues during the PCM meow, once per sample page. Shift and console buttons
+are accepted too. Held controls must first be released on the title, so one
+press cannot skip both scenes. The title plays the existing spy-funk;
+FIRE, Return or Space starts level 01.
+The original 432 score bytes are unchanged; three bytes were appended for
+frames per sixteenth note and lead/bass attack volume.
+
+`python3 tools/make_music.py` generates five 435-byte tracks:
+
+| Scene | Asset | Character | PAL tempo |
+|---|---|---|---|
+| Title | `assets/music.bin` | Original D-minor spy-funk | 150 BPM |
+| L01 | `assets/music-level-01.bin` | Quiet, sparse stealth plucks, restrained bass and hats | 93.75 BPM |
+| L02 | `assets/music-level-02.bin` | Regular machinery-like arpeggios and alternating bass octaves | 150 BPM |
+| L03 | `assets/music-level-03.bin` | Fast chase melody, busy bass and full drum fills | 187.5 BPM |
+| L04 | `assets/music-level-04.bin` | Tense chromatic semitone figures, abrupt cuts and a low pulse | 125 BPM |
+
+All scores loop over 256 steps (16 bars), with their own note tables,
+melodies, rhythms and mix. New disk chunks 17 (title) and 18..21 (levels)
+follow the unchanged cat-atlas chunk 16. Each occupies four 128-byte sectors;
+the resident chunk table now has 26 entries (130 bytes). No soundtrack is
+resident in the `$1000..$9FFF` bank. The shared `Music` buffer at
+`$B400..$B5FF` sits after the 1000-byte terminal screen and before PMG memory;
+it does not overlap the `$A600..$AFFF` finale PCM.
+
+`start_music` silences all voices and clears `music_ready` before SIO.
+The immediate VBI still services SFX, but cannot read the replacing score.
+After checking SIO status, the padded chunk checksum and tempo/volume bounds, the
+player resets its step, timer, note frequencies and envelopes before enabling
+music. A failed track load stays silent and halts with visible `DISKERR`
+instead of playing corrupt data. Normal room entry and respawn do not restart
+the soundtrack; only title/level entry, including debug keys 1..4, selects a
+new track. During normal room loads the lead keeps ticking, bass/drums yield
+to SIO, and SFX retain channel-4 priority. The final PCM scene still freezes
+the VBI player through `level_finished`.
+
+The solver's bounded `boot` helper skips the intro, then releases/presses FIRE at the title before
+searching a level. `tests/test_music.py` checks preservation of the title,
+generated melodies/moods, tuning, memory bounds, disk data and source wiring.
+These checks do not establish compiled K65 playback or audible POKEY quality;
+a fresh authorized build, matching ATR and emulator listening are still needed.
+
+### Approved bitmap title
+
+`assets/title-screen.png` is the lossless native 160x192 version of the
+approved Desktop mockup. `python3 tools/make_title.py` packs it as
+`assets/title-screen.pic`, a four-color ANTIC E bitmap. The Atari palette uses
+black, dark blue, light fur/text and amber; RGB colors depend on the emulator
+or display. No title bitmap is linked into the resident bank.
+
+Disk chunks 22..24 contain 100, 24 and 64 scanlines, loaded at `$A000`,
+`$B000` and `$B600`. Their padded sector spans end at `$B000`, `$B400` and
+`$C000`; none touches the live music buffer `$B400..$B5FF`. Three LMS entries
+avoid ANTIC's 4K address wrapping. The final four rows are blank, matching the
+mockup exactly. The bottom image temporarily uses PMG memory, with PMG and
+display DMA disabled during loading. No DLI is needed for the static image.
+On leaving the title, DMA is disabled before buffers are reused; gameplay
+clears the terminal, restores its display list, reloads room data and
+initializes PMG. Intro art remains resident and is not modified by title loads.
+
+Title/music chunks share `load_checked_chunk` for SIO status and padded
+checksum validation; errors restore a readable terminal and halt at
+`DISKERR`. After regenerating artwork, prepare `make_atr.py --table-only`
+before compiling and pack a matching ATR afterwards. `tests/test_title_screen.py`
+reconstructs the bitmap from synthetic ATR sectors and its three DMA regions,
+checks exact artwork preservation, 4K boundaries, live-music separation and
+input/transition source contracts. It is not an emulator screenshot or
+compiled runtime acceptance.

@@ -193,6 +193,9 @@ assert all(token in body("video_call") for token in
             "x=6 call_mouth", "x=0 call_mouth", "AUDC4=a=0",
             "x=152 wait_frames", "x=200 wait_frames",
             "x=50 wait_frames", "x=90 wait_frames"))  # readable connect screen  # ~4 s per subtitle
+term = body("switch_to_term")
+assert term.index("NMIEN=a=0x40") < term.index("SDLSTL=a=&<dl_term")
+assert body("init_gameplay").index("switch_to_term") < body("init_gameplay").index("NMIEN=a=0xC0")
 
 scene = re.search(r"main \{(.*)\}\s*$", main, re.S).group(1)
 beats = ("build_storm_list", "switch_to_storm", "storm_pan", "show_zoom_bitmap",
@@ -203,20 +206,21 @@ beats = ("build_storm_list", "switch_to_storm", "storm_pan", "show_zoom_bitmap",
          "play_meow", "video_call", "cut_to_black")
 assert [scene.index(beat) for beat in beats] == sorted(scene.index(beat) for beat in beats)
 wait = body("wait_frames")
-assert all(token in wait for token in
-           ("a=cur_room", "a?0xFF", "a=TRIG0", "a&1",
-            "a=CH", "a?0x21", "a?0x0C"))
-assert wait.count("goto intro_skip") == 3
+assert "check_intro_skip" in wait
+assert all(token in body("check_intro_skip") for token in
+           ("a=cur_room", "a?0xFF", "input_pressed", "goto intro_skip"))
+assert all(token in body("input_pressed") for token in ("a=TRIG0", "a=CH", "a?0xFF"))
+assert "check_intro_skip" in body("play_meow")
 assert "cur_room=a=0xFF" in body("init_system") and "CH=a=0xFF" in body("init_system")
 skip = scene[scene.index("intro_skip:"):scene.index("init_gameplay")]
 assert all(token in skip for token in ("NMIEN=a=0x40", "s=x=0xFF", "AUDC1=a=0",
                                        "cut_to_black"))
 
 # The intro used to idle forever after cut_to_black ("{} always", no gameplay
-# yet); it now hands off into Level 01 immediately afterwards.
+# yet); it now shows the title before handing off into Level 01.
 tail = scene[scene.index("cut_to_black"):]
 assert "init_gameplay" in tail
-assert tail.index("cut_to_black") < tail.index("init_gameplay")
+assert tail.index("cut_to_black") < tail.index("title_screen") < tail.index("init_gameplay")
 assert "} always" in tail[tail.index("init_gameplay"):]  # gameplay loop, not the old idle
 
 print("test_intro_scene.py: all checks passed")

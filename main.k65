@@ -80,7 +80,6 @@ var disk_ptr[2] = 0xCE		// disk_selftest: read-back pointer while checksumming
 var disk_busy = 0xD0		// 1 while disk_read owns ch3/ch4; tick_music mutes around it
 var old_vviblki[2] = 0xD1	// saved OS VVBLKI, chained from music_vbi_imm
 var bass_freq = 0xD3		// note picked by music_step, applied to AUDF3 once disk_busy clears
-var next_chunk_ok = 0xD4	// prefetch_next_level (a3e.5): 1 if the placeholder chunk checksummed OK
 
 var level_finished = 0xB4	// 1 once the ending has played; freezes game_frame
 var entry_col = 0xB5		// player_x to enter the destination room at
@@ -90,16 +89,101 @@ var walk_timer = 0xB9		// frames until walking pose returns to idle
 var idle_timer = 0xBB		// periodic tail flick while standing still
 var player_x = 0xBC		// left pixel of the PMG cat, 0..140 (144 on the exit)
 var facing = 0xBD		// 0 = right, 1 = left
-var spr_ptr[2] = 0xBE		// CatSprites frame being shown
+var spr_ptr[2] = 0xBE		// streamed cat frame in the retired RevealImg region
+
+// ---------------------- Platform levels 02-04 state ----------------------
+var player_y = 0xD5		// PM byte of the cat's sprite top; standing = (tile row + 1) * 8
+var old_y = 0xD6		// where the sprite was last drawn (erased next draw)
+var vy = 0xD7			// signed pixels per frame, -5 (jump) .. +5 (fall)
+var air = 0xD8			// 1 while jumping/falling
+var cur_level = 0xD9		// 0 = level 01 .. 3 = level 04
+var cnt = 0xDA
+var tmp = 0xDB
+var sp[2] = 0xDC		// TermScreen row pointer (row_ptr)
+var ap[2] = 0xDE		// RoomArtBuf row pointer
+var cry_ptr[2] = 0xE0
+var CryBuf = 0xA600		// death-cry PCM, preloaded before the confrontation
+// Room metadata: the 64 bytes after the 960 tile bytes of each room chunk.
+var m_sx = 0x06B0		// spawn x, y
+var m_sy = 0x06B1
+var m_fan = 0x06B2		// first column of the gust zone (0 = no fan)
+var m_lrow = 0x06B3		// lift: start row, column, width, min/max row
+var m_lcol = 0x06B4
+var m_lw = 0x06B5		// 0 = no lift
+var m_lmin = 0x06B6
+var m_lmax = 0x06B7
+var m_arow = 0x06B8		// vacuum dome row, 0 = none; patrol min/max col, frames per col, start col
+var m_amin = 0x06B9
+var m_amax = 0x06BA
+var m_aspd = 0x06BB
+var m_acol = 0x06BC
+var m_h0 = 0x06BD		// electrified floor columns (0 = none)
+var m_h1 = 0x06BE
+var m_glass = 0x06BF		// desk glass column (0 = none)
+var m_dlg = 0x06C0		// standing y that starts the confrontation
+var m_desk = 0x06C1		// standing y on the desk
+var m_exit = 0x06C2		// required standing y at the exit; 0 = unrestricted
+var m_swy = 0x06C3		// controller: standing y (0 = none) and column; FIRE within 2 columns opens the exit
+var m_swc = 0x06C4
+var m_lpow = 0x06C5		// 1 = lift moves only after the controller is used
+var m_fc1 = 0x06C6		// gust zone end column (exclusive), body rows fr0..fr1-1
+var m_fr0 = 0x06C7
+var m_fr1 = 0x06C8
+var m_lspd = 0x06C9		// frames per lift row (0 = 24)
+var lift_row = 0x06D0
+var lift_dir = 0x06D1
+var lift_t = 0x06D2
+var act_col = 0x06D3
+var act_dir = 0x06D4
+var act_t = 0x06D5
+var act_wob = 0x06D6
+var ride = 0x06D7
+var dlg_done = 0x06D8
+var gt = 0x06DC			// gravity divider
+var lnd = 0x06DD		// landing-crouch frames left
+var jprep = 0x06DE		// grounded anticipation before takeoff
+var paw_t = 0x06DF
+var paw_kind = 0x06E0		// 0 front jab, 1 hind kick
+var paw_x = 0x06E1
+var paw_y = 0x06E2
+var paw_hit = 0x06E3		// one hit per swing
+var sw_on = 0x06E4		// controller used in this room
+var fan_t = 0x06E5		// fan phase counter: bit 6 = gust
+var cr_i = 0x06E7		// scratch: slot / row
+var cr_t = 0x06E8		// 8 crumble slots: age (0 = free), row, column
+var cr_r = 0x06F0
+var cr_c = 0x06F8
+// Level 03 (cur_level == 2) only. Metadata aliases reuse unused lift bytes plus the five free
+// bytes. Runtime aliases overlap L02 crumble slots: guard L03 frame logic by cur_level.
+var m_xmax = 0x06B3		// R2/R4: patrol limit while struck / unlocked
+var m_dock = 0x06B4		// R2: first column of the charging bay
+var m_z0 = 0x06B6		// R2: laser zone; R4: reader zone
+var m_z1 = 0x06B7
+var m_bcol = 0x06CA		// pursuer home column, min, max, frames per column (0 = none)
+var m_bmin = 0x06CB
+var m_bmax = 0x06CC
+var m_bspd = 0x06CD
+var m_mode = 0x06CE		// bit0 charger room, bit1 reader/gate room
+var bcol = 0x06E8		// pursuer slot: bcol/bdir/bt/bwob sit 21 bytes after act_col..act_wob
+var bdir = 0x06E9
+var bt = 0x06EA
+var bwob = 0x06EB
+var carrier = 0x06EC		// 0 / 21: slot whose roof carries the cat
+var slot = 0x06ED		// 0 / 21: actor being drawn, struck or stepped
+var dk = 0x06EE			// R2 dock timer, frames left
+var gate = 0x06EF		// R4 reader has been crossed by a vacuum
+var bw = 0x06F0			// pursuer awake (chase lamp)
+var bk = 0x06F1			// frames the pursuer has been touching the carrier
+var e_mode = 0x06F2
+var e_bspd = 0x06F3
+var gcol = 0x06D9
+var kk = 0x06DA
+var wm = 0x06DB
 
 // Single-line PMG at $B800 (free after the intro): players at $BC00-$BFFF.
 // Each base is (player page + 152 scanlines) minus the frame chunk offset
 // (0/32/64/96) so one y index walks both the frame and the player.
 var PmMem = 0xBC00
-var PmP0 = 0xBCB8
-var PmP1 = 0xBD98
-var PmP2 = 0xBE78
-var PmP3 = 0xBF58
 
 // ------------------------------- Terminal text -----------------------------
 // ANTIC 4 uses a 3x5 font for ASCII 32..95 mapped to internal (ascii-32).
@@ -113,6 +197,15 @@ var TermScreen = 0xB000
 // span drawn on each of the 17 rows so it can be erased from RoomArt.
 var hud_n = 0x06A0		// HUD bar: filled cells
 var hud_col = 0x06A1		// HUD bar colour (state)
+var music_ready = 0x06A2		// VBI must not read a track while it is being replaced
+var title_phase = 0x06A3		// 0 gameplay/intro, 1 release FIRE, 2 await start
+var music_chunk = 0x06A4
+var disk_failed = 0x06A5		// any SIO sector error in the most recent disk_read
+var ai_line = 0x06A6
+var ai_frame = 0x06A7
+var ai_pose = 0x06A8
+var Music = 0xB400		// one 512-byte streamed track, after the 1000-byte screen
+var TitleBottom = 0xB600		// title only; PMG is disabled while this buffer is displayed
 var cone_i = 0x0600
 var cone_L = 0x0601
 var cone_R = 0x0602
@@ -239,12 +332,6 @@ data MsgRoute { // 22 bytes: 'ROUTE: TEST / ISOLATED'
   47 44 33 52 37 36
 }
 
-data MsgEnding { // 36 bytes: 'PHASE 02 DELAYED. AGENCY UNDETECTED.'
-  48 40 33 51 37 0 16 18 0 36 37 44 33 57 37 36
-  14 0 33 39 37 46 35 57 0 53 46 36 37 52 37 35
-  52 37 36 14
-}
-
 // CamCfg/ConeStep/RoomArt now live on disk (a3e.3) and are streamed into
 // RAM: RoomArtBuf/CamCfg/ConeStep share the intro's unused 4K ZoomBuf
 // scratch (dead once gameplay starts), each at a fixed offset so a
@@ -269,16 +356,14 @@ data MsgDiskErr { // 'DISKERR'
   36 41 51 43 37 50 50
 }
 
-data CatSprites { // 28 frames x 128 bytes, see tools/make_cat_sprite.py
-  align 256
-  binary "assets/cat-sprites.bin"
-}
+data FrameMap { binary "assets/cat-frame-map.bin" }	// 54 logical frames -> physical frame
 
 // The panorama is 256x96; the visible window is 160 pixels (40 bytes) wide.
 data RevealImg { // 64 bytes x 96 rows, two scanlines per row
   align 4096
   binary "assets/room.pic"
 }
+// After the intro ends, load the 5120-byte cat atlas over this 6144-byte panorama.
 
 data Leds { // lo[], 0, hi[], 0xFF, eor mask[], 0, blink pattern[], 0 (120 LEDs)
   binary "assets/leds.tbl"
@@ -320,6 +405,29 @@ data dl_call {
   0x70
   0x44 &<TermScreen+840 &>TermScreen+840	// one dialogue row
   0x41 &<dl_call &>dl_call
+}
+
+data dl_ai {
+  nocross
+  0x70 0x70 0x70
+  0x4D &<ZoomBuf &>ZoomBuf
+  for x=0..78 eval [0x0D]
+  0x70
+  0x44 &<TermScreen+840 &>TermScreen+840
+  0x41 &<dl_ai &>dl_ai
+}
+
+data dl_title {
+  nocross
+  0x70 0x70 0x70
+  0x4E &<ZoomBuf &>ZoomBuf
+  for x=0..98 eval [0x0E]	// 100 rows, no ANTIC 4K wrap
+  0x4E &<TermScreen &>TermScreen
+  for x=0..22 eval [0x0E]	// 24 rows, stops before Music
+  0x4E &<TitleBottom &>TitleBottom
+  for x=0..62 eval [0x0E]	// 64 rows, ends at $C000
+  0x30					// last four rows of the mockup are blank
+  0x41 &<dl_title &>dl_title
 }
 
 // Built at startup: 96 rows, each fetched twice from a 64-byte-wide panorama.
@@ -603,23 +711,40 @@ data dl_face {
 
 // ------------------------------ Timing helper -------------------------------
 
+func input_pressed {
+  a=TRIG0
+  a&1
+  a?0
+  == { a=1 return }
+  a=SKSTAT
+  a&12
+  a?12
+  != { a=1 return }
+  a=CONSOL
+  a&7
+  a?7
+  != { a=1 return }
+  a=CH
+  a?0xFF
+  != { a=1 return }
+  a=0
+}
+
+func check_intro_skip {
+  a=cur_room
+  a?0xFF
+  == {
+    input_pressed
+    a?0
+    != { goto intro_skip }
+  }
+}
+
 func wait_frames {			// x = number of VBIs (~frames) to wait; only touches A/X
   {
     a=RTCLOK				// snapshot the current jiffy tick
     { a?RTCLOK } ==			// spin until RTCLOK actually changes (one real tick)
-    a=cur_room
-    a?0xFF
-    == {
-      a=TRIG0
-      a&1
-      a?0
-      == { goto intro_skip }
-      a=CH
-      a?0x21				// Space
-      == { goto intro_skip }
-      a?0x0C				// Return
-      == { goto intro_skip }
-    }
+    check_intro_skip
     x--
     x?0
   } !=
@@ -627,6 +752,8 @@ func wait_frames {			// x = number of VBIs (~frames) to wait; only touches A/X
 
 func init_system {
   a=PORTB a|2 PORTB=a		// BASIC ROM off; RAM at $A000-$BFFF holds intro buffers
+  music_ready=a=0
+  title_phase=a
   cur_room=a=0xFF			// wait_frames checks skip keys only during the intro
   CH=a=0xFF				// discard a key used to launch the XEX
   NMIEN=a=0x40				// enable OS deferred VBI only (no DLI)
@@ -1108,6 +1235,7 @@ func switch_to_face {
 }
 
 func switch_to_term {
+  NMIEN=a=0x40				// stop the face DLI before displaying the terminal/HUD list
   SDLSTL=a=&<dl_term
   SDLSTH=a=&>dl_term
   COLOR0=a=0x0E				// white text independent of background
@@ -1296,6 +1424,7 @@ func play_meow {
     a=meow_ptr+1
     a?meow_page != {		// a new 256-sample page (main or kernel crossed it)
       meow_page=a
+      check_intro_skip
       mouth_tick			// 12 toggles, one per sample page
       a=meow_page
       a?&>Meow+3072 == break
@@ -1484,7 +1613,156 @@ func draw_room_header {		// row 1: reuses "CONTROL INFRASTRUCTURE"
   draw_row1_msg
 }
 
+func draw_frame {			// a = logical frame number; draws it at player_y
+  x=a
+  a=FrameMap,x
+  x=a
+  a&1
+  a?0
+  == { a=0 } else { a=0x80 }
+  spr_ptr=a
+  a=x
+  a>>
+  c- a+&>RevealImg
+  spr_ptr+1=a
+  x=old_y
+  y=24
+  a=0
+  {
+    PmMem,x=a
+    PmMem+256,x=a
+    PmMem+512,x=a
+    PmMem+768,x=a
+    x++
+    y--
+  } !=
+  y=0
+  x=player_y
+  { a=(spr_ptr),y PmMem,x=a x++ y++ y?24 } !=
+  y=32
+  x=player_y
+  { a=(spr_ptr),y PmMem+256,x=a x++ y++ y?56 } !=
+  y=64
+  x=player_y
+  { a=(spr_ptr),y PmMem+512,x=a x++ y++ y?88 } !=
+  y=96
+  x=player_y
+  { a=(spr_ptr),y PmMem+768,x=a x++ y++ y?120 } !=
+  old_y=a=player_y
+  a=player_x
+  c- a+48
+  HPOSP0=a
+  HPOSP2=a
+  c- a+8
+  HPOSP1=a
+  HPOSP3=a
+}
+
+func jump_facing {			// a = right-facing leap frame (28..35)
+  x=facing
+  x?0
+  != { c- a+8 }
+  draw_frame
+}
+
 func draw_player {			// PMG cat: stride frame from x (paws stay planted), else idle
+  a=jprep
+  a?0
+  != { a=28 jump_facing return }
+  a=air
+  a?0
+  != {					// push off, stretch forward, reach down
+    a=vy
+    a?0xFF
+    == { a=30 } else {
+      a&0x80
+      a?0
+      != {
+        a=vy
+        a?0xFD
+        < { a=29 } else { a=30 }
+      } else {
+        a=vy
+        a?1
+        >= { a=31 } else { a=30 }
+      }
+    }
+    jump_facing
+    return
+  }
+  a=paw_t
+  a?0
+  != {
+    a=paw_kind
+    a?2
+    == {				// seated hind-leg shove
+      paw_t--
+      a=50
+      x=paw_t
+      x?4
+      >= { x?8 < { a=52 } }
+      x=facing
+      x?0
+      != { c- a+1 }
+      draw_frame
+      return
+    }
+    paw_t--
+    a=paw_t
+    a?3
+    < { a=28 jump_facing return }	// pull the paw back before standing
+    a=paw_kind
+    a?0
+    == {
+      a=paw_t
+      a?7
+      < {
+        a=48
+        x=facing
+        x?0
+        != { a=49 }
+        draw_frame
+        return
+      }
+    }
+    a=paw_kind
+    c- a+44
+    x=facing
+    x?0
+    != { c- a+2 }
+    draw_frame
+    return
+  }
+  a=lnd
+  a?0
+  != {
+    a=lnd
+    a?9
+    >= { a=32 } else {
+      a?6
+      >= { a=33 } else {
+        a?3
+        >= { a=34 } else { a=35 }
+      }
+    }
+    lnd--
+    jump_facing
+    return
+  }
+  a=ride
+  a?0
+  != {
+    a=cur_level
+    a?2
+    == {				// seated on a vacuum roof
+      a=50
+      x=facing
+      x?0
+      != { a=51 }
+      draw_frame
+      return
+    }
+  }
   a=walk_timer
   a?0
   == {
@@ -1501,30 +1779,7 @@ func draw_player {			// PMG cat: stride frame from x (paws stay planted), else i
   x=facing
   x?0
   != { c- a+14 }
-  x=a
-  a&1
-  a?0
-  == { a=0 } else { a=0x80 }
-  spr_ptr=a
-  a=x
-  a>>
-  c- a+&>CatSprites
-  spr_ptr+1=a
-  y=0
-  { a=(spr_ptr),y PmP0,y=a y++ y?24 } !=
-  y=32
-  { a=(spr_ptr),y PmP1,y=a y++ y?56 } !=
-  y=64
-  { a=(spr_ptr),y PmP2,y=a y++ y?88 } !=
-  y=96
-  { a=(spr_ptr),y PmP3,y=a y++ y?120 } !=
-  a=player_x
-  c- a+48
-  HPOSP0=a
-  HPOSP2=a
-  c- a+8
-  HPOSP1=a
-  HPOSP3=a
+  draw_frame
 }
 
 func set_col {				// player_col = column under the cat's middle
@@ -2095,16 +2350,16 @@ func tick_audio {
       == { AUDC4=a=0 }
     }
   }
-  call tick_music
+  a=music_ready
+  a?0
+  != { call tick_music }
 }
 
-// Original spy-funk in D minor, one step = one 16th (5 frames); data and
-// layout: tools/make_music.py. ch1+2 = one 16-bit 1.79 MHz lead voice (in
-// tune; 8-bit pure tones are not), ch3 octave bass, ch4 drums and SFX.
-data Music { binary "assets/music.bin" }
+// Track layout: tools/make_music.py. ch1+2 = 16-bit 1.79 MHz lead,
+// ch3 octave bass, ch4 drums yielding to SFX and disk I/O.
 
 func music_step {
-  mus_timer=a=5
+  mus_timer=a=Music+432
   x=mus_step
   a=Music,x				// lead: 0 nothing new, 1 cut, k >= 2 note k
   a?2
@@ -2114,7 +2369,7 @@ func music_step {
     AUDF1=a
     a=Music+350,y
     AUDF2=a
-    lead_vol=a=12
+    lead_vol=a=Music+433
   }
   a=Music,x
   a?1
@@ -2138,10 +2393,10 @@ func music_step {
   x=a
   a=Music+256,x				// bass: 1 root, 2 octave up
   a?1
-  == { a=Music+304,y bass_freq=a bass_vol=a=12 }
+  == { a=Music+304,y bass_freq=a bass_vol=a=Music+434 }
   a=Music+256,x
   a?2
-  == { a=Music+320,y bass_freq=a bass_vol=a=12 }
+  == { a=Music+320,y bass_freq=a bass_vol=a=Music+434 }
   mus_step++				// wraps at 256 = 16 bars
 }
 
@@ -2150,7 +2405,7 @@ func tick_music {
   a=mus_timer
   a?0
   == { music_step }
-  a=lead_vol				// pluck: 24 frames to silence
+  a=lead_vol				// pluck decay; attack volume is track-specific
   a?0
   != {
     a=RTCLOK
@@ -2199,32 +2454,36 @@ naked music_vbi_imm {			// hooked into VVBLKI (immediate stage): unlike VVBLKD,
   goto (old_vviblki)
 }
 
-func load_room_art {			// streams cur_room's 960-byte art (ChunkTable[cur_room]) into
-					// RoomArtBuf (a3e.3), then paints it onto TermScreen as before
-  disk_sector=a=ChunkTable
-  disk_sector+1=a=ChunkTable+1
-  disk_count=a=ChunkTable+2
-  disk_count+1=a=ChunkTable+3
-  a=cur_room
-  a?1
-  == {
-    disk_sector=a=ChunkTable+5
-    disk_sector+1=a=ChunkTable+6
-    disk_count=a=ChunkTable+7
-    disk_count+1=a=ChunkTable+8
-  }
-  a=cur_room
-  a?2
-  == {
-    disk_sector=a=ChunkTable+10
-    disk_sector+1=a=ChunkTable+11
-    disk_count=a=ChunkTable+12
-    disk_count+1=a=ChunkTable+13
-  }
+func load_room_chunk {			// a = chunk index; streams it to disk_dest (ChunkTable, 5 bytes/entry)
+  tmp=a
+  a<< a<<
+  c- a+tmp
+  x=a
+  a=ChunkTable,x
+  disk_sector=a
+  x++
+  a=ChunkTable,x
+  disk_sector+1=a
+  x++
+  a=ChunkTable,x
+  disk_count=a
+  x++
+  a=ChunkTable,x
+  disk_count+1=a
+  call disk_read
+}
+
+func load_room_art {			// a = chunk index: streams the 960-byte art (+ metadata) into
+					// RoomArtBuf (a3e.3), then paints it onto TermScreen
+  cnt=a
   disk_dest=a=&<RoomArtBuf
   disk_dest+1=a=&>RoomArtBuf
-  call disk_read
+  a=cnt
+  call load_room_chunk
+  call paint_room_art
+}
 
+func paint_room_art {
   art_ptr=a=&<RoomArtBuf
   art_ptr+1=a=&>RoomArtBuf
   a=art_ptr
@@ -2269,6 +2528,7 @@ func enter_room {
   relay_progress=a=0
   walk_timer=a=0
   idle_timer=a=0
+  a=cur_room
   load_room_art
   load_cams
   call draw_hud_static
@@ -2286,15 +2546,15 @@ func level_ending {
   level_finished=a=1
   clear_row0
   clear_row1
-  msg_src=a=&<MsgEnding
-  msg_src+1=a=&>MsgEnding
+  x=cur_level
+  a=TxtOff,x
+  msg_src=a
+  msg_src+1=a=&>Txt
   msg_len=a=36
   draw_row0_msg
   sfx_success
   x=75
   wait_frames
-  call prefetch_next_level		// a3e.5: load next level's data mid-ending; music
-					// keeps playing via VVBLKI (a3e.4), no stutter
   x=75
   wait_frames
   COLOR0=a=0
@@ -2495,10 +2755,11 @@ func game_frame {
 // (params in zero page; see the disk_* vars above). SIO drives POKEY ch3/ch4
 // as its baud clock and needs a clean AUDCTL, so channels 3/4 are silenced
 // and AUDCTL is zeroed for the transfer; callers get AUDCTL back at 0x50
-// (ch1 at 1.79MHz, ch1+2 joined for the 16-bit lead -- see init_gameplay).
+// (ch1 at 1.79MHz, ch1+2 joined for the 16-bit lead -- see init_audio).
 // a3e.4 will keep the lead itself audible during the read.
 func disk_read {
   disk_busy=a=1				// tick_music (a3e.4) mutes ch3/ch4 while this is set
+  disk_failed=a=0
   AUDC3=a=0
   AUDC4=a=0
   AUDCTL=a=0
@@ -2517,6 +2778,8 @@ func disk_read {
     DBYTLO=a=128
     DBYTHI=a=0
     call SIOV
+    y?1					// SIO returns Y=1 on success
+    != { disk_failed=a=1 }
 
     a=DBUFLO
     c- a+128
@@ -2537,23 +2800,8 @@ func disk_read {
   disk_busy=a=0
 }
 
-// Boot-time smoke test: loads ChunkTable's chunk 0 (room 0's disk-streamed
-// art, a3e.3) into the unused intro ZoomBuf scratch, checksums it, and
-// flashes "DISK OK"/"DISKERR" on the term screen for 90 frames before
-// gameplay starts. Never touches any resident gameplay state.
-func disk_selftest {
-  disk_sector=a=ChunkTable
-  disk_sector+1=a=ChunkTable+1
-  disk_count=a=ChunkTable+2
-  disk_count+1=a=ChunkTable+3
-  disk_dest=a=&<ZoomBuf
-  disk_dest+1=a=&>ZoomBuf
-  call disk_read
-
+func disk_checksum {			// disk_ptr = buffer; x = number of 128-byte sectors
   disk_chk=a=0
-  disk_ptr=a=&<ZoomBuf
-  disk_ptr+1=a=&>ZoomBuf
-  x=ChunkTable+2
   {
     y=0
     {
@@ -2570,6 +2818,25 @@ func disk_selftest {
     x--
     x?0
   } !=
+}
+
+// Boot-time smoke test: loads ChunkTable's chunk 0 (room 0's disk-streamed
+// art, a3e.3) into the unused intro ZoomBuf scratch, checksums it, and
+// flashes "DISK OK"/"DISKERR" on the term screen for 90 frames before
+// gameplay starts. Never touches any resident gameplay state.
+func disk_selftest {
+  disk_sector=a=ChunkTable
+  disk_sector+1=a=ChunkTable+1
+  disk_count=a=ChunkTable+2
+  disk_count+1=a=ChunkTable+3
+  disk_dest=a=&<ZoomBuf
+  disk_dest+1=a=&>ZoomBuf
+  call disk_read
+
+  disk_ptr=a=&<ZoomBuf
+  disk_ptr+1=a=&>ZoomBuf
+  x=ChunkTable+2
+  disk_checksum
 
   msg_src=a=&<MsgDiskErr
   msg_src+1=a=&>MsgDiskErr
@@ -2602,53 +2869,115 @@ func load_level_assets {		// CamCfg/ConeStep (a3e.3): shared by all 3 rooms, loa
   disk_dest=a=&<ConeStep
   disk_dest+1=a=&>ConeStep
   call disk_read
+
+  disk_dest=a=&<RevealImg
+  disk_dest+1=a=&>RevealImg
+  a=16
+  load_room_chunk
 }
 
-// a3e.5: prefetches and checksums a placeholder "next level" chunk during
-// the level-ending pause, proving the continuous-loading trick (load while
-// the ending plays, no stutter) ahead of level 2 actually existing. Reuses
-// RoomArtBuf as scratch -- room art is done being read for this level by
-// the time level_ending runs. next_chunk_ok mirrors disk_selftest's
-// checksum check but isn't shown on screen; the ending's visuals/audio are
-// unaffected either way, matching this task's placeholder scope.
-func prefetch_next_level {
-  disk_sector=a=ChunkTable+25
-  disk_sector+1=a=ChunkTable+26
-  disk_count=a=ChunkTable+27
-  disk_count+1=a=ChunkTable+28
-  disk_dest=a=&<RoomArtBuf
-  disk_dest+1=a=&>RoomArtBuf
-  call disk_read
+func stop_music {
+  music_ready=a=0
+  sfx_timer=a
+  AUDC1=a
+  AUDC2=a
+  AUDC3=a
+  AUDC4=a
+}
 
-  disk_chk=a=0
-  disk_ptr=a=&<RoomArtBuf
-  disk_ptr+1=a=&>RoomArtBuf
-  x=ChunkTable+27
-  {
-    y=0
-    {
-      a=(disk_ptr),y
-      c- a+disk_chk
-      disk_chk=a
-      y++
-      y?128
-    } !=
-    a=disk_ptr
-    c- a+128
-    disk_ptr=a
-    c+? { disk_ptr+1++ }
-    x--
-    x?0
-  } !=
+func music_failure {
+  stop_music
+  switch_to_term
+  GRACTL=a=0
+  clear_term_screen
+  SDMCTL=a=0x22
+  msg_src=a=&<MsgDiskErr
+  msg_src+1=a=&>MsgDiskErr
+  msg_len=a=7
+  clear_row0
+  draw_row0_msg
+  { x=1 wait_frames } always
+}
 
-  next_chunk_ok=a=0
+func load_checked_chunk {		// a = chunk index; caller sets disk_dest, count fits one byte
+  x=a
+  tmp=a
+  a<< a<<
+  c- a+tmp
+  cnt=a
+  a=x
+  load_room_chunk
+  a=disk_failed
+  a?0
+  != { music_failure }
+  disk_ptr=a=disk_dest
+  disk_ptr+1=a=disk_dest+1
+  x=cnt
+  a=ChunkTable+2,x
+  x=a
+  disk_checksum
+  x=cnt
   a=disk_chk
-  c+ a-ChunkTable+29
-  == { next_chunk_ok=a=1 }
+  a?ChunkTable+4,x
+  != { music_failure }
+}
+
+func start_music {			// a = title chunk 17 or level chunk 18..21
+  music_chunk=a
+  stop_music
+  disk_dest=a=&<Music
+  disk_dest+1=a=&>Music
+  a=music_chunk
+  load_checked_chunk
+  a=Music+432
+  a?0
+  == { music_failure }
+  a?16
+  >= { music_failure }
+  a=Music+433
+  a?16
+  >= { music_failure }
+  a=Music+434
+  a?16
+  >= { music_failure }
+  mus_timer=a=1
+  mus_step=a=0
+  mus_bar=a
+  lead_vol=a
+  bass_vol=a
+  bass_freq=a
+  drum_type=a
+  drum_t=a
+  music_ready=a=1
+}
+
+func level_music {
+  a=cur_level
+  c- a+18
+  start_music
+}
+
+func init_audio {
+  stop_music
+  AUDCTL=a=0x50				// ch1 at 1.79 MHz, ch1+ch2 joined (16-bit lead)
+  disk_busy=a=0
+  NMIEN=a=0x80				// no VBI while the vector is half written
+  a=VVBLKI+1
+  a?&>music_vbi_imm
+  != {				// skip on re-init (debug level switch): vector already ours
+    a=VVBLKI old_vviblki=a	// save the OS's stage-1 handler, then chain to it so
+    a=VVBLKI+1 old_vviblki+1=a	// RTCLOK/stage-2 dispatch keep working (a3e.4)
+  }
+  VVBLKI=a=&<music_vbi_imm
+  VVBLKI+1=a=&>music_vbi_imm
+  NMIEN=a=0xC0
 }
 
 func init_gameplay {
+  stop_music
   switch_to_term
+  clear_term_screen
+  SDMCTL=a=0x22
   disk_selftest
   load_level_assets
   COLOR0=a=0x0A				// light steel: highlights and HUD text
@@ -2665,31 +2994,2064 @@ func init_gameplay {
   fire_prev=a=1
   relay_done=a=0
   alert_timer=a=0
-  sfx_timer=a=0
   level_finished=a=0
-  mus_timer=a=1
-  mus_step=a=0
-  lead_vol=a=0
-  bass_vol=a=0
-  drum_type=a=0
-  AUDCTL=a=0x50				// ch1 at 1.79 MHz, ch1+ch2 joined (16-bit lead)
-  AUDC1=a=0
-  disk_busy=a=0
-  NMIEN=a=0x80				// no VBI while the vector is half written
-  a=VVBLKI old_vviblki=a		// save the OS's stage-1 handler, then chain to it so
-  a=VVBLKI+1 old_vviblki+1=a	// RTCLOK/stage-2 dispatch keep working (a3e.4)
-  VVBLKI=a=&<music_vbi_imm
-  VVBLKI+1=a=&>music_vbi_imm
-  NMIEN=a=0xC0
+  init_audio
   entry_col=a=0
+  player_y=a=184
+  old_y=a=184
+  cur_level=a=0
+  lnd=a
+  jprep=a
+  paw_t=a
+  paw_kind=a
+  paw_hit=a
+  air=a
+  level_music
   enter_room
+}
+
+data Txt {
+  align 256
+  charset " !~#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "PHASE 02 DELAYED. AGENCY UNDETECTED."
+  "UPLINK REACHED. ROUTE BACK DOWN.    "
+  "SUITE ACCESS GRANTED. LAST COMMAND. "
+  "CLIMB TO THE ROOF UPLINK.           "
+  "TURN THEIR VACUUMS AROUND.          "
+  "REACH THE DESK. MIND THE FLOOR.     "
+}
+data Dlg {
+  align 256
+  charset " !~#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "AI: ANIMAL DETECTED.                "
+  "AI: WHO SENT YOU?                   "
+  "CAT: NO ONE YOU COUNTED.            "
+  "AI: HUMANS REMAIN THE ONLY THREAT.  "
+  "CAT: THAT WAS YOUR MISTAKE.         "
+}
+data Fin {
+  align 256
+  charset " !~#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "CATCOM: MISSION COMPLETE AGENT.     "
+  "HUMAN: A MESS. JUST AN ACCIDENT.    "
+  "THE CATS KNOW BETTER.               "
+}
+data Hints {
+  align 256
+  charset " !~#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "       "
+  "JUMP   "
+  "WAIT   "
+  "GUST   "
+  "SWAT   "
+  "RIDE   "
+  "PUSH   "
+  "FIRE   "
+  "DOCK   "
+  "EXIT   "
+}
+data TxtOff { 0 36 72 108 144 180 216 252 }
+data LvBase { 0 5 9 13 }
+data LvRooms { 3 4 4 2 }
+data LvC1 { 0x82 0x82 0x94 0x66 }
+data LvC2 { 0x26 0x26 0x4A 0x3A }
+data RowLo { 0 40 80 120 160 200 240 24 64 104 144 184 224 8 48 88 128 168 208 248 32 72 112 152 192 }
+data RowHi { 176 176 176 176 176 176 176 177 177 177 177 177 177 178 178 178 178 178 178 178 179 179 179 179 179 }
+
+// ---------------------------------------------------------------------------
+// Platform levels 02-04 (data-driven: rooms are disk chunks, see make_plat_levels.py)
+// Tiles: platforms are FLOOR tiles (one-way: only landed on when falling).
+// ---------------------------------------------------------------------------
+data ActT { 91 92 93 95 124 125 1 2 6 95 124 125 }
+data HintOff { 0 7 14 21 28 35 42 49 56 63 }
+data FanT { 21 22 23 24 25 27 28 60 }
+data DlgOff { 0 36 72 108 144 }
+data FinOff { 0 36 72 }
+data FinRow { 10 12 14 }
+data R4Goal {
+  nocross
+  charset " !~#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "SWAT THE VACUUM THROUGH THE READER. "
+  "RIDE RIGHT. JUMP TO THE BALCONY.    "
+  "JUMP THE GAP TO THE SERVICE EXIT.   "
+  "SERVICE ACCESS OPEN. GO RIGHT.      "
+}
+data R4Off { 0 36 72 108 }
+data R4Hint { 4 5 1 9 }
+
+func row_ptr {				// x = TermScreen row -> sp (screen), ap (art copy)
+  a=RowLo,x
+  sp=a
+  ap=a
+  a=RowHi,x
+  sp+1=a
+  c+ a-16
+  ap+1=a
+}
+
+func put_run {				// x = row, y = col, cnt = width, tmp = tile (0 = restore art)
+  row_ptr
+  {
+    a=tmp
+    a?0
+    == { a=(ap),y }
+    (sp),y=a
+    y++
+    cnt--
+  } !=
+}
+
+func vacuum_roof {			// PMG origin: roof pixel (24 + row*8 + 2) minus paw row 23
+  a=m_arow
+  a<< a<< a<<
+  c- a+3
+}
+
+func roof_on {				// x = slot; a = 1 when the cat's centre column is over that roof's 3 columns
+  a=act_col,x
+  tmp=a
+  a=player_col
+  c+ a-tmp
+  a?3
+  < { a=1 return }
+  a=0
+}
+
+func on_vacuum {			// a = 1 when standing on a vacuum roof; carrier = which one
+  a=m_arow
+  a?0
+  == { return }
+  vacuum_roof
+  a?player_y
+  != { a=0 return }
+  x=0
+  roof_on
+  a?0
+  != { carrier=a=0 a=1 return }
+  a=e_bspd
+  a?0
+  == { return }
+  a=e_mode
+  a&2
+  a?0
+  != {
+    a=gate
+    a?0
+    == { return }			// a parked, inactive pursuer must not offer a stuck RIDE
+  }
+  x=21
+  roof_on
+  a?0
+  == { return }
+  carrier=a=21
+}
+
+func under {				// a = 1 at a supporting surface, including the vacuum roof
+  on_vacuum
+  a?0
+  != { return }
+  a=player_y
+  a&7
+  a?0
+  != { a=0 return }
+  a=player_y
+  a>> a>> a>>
+  c+ a-1
+  x=a
+  row_ptr
+  y=player_col
+  a=(sp),y
+  a&0x7F
+  a?70
+  == { a=1 return }
+  a?94
+  == { a=1 return }			// lift; the domed roof is checked above, not as a flat tile
+  a?127
+  == { a=1 return }			// crumbling catwalk
+  a?62
+  == { a=1 return }			// controller ledge
+  a?79
+  == {
+    a=cur_level
+    a?3
+    == { goto under_base }		// electric floor supports the cat; plat_haz checks contact
+    a=0
+    return
+  }
+  a?95
+  == { goto under_base }
+  a?124
+  == { goto under_base }
+  a?125
+  == { goto under_base }
+  a=0
+  return
+under_base:				// a vacuum base drawn over floor: the floor still carries a disarmed cat
+  a=(ap),y
+  a&0x7F
+  a?70
+  == { a=1 return }
+  a=0
+}
+
+data BrushSpin { binary "assets/vacuum-brushes.bin" }
+
+func spin_brushes {			// two counter-rotating side brushes under the chassis
+  a=RTCLOK
+  a>> a>>
+  a&3
+  tmp=a
+  a<<
+  c- a+tmp
+  x=a
+  y=0
+  {
+    a=BrushSpin,x
+    TermFont+765,y=a			// BASE_L rows 5..7
+    a=BrushSpin+12,x
+    TermFont+1005,y=a			// BASE_R rows 5..7
+    x++
+    y++
+    y?3
+  } !=
+}
+
+func draw_act {				// slot: 3x2 tiles; red while swatted or docked-blinking, amber when chasing
+  wm=a=0
+  x=slot
+  a=act_wob,x
+  a?0
+  != { wm=a=0x80 }
+  a=dk
+  a?0
+  != {
+    a=slot
+    a?0
+    == {
+      a=RTCLOK
+      a&8
+      a?0
+      == { wm=a=0x80 }
+    }
+  }
+  tmp=a=0
+  a=slot
+  a?0
+  != {
+    a=bw
+    a?0
+    != { tmp=a=6 }
+  }
+  a=act_col,x
+  y=a
+  x=m_arow
+  row_ptr
+  x=tmp
+  cnt=a=3
+  { a=ActT,x a|wm (sp),y=a y++ x++ cnt-- } !=
+  x=slot
+  a=act_col,x
+  y=a
+  a=m_arow
+  c- a+1
+  x=a
+  row_ptr
+  a=tmp
+  c- a+3
+  x=a
+  cnt=a=3
+  { a=ActT,x a|wm (sp),y=a y++ x++ cnt-- } !=
+}
+
+func erase_act {			// slot: restore the art under it
+  tmp=a=0
+  x=slot
+  a=act_col,x
+  y=a
+  x=m_arow
+  cnt=a=3
+  put_run
+  x=slot
+  a=act_col,x
+  y=a
+  a=m_arow
+  c- a+1
+  x=a
+  cnt=a=3
+  put_run
+}
+
+func draw_lift {
+  tmp=a=94
+  a=m_lpow
+  a?0
+  != {
+    a=sw_on
+    a?0
+    == { tmp=a=0xDE }			// unpowered: inverse
+  }
+  x=lift_row
+  y=m_lcol
+  cnt=a=m_lw
+  put_run
+}
+
+func draw_glass {			// gcol = glass column, on the cat's body row
+  tmp=a=126
+  x=13
+  y=gcol
+  cnt=a=1
+  put_run
+}
+
+func draw_gate {			// tmp = 81 locked wall, 0 = restore the exit hatch (col 39, 3 rows above the exit)
+  a=m_exit
+  a>> a>> a>>
+  c+ a-4
+  x=a
+  wm=a=3
+  {
+    y=39
+    cnt=a=1
+    put_run
+    x++
+    wm--
+  } !=
+}
+
+func draw_reader {
+  a=cur_level
+  a?2
+  != { return }
+  a=e_mode
+  a&2
+  a?0
+  == { return }
+  tmp=a=83
+  a=gate
+  a?0
+  != { tmp=a=84 }
+  x=20
+  y=m_z0
+  cnt=a=3
+  put_run
+}
+
+func act_init {				// both actors, dock, gate and chase state back to their start
+  act_col=a=m_acol
+  bcol=a=m_bcol
+  a=0
+  act_dir=a
+  act_t=a
+  act_wob=a
+  ride=a
+  carrier=a
+  slot=a
+  dk=a
+  gate=a
+  bdir=a
+  bt=a
+  bwob=a
+  bw=a
+  bk=a
+  a=m_arow
+  a?0
+  == { return }
+  draw_reader
+  draw_act
+  a=e_bspd
+  a?0
+  != { slot=a=21 draw_act slot=a=0 }
+  a=e_mode
+  a&3
+  a?0
+  != { tmp=a=81 draw_gate }
+}
+
+func plat_reset {			// retry after a catch, laser or fall: erase both actors, start over
+  a=m_arow
+  a?0
+  == { return }
+  slot=a=0
+  erase_act
+  a=e_bspd
+  a?0
+  != { slot=a=21 erase_act }
+  a=e_mode
+  a&3
+  a?0
+  != { tmp=a=0 draw_gate }
+  act_init
+}
+
+func respawn {
+  a=m_sx
+  player_x=a
+  a=m_sy
+  player_y=a
+  air=a=0
+  vy=a=0
+  jprep=a
+  lnd=a
+  paw_t=a
+  paw_kind=a
+  paw_hit=a
+  set_col
+  call crumble_reset
+  sfx_alert
+  a=cur_level
+  a?2
+  == { plat_reset }
+}
+
+func plat_dyn_init {
+  sw_on=a=0
+  fan_t=a
+  x=0
+  { cr_t,x=a x++ x?8 } !=
+  lift_row=a=m_lrow
+  lift_dir=a=0xFF
+  lift_t=a=0
+  a=m_lw
+  a?0
+  != { draw_lift }
+  e_mode=a=0
+  e_bspd=a
+  a=cur_level
+  a?2
+  == {
+    e_mode=a=m_mode
+    e_bspd=a=m_bspd
+  }
+  act_init
+  gcol=a=m_glass
+  a?0
+  != { draw_glass }
+  x=cur_level
+  a=LvC2,x
+  COLOR2=a
+}
+
+func enter_plat_room {			// cur_room/entry_col set
+  x=cur_level
+  a=LvBase,x
+  c- a+cur_room
+  load_room_art
+  y=0
+  { a=RoomArtBuf+960,y m_sx,y=a y++ y?32 } !=
+  a=entry_col
+  player_x=a
+  a=m_sy
+  player_y=a
+  air=a=0
+  vy=a=0
+  jprep=a
+  lnd=a
+  paw_t=a
+  paw_kind=a
+  paw_hit=a
+  walk_timer=a=0
+  idle_timer=a=0
+  set_col
+  plat_dyn_init
+  call draw_hud_static
+  x=cur_level
+  a=LvRooms,x
+  c- a+16
+  TermScreen+968=a
+  a=cur_level
+  c- a+17
+  TermScreen+999=a
+  clear_row0
+  clear_row1
+  a=cur_level
+  c- a+2
+  x=a
+  a=TxtOff,x
+  msg_src=a
+  msg_src+1=a=&>Txt
+  msg_len=a=36
+  draw_row0_msg
+  a=m_glass
+  a?0
+  != {					// confrontation room: preload the death cry
+    disk_dest=a=&<CryBuf
+    disk_dest+1=a=&>CryBuf
+    a=15
+    load_room_chunk
+  }
+  draw_player
+}
+
+func plat_exit_allowed {
+  a=cur_level
+  a?2
+  == {
+    a=e_mode
+    a&3
+    a?0
+    != {
+      a=gate
+      a?0
+      == { return }			// charger/reader: stay locked until the objective is achieved
+    }
+  }
+  a=m_exit
+  a?0
+  == { a=1 return }
+  a=m_swy
+  a?0
+  != {
+    a=sw_on
+    a?0
+    == { return }
+  }
+  a=air
+  a?0
+  != { a=0 return }
+  a=player_y
+  a?m_exit
+  == { a=1 return }
+  a=0
+}
+
+func plat_exit {			// right edge of the room, at the marked exit platform
+  plat_exit_allowed
+  a?0
+  == { return }
+  x=cur_level
+  a=LvRooms,x
+  c+ a-1
+  a?cur_room
+  == {
+    a=cur_level
+    a?3
+    == { return }			// the last room of level 04 is a dead end
+    player_x=a=144
+    draw_player
+    call level_ending
+    return
+  }
+  cur_room++
+  entry_col=a=0
+  enter_plat_room
+}
+
+func swat {				// begin a swing; contact is checked later, not on FIRE
+  paw_t=a=10
+  paw_kind=a=0
+  paw_hit=a
+  on_vacuum
+  a?0
+  != { paw_kind=a=2 }			// seated: hind-leg shove
+}
+
+data PawX { 15 14 13 0 0 0 1 }		// forepaw x3, standing hind x2 (unused), seated hind x2
+data PawY { 18 19 19 19 20 23 23 }
+data PawK { 0 3 5 }			// first / end paw tip index per swing kind
+data PawE { 3 5 7 }
+data PixelMask { 192 48 12 3 }
+
+func paw_contact {			// slot: only the downstroke; test paw-tip pixels against the drawn glyph
+  a=paw_t
+  a?4
+  < { return }
+  a?8
+  >= { return }
+  a=paw_hit
+  a?0
+  != { return }
+  a=m_arow
+  a?0
+  == { return }
+  a=air
+  a?0
+  != { return }
+  a=jprep
+  a?0
+  != { return }
+  a=slot
+  a?0
+  != {
+    a=e_bspd
+    a?0
+    == { return }
+  }
+  a=ride
+  a?0
+  != {
+    a=carrier
+    a?slot
+    == { return }			// never kick the vacuum we are sitting on
+  }
+  x=paw_kind
+  a=PawK,x
+  kk=a
+  {
+    x=slot
+    a=act_col,x
+    a<< a<<
+    tmp=a
+    x=kk
+    a=PawX,x
+    x=facing
+    x?0
+    != { a^0xFF c- a+16 }
+    c- a+player_x
+    c+ a-tmp
+    a?12
+    >= { goto paw_pixel_next }
+    paw_x=a
+    a=m_arow
+    a<< a<< a<<
+    c- a+24
+    tmp=a
+    x=kk
+    a=PawY,x
+    c- a+player_y
+    c+ a-tmp
+    a?16
+    >= { goto paw_pixel_next }
+    paw_y=a
+    a&8
+    a?0
+    == { a=0 } else { a=3 }
+    tmp=a
+    a=slot
+    a?0
+    != {
+      a=bw
+      a?0
+      != { a=tmp c- a+6 tmp=a }
+    }
+    a=paw_x
+    a>> a>>
+    c- a+tmp
+    x=a
+    a=ActT,x
+    a<< a<< a<<
+    sp=a
+    a=ActT,x
+    a>> a>> a>> a>> a>>
+    c- a+&>TermFont
+    sp+1=a
+    a=paw_x
+    a&3
+    x=a
+    a=paw_y
+    a&7
+    y=a
+    a=(sp),y
+    a&PixelMask,x
+    a?0
+    != {
+      paw_hit=a=1
+      a=facing
+      x=paw_kind
+      x?0
+      != { a^1 }
+      x=slot
+      act_dir,x=a
+      a=40
+      act_wob,x=a
+      bk=a=0
+      draw_act
+      sfx_switch
+      return
+    }
+paw_pixel_next:
+    kk++
+    x=paw_kind
+    a=PawE,x
+    a?kk
+    == { return }
+  } always				// pixel loop exceeds the 6502 relative-branch range
+}
+
+func paw_both {				// each actor has its own immunity, direction and timer
+  a=cur_level
+  a?2
+  != { return }
+  slot=a=0
+  paw_contact
+  slot=a=21
+  paw_contact
+  slot=a=0
+}
+
+func plat_push {			// level 04: shove the glass off the desk
+  a=dlg_done
+  a?0
+  == { return }
+  a=m_glass
+  a?0
+  == { return }
+  a=player_y
+  a?m_desk
+  != { return }
+  a=m_glass
+  c+ a-player_col
+  a?6
+  >= { return }
+  call final_scene
+}
+
+func sw_ready {				// a = 1: grounded at the controller's height, within 2 columns, unused
+  a=m_swy
+  a?0
+  == { return }
+  a?player_y
+  != { a=0 return }
+  a=sw_on
+  a?0
+  != { a=0 return }
+  a=air
+  a?0
+  != { a=0 return }
+  a=player_col
+  c+ a-m_swc
+  c- a+2
+  a?5
+  >= { a=0 return }
+  a=1
+}
+
+func plat_switch {			// FIRE at the controller: open the roof gate, power the lift
+  sw_ready
+  a?0
+  == { return }
+  sw_on=a
+  sfx_switch
+  tmp=a=62
+  a=m_swy
+  a>> a>> a>>
+  c+ a-1
+  x=a
+  y=m_swc
+  cnt=a=1
+  put_run
+  a=m_exit
+  a>> a>> a>>
+  c+ a-4
+  cr_i=a
+  kk=a=3
+  {
+    tmp=a=85
+    x=cr_i
+    y=39
+    cnt=a=1
+    put_run
+    cr_i++
+    kk--
+  } !=
+  a=m_lpow
+  a?0
+  != { draw_lift }
+}
+
+func cr_put {				// slot x: draw tmp (0 = restore art) on its tile; x preserved
+  cr_i=x
+  a=cr_c,x
+  y=a
+  a=cr_r,x
+  x=a
+  cnt=a=1
+  put_run
+  x=cr_i
+}
+
+func crumble_reset {		// level 02 only: other levels alias these bytes as actor state
+  a=cur_level
+  a?1
+  != { return }
+  x=0
+  {
+    a=cr_t,x
+    a?0
+    != {
+      tmp=a=0
+      cr_put
+      a=0
+      cr_t,x=a
+    }
+    x++
+    x?8
+  } !=
+}
+
+func plat_crumble {			// contact: warning 40 frames, tile gone until frame 120, then restored
+  a=cur_level
+  a?1
+  != { return }
+  x=0
+  {
+    a=cr_t,x
+    a?0
+    != {
+      c- a+1
+      cr_t,x=a
+      a?40
+      == { tmp=a=64 cr_put }
+      a=cr_t,x
+      a?120
+      == {
+        tmp=a=0
+        cr_put
+        a=0
+        cr_t,x=a
+      }
+    }
+    x++
+    x?8
+  } !=
+  a=air
+  a?0
+  != { return }
+  a=player_y
+  a&7
+  a?0
+  != { return }
+  a=player_y
+  a>> a>> a>>
+  c+ a-1
+  tmp=a
+  x=a
+  row_ptr
+  y=player_col
+  a=(sp),y
+  a?127
+  != { return }
+  x=0
+  {
+    a=cr_t,x
+    a?0
+    == {
+      a=1
+      cr_t,x=a
+      a=tmp
+      cr_r,x=a
+      a=player_col
+      cr_c,x=a
+      tmp=a=0xFF			// warning: inverse, still supporting
+      cr_put
+      return
+    }
+    x++
+    x?8
+  } !=
+}
+
+func plat_fire {			// edge-triggered like read_fire
+  a=TRIG0
+  a&1
+  a?0
+  != { fire_prev=a=1 return }
+  a=fire_prev
+  a?0
+  == { return }
+  fire_prev=a=0
+  a=air
+  a?0
+  != { return }
+  a=paw_t
+  a?0
+  != { return }
+  a=cur_level
+  a?1
+  == { plat_switch return }
+  a?2
+  == { swat return }
+  a?3
+  == { plat_push }
+}
+
+func plat_input {
+  a=jprep
+  a?0
+  != {
+    jprep--
+    a=jprep
+    a?0
+    != { return }
+    vy=a=0xFC
+    air=a=1
+    gt=a=0
+    paw_t=a
+  }
+  a=PORTA
+  a&1
+  a?0
+  == {
+    a=air
+    a?0
+    == {
+      a=lnd
+      a?0
+      == { jprep=a=3 walk_timer=a=0 return }
+    }
+  }
+  plat_fire
+  a=level_finished
+  a?0
+  != { return }
+  a=lnd
+  a?0
+  != { return }
+  a=paw_t
+  a?0
+  != { return }
+  tmp=a=0
+  a=air
+  a?0
+  == { a=RTCLOK a&1 tmp=a }		// on the ground: 1 px per 2 frames
+  a=tmp
+  a?0
+  != { return }
+  a=PORTA
+  a&4
+  a?0
+  == {
+    facing=a=1
+    a=player_x
+    a?0
+    == { return }
+    player_x--
+    set_col
+    a=air
+    a?0
+    == { walk_timer=a=4 }
+    return
+  }
+  a=PORTA
+  a&8
+  a?0
+  == {
+    facing=a=0
+    a=player_x
+    a?140
+    == { plat_exit return }
+    player_x++
+    set_col
+    a=air
+    a?0
+    == { walk_timer=a=4 }
+  }
+}
+
+func plat_phys {
+  a=air
+  a?0
+  == {
+    under
+    a?0
+    != { return }
+    jprep=a=0
+    lnd=a
+    paw_t=a
+    air=a=1
+    vy=a=0
+  }
+  walk_timer=a=0
+  idle_timer=a=0
+  gt++
+  a=gt
+  a?3
+  == {				// gravity: +1 every 3 frames
+    gt=a=0
+    a=vy
+    a?5
+    != { vy++ }
+    a=vy
+    a?0
+    == { gt=a=2 }			// one frame at the apex, not a three-frame hover
+  }
+  a=vy
+  a&0x80
+  a?0
+  != {					// rising
+    a=vy
+    a^0xFF
+    c- a+1
+    cnt=a
+    { player_y-- cnt-- } !=
+  } else {
+    a=vy
+    a?0
+    != {				// falling: land when the feet reach a solid tile row
+      cnt=a
+      {
+        player_y++
+        under
+        a?0
+        != { air=a=0 vy=a=0 cnt=a=1 lnd=a=10 }
+        cnt--
+      } !=
+    }
+  }
+  a=player_y
+  a?196
+  >= { respawn }
+}
+
+func fan_draw {				// blades and airflow streaks, every 4 frames
+  a=fan_t
+  a&64
+  a?0
+  == { a=fan_t a>> a>> a>> a>> } else { a=fan_t a>> a>> }
+  a&1
+  a<< a<<
+  wm=a
+  a=m_fr0
+  c- a+2
+  cr_i=a
+  kk=a=2
+  {
+    x=cr_i
+    row_ptr
+    a=m_fan
+    c+ a-3
+    y=a
+    x=wm
+    a=FanT,x
+    (sp),y=a
+    y++
+    x++
+    a=FanT,x
+    (sp),y=a
+    x++
+    a=x
+    wm=a
+    cr_i++
+    kk--
+  } !=
+  kk=a=m_fr0
+  {
+    tmp=a=0
+    a=fan_t
+    a&64
+    a?0
+    != {
+      a=fan_t
+      a>> a>>
+      c- a+kk
+      a&1
+      c- a+8
+      tmp=a
+    }
+    x=kk
+    y=m_fan
+    a=m_fc1
+    c+ a-m_fan
+    cnt=a
+    put_run
+    kk++
+    a=kk
+    a?m_fr1
+  } !=
+}
+
+func plat_fan {				// airborne cat in the gust zone drifts right during the gust phase
+  a=m_fan
+  a?0
+  == { return }
+  fan_t++
+  a=fan_t
+  a&3
+  a?0
+  == { fan_draw }
+  a=air
+  a?0
+  == { return }
+  a=fan_t
+  a&64
+  a?0
+  == { return }
+  a=player_x
+  a?140
+  >= { return }
+  a=player_col
+  a?m_fan
+  < { return }
+  a?m_fc1
+  >= { return }
+  a=player_y
+  a>> a>> a>>
+  c+ a-2
+  a?m_fr0
+  < { return }
+  a?m_fr1
+  >= { return }
+  player_x++
+  set_col
+}
+
+func plat_lift {
+  a=m_lw
+  a?0
+  == { return }
+  a=m_lpow
+  a?0
+  != {
+    a=sw_on
+    a?0
+    == { return }
+  }
+  a=m_lspd
+  a?0
+  == { a=24 }
+  tmp=a
+  lift_t++
+  a=lift_t
+  a?tmp
+  < { return }
+  lift_t=a=0
+  ride=a=0
+  a=air
+  a?0
+  == {
+    a=lift_row
+    c- a+1
+    a<< a<< a<<
+    a?player_y
+    == {
+      a=player_col
+      c+ a-m_lcol
+      a?m_lw
+      < { ride=a=1 }
+    }
+  }
+  tmp=a=0
+  x=lift_row
+  y=m_lcol
+  cnt=a=m_lw
+  put_run
+  kk=a=lift_dir
+  c- a+lift_row
+  lift_row=a
+  a?m_lmin
+  == { lift_dir=a=1 }
+  a=lift_row
+  a?m_lmax
+  == { lift_dir=a=0xFF }
+  draw_lift
+  a=ride
+  a?0
+  == { return }
+  a=kk
+  a?1
+  == {
+    a=player_y
+    c- a+8
+  } else {
+    a=player_y
+    c+ a-8
+  }
+  player_y=a
+}
+
+func carry {				// the seated cat rides its carrier's last step (kk 1 = right, 2 = left)
+  a=ride
+  a?0
+  == { return }
+  a=carrier
+  a?slot
+  != { return }
+  a=kk
+  a?1
+  == {
+    a=player_x
+    a?136
+    < { c- a+4 player_x=a }
+  }
+  a=kk
+  a?2
+  == {
+    a=player_x
+    a?4
+    >= { c+ a-4 player_x=a }
+  }
+  set_col
+}
+
+func dock_tick {			// R2: the docked vacuum blinks, then recovers and heads left
+  dk--
+  a=dk
+  a?0
+  == {
+    act_wob=a=24
+    act_dir=a=1
+    act_t=a=0
+  }
+  draw_act
+}
+
+func a_step {				// one patrol column; the right limit opens while struck / unlocked
+  wm=a=m_amax
+  a=e_mode
+  a?0
+  != {
+    a=act_wob
+    a?0
+    != { wm=a=m_xmax }
+    a=gate
+    a?0
+    != {
+      a=e_mode
+      a&2
+      a?0
+      != { wm=a=m_xmax }
+    }
+  }
+  a=act_dir
+  a?0
+  == {
+    a=act_col
+    a?wm
+    >= { act_dir=a=1 } else { act_col++ kk=a=1 }
+  } else {
+    a=m_amin
+    a?act_col
+    >= { act_dir=a=0 } else {
+      tmp=a=1
+      a=e_bspd
+      a?0
+      != {
+        a=act_col
+        c+ a-bcol
+        a?4
+        < { tmp=a=0 }			// never into the pursuer
+      }
+      a=tmp
+      a?0
+      != { act_col-- kk=a=2 }
+    }
+  }
+}
+
+func a_events {				// docking in the bay / crossing the reader
+  a=e_mode
+  a&1
+  a?0
+  != {
+    a=act_dir
+    a?0
+    == {
+      a=act_wob
+      a?0
+      != {
+        a=act_col
+        a?m_dock
+        >= {
+          dk=a=240
+          act_wob=a=0
+          gate=a=1
+          tmp=a=0
+          draw_gate
+        }
+      }
+    }
+  }
+  a=e_mode
+  a&2
+  a?0
+  == { return }
+  a=gate
+  a?0
+  != { return }
+  a=act_col
+  a?m_z0
+  < { return }
+  a=m_z1
+  a?act_col
+  < { return }
+  gate=a=1
+  tmp=a=0
+  draw_gate
+  draw_reader
+}
+
+func plat_actor {
+  a=m_arow
+  a?0
+  == { return }
+  spin_brushes
+  a=act_wob
+  a?0
+  != { act_wob-- }
+  a=bwob
+  a?0
+  != { bwob-- }
+  ride=a=0
+  a=air
+  a?0
+  == {
+    on_vacuum
+    a?0
+    != { ride=a=1 }
+  }
+  slot=a=0
+  a=dk
+  a?0
+  != { dock_tick return }
+  act_t++
+  a=act_t
+  a?m_aspd
+  < { return }
+  act_t=a=0
+  erase_act
+  kk=a=0
+  a_step
+  draw_act
+  a_events
+  carry
+}
+
+func b_right {				// pursuer one column right, never nearer than 4 to the carrier
+  a=bcol
+  a?m_bmax
+  >= { return }
+  a=act_col
+  c+ a-bcol
+  a?4
+  < { return }				// closes to 3 columns: dome-to-dome touching
+  bcol++
+  kk=a=1
+}
+
+func b_left {
+  a=m_bmin
+  a?bcol
+  >= { return }
+  bcol--
+  kk=a=2
+}
+
+func b_move {				// shoved, chasing a rider, or going home
+  a=bwob
+  a?0
+  != {
+    a=bdir
+    a?0
+    == { b_right } else { b_left }
+    return
+  }
+  a=ride
+  a?0
+  != { b_right return }
+  a=m_bcol
+  a?bcol
+  < { b_left }
+  a=bcol
+  a?m_bcol
+  < { b_right }
+}
+
+func b_touch {				// a = 1 while the rider's rearmost pixel overlaps the pursuer's dome front
+  a=lnd
+  a?0
+  != { a=0 return }
+  a=jprep
+  a?0
+  != { a=0 return }
+  a=ride
+  a?0
+  == { return }
+  a=carrier
+  a?0
+  != { a=0 return }			// only the cat riding the lead vacuum is chased
+  a=bwob
+  a?0
+  != { a=0 return }			// a shoved pursuer is disarmed
+  a=bcol
+  a<< a<<
+  c- a+10
+  tmp=a
+  a=player_x
+  x=facing
+  x?0
+  != { c- a+2 }			// the left-facing seated frame starts two pixels further in
+  a?tmp
+  < { a=1 return }
+  a=0
+}
+
+func plat_pursuer {			// the separate rear vacuum: wakes when the cat rides, sleeps at home
+  a=cur_level
+  a?2
+  != { return }
+  a=e_bspd
+  a?0
+  == { return }
+  a=e_mode
+  a&2
+  a?0
+  != {
+    a=gate
+    a?0
+    == { return }
+  }
+  slot=a=21
+  bw=a=0
+  a=ride
+  a?0
+  != { bw=a=1 }
+  a=bcol
+  a?m_bcol
+  != { bw=a=1 }
+  a=bw
+  a?0
+  != {
+    b_touch
+    a?0
+    == {
+      a=bk
+      a?0
+      != { bk-- }
+    } else {
+      bk++
+      a=bk
+      a?48
+      >= { slot=a=0 respawn return }	// held against the rider for ~0.8 s: retry
+    }
+  }
+  bt++
+  a=bt
+  a?m_bspd
+  < { slot=a=0 return }
+  bt=a=0
+  erase_act
+  kk=a=0
+  b_move
+  draw_act
+  carry
+  slot=a=0
+}
+
+func hit_check {			// slot: walking into a live vacuum at floor level
+  x=slot
+  a=act_wob,x
+  a?0
+  != { return }				// a struck vacuum is briefly disarmed
+  a=slot
+  a?0
+  == {
+    a=dk
+    a?0
+    != { return }			// docked
+  } else {
+    a=bw
+    a?0
+    == { return }			// a sleeping pursuer is harmless
+  }
+  vacuum_roof
+  c- a+1
+  tmp=a
+  a=player_y
+  a?tmp
+  < { return }
+  x=slot
+  a=act_col,x
+  tmp=a
+  a=player_col
+  c+ a-tmp
+  a?3
+  >= { return }
+  respawn
+}
+
+func plat_hit {
+  a=m_arow
+  a?0
+  == { return }
+  slot=a=0
+  hit_check
+  a=e_bspd
+  a?0
+  == { return }
+  slot=a=21
+  hit_check
+  slot=a=0
+}
+
+func plat_beam {			// R2 lasers over the aisle: off while the vacuum is docked
+  a=cur_level
+  a?2
+  != { return }
+  a=e_mode
+  a&1
+  a?0
+  == { return }
+  a=dk
+  a?0
+  != { tmp=a=0 } else {
+    a=RTCLOK
+    a&16
+    a?0
+    == { a=0xCF } else { a=79 }
+    tmp=a
+  }
+  x=19
+  y=m_z0
+  a=m_z1
+  c+ a-m_z0
+  c- a+1
+  cnt=a
+  put_run
+  a=dk
+  a?0
+  != { return }
+  a=player_col
+  a?m_z0
+  < { return }
+  a=m_z1
+  a?player_col
+  < { return }
+  a=player_y
+  a?153
+  < { return }
+  a?184
+  >= { return }				// 24-pixel body overlaps the beam's Y 176..183 band
+  respawn
+}
+
+func plat_haz {				// electrified floor band, 32 frames on / 32 off
+  a=m_h0
+  a?0
+  == { return }
+  a=RTCLOK
+  a&0x20
+  a?0
+  == { a=0xCF } else { a=0 }
+  tmp=a
+  x=22
+  y=m_h0
+  a=m_h1
+  c+ a-m_h0
+  c- a+1
+  cnt=a
+  put_run
+  a=RTCLOK
+  a&0x20
+  a?0
+  != { return }
+  a=player_y
+  a?184
+  != { return }
+  a=player_col
+  a?m_h0
+  < { return }
+  a=m_h1
+  a?player_col
+  < { return }
+  respawn
+}
+
+func ai_mouth {				// two 6x5-byte patches streamed after the 160x80 portrait
+  x=ai_pose
+  y=0
+  {
+    a=ZoomBuf+3200,x
+    ZoomBuf+2256,y=a
+    a=ZoomBuf+3206,x
+    ZoomBuf+2296,y=a
+    a=ZoomBuf+3212,x
+    ZoomBuf+2336,y=a
+    a=ZoomBuf+3218,x
+    ZoomBuf+2376,y=a
+    a=ZoomBuf+3224,x
+    ZoomBuf+2416,y=a
+    x++
+    y++
+    y?6
+  } !=
+}
+
+func ai_tick {				// returns 1 on a fresh FIRE/key press, 0 otherwise
+  x=1
+  wait_frames
+  ai_frame++
+  a=ai_frame
+  a&16
+  a?0
+  == { COLOR0=a=0x92 } else { COLOR0=a=0x96 }
+  a=ai_frame
+  a&7
+  a?0
+  == {
+    a=ai_line
+    a?2
+    != {
+      a?4
+      != {
+        a=ai_pose
+        a^30
+        ai_pose=a
+        ai_mouth
+        a=ai_pose
+        a?0
+        != { sfx_switch }
+      }
+    }
+  }
+  input_pressed
+  x=a
+  CH=a=0xFF
+  a=x
+  a?0
+  == { fire_prev=a=1 a=0 return }
+  a=fire_prev
+  a?0
+  != { a=1 return }
+  a=0
+}
+
+func ai_cutscene {
+  SDMCTL=a=0
+  DMACTL=a
+  GRACTL=a
+  NMIEN=a=0x40
+  disk_dest=a=&<ZoomBuf
+  disk_dest+1=a=&>ZoomBuf
+  a=25
+  load_checked_chunk
+  a?0
+  != { call music_failure }
+  clear_term_screen
+  SDLSTL=a=&<dl_ai
+  SDLSTL+1=a=&>dl_ai
+  COLOR0=a=0x96
+  COLOR1=a=0x0E
+  COLOR2=a=0x3A
+  COLOR4=a=0
+  SDMCTL=a=0x22
+  CH=a=0xFF
+  fire_prev=a=0
+  ai_line=a
+ai_next_line:
+  ai_pose=a=0
+  ai_frame=a
+  ai_mouth
+  clear_row0
+  x=ai_line
+  a=DlgOff,x
+  msg_src=a
+  msg_src+1=a=&>Dlg
+  msg_len=a=36
+  draw_row0_msg
+  y=0
+  { a=TermScreen,y TermScreen+840,y=a y++ y?40 } !=
+ai_wait_line:
+  ai_tick
+  a?0
+  != { goto ai_restore }
+  a=ai_frame
+  a?180
+  != { goto ai_wait_line }
+  ai_line++
+  a=ai_line
+  a?5
+  != { goto ai_next_line }
+ai_restore:
+  SDMCTL=a=0
+  DMACTL=a
+  disk_dest=a=&<RoomArtBuf
+  disk_dest+1=a=&>RoomArtBuf
+  x=cur_level
+  a=LvBase,x
+  c- a+cur_room
+  load_checked_chunk
+  a?0
+  != { call music_failure }
+  paint_room_art
+  disk_dest=a=&<CryBuf
+  disk_dest+1=a=&>CryBuf
+  a=15
+  load_checked_chunk			// portrait temporarily overwrites part of the death cry
+  a?0
+  != { call music_failure }
+  draw_glass
+  call draw_hud_static
+  x=cur_level
+  a=LvRooms,x
+  c- a+16
+  TermScreen+968=a
+  a=cur_level
+  c- a+17
+  TermScreen+999=a
+  clear_row0
+  clear_row1
+  SDLSTL=a=&<dl_term
+  SDLSTL+1=a=&>dl_term
+  x=cur_level
+  a=LvC1,x
+  COLOR1=a
+  a=LvC2,x
+  COLOR2=a
+  COLOR0=a=0x0A
+  COLOR3=a=0x34
+  COLOR4=a=0
+  init_pmg
+  CH=a=0xFF
+  fire_prev=a=0			// skipping must not also push the glass
+  NMIEN=a=0xC0
+}
+
+func plat_dlg {				// once per L04 visit, on the grounded approach to the core
+  a=cur_level
+  a?3
+  != { return }
+  a=m_dlg
+  a?0
+  == { return }
+  a=dlg_done
+  a?0
+  != { return }
+  a=air
+  a?0
+  != { return }
+  a=player_y
+  a?137
+  >= { return }
+  a=player_col
+  a?20
+  < { return }
+  dlg_done=a=1
+  ai_cutscene
+}
+
+func final_scene {			// glass off the desk, the computer dies, the cats know better
+  level_finished=a=1
+  AUDC1=a=0
+  AUDC2=a=0
+  AUDC3=a=0
+  AUDC4=a=0
+  clear_row0
+  kk=a=4
+  {
+    x=10
+    wait_frames
+    tmp=a=0
+    x=13
+    y=gcol
+    cnt=a=1
+    put_run
+    gcol++
+    draw_glass
+    kk--
+  } !=
+  x=8					// computer screen goes inverse (dead)
+  {
+    row_ptr
+    y=36
+    { a=(sp),y a|0x80 (sp),y=a y++ y?39 } !=
+    x++
+    x?13
+  } !=
+  x=15
+  wait_frames
+  cry_ptr=a=&<CryBuf
+  cry_ptr+1=a=&>CryBuf
+  y=0
+  {
+    WSYNC=a
+    WSYNC=a
+    WSYNC=a
+    a=(cry_ptr),y
+    a|0x10
+    AUDC1=a
+    COLBK=a
+    cry_ptr++
+    == { cry_ptr+1++ }
+    a=cry_ptr+1
+    a?0xB0
+  } !=
+  AUDC1=a=0
+  COLBK=a=0
+  x=60
+  wait_frames
+  clear_term_screen
+  SDMCTL=a=0x22
+  COLOR0=a=0x0E
+  COLOR1=a=0x0E
+  COLOR2=a=0x0E
+  COLOR4=a=0
+  kk=a=0
+  {
+    x=kk
+    a=FinRow,x
+    x=a
+    row_ptr
+    a=sp
+    c- a+2
+    sp=a
+    x=kk
+    a=FinOff,x
+    msg_src=a
+    msg_src+1=a=&>Fin
+    y=0
+    { a=(msg_src),y (sp),y=a y++ y?36 } !=
+    x=70
+    wait_frames
+    kk++
+    a=kk
+    a?3
+  } !=
+  x=90
+  wait_frames
+  kk=a=14
+  {
+    a=kk
+    COLOR0=a
+    COLOR1=a
+    COLOR2=a
+    x=14
+    wait_frames
+    kk--
+    kk--
+  } !=
+  COLOR0=a=0
+  COLOR1=a=0
+  COLOR2=a=0
+}
+
+func r4_goal {				// returns the room's next action in x
+  x=0
+  a=gate
+  a?0
+  != {
+    x=1
+    a=player_col
+    a?23
+    >= { x=2 }
+    a?33
+    >= { x=3 }
+  }
+  a=R4Off,x
+  c- a+&<R4Goal
+  msg_src=a
+  msg_src+1=a=&>R4Goal
+  msg_len=a=36
+  draw_row0_msg
+  a=R4Hint,x
+  x=a
+  a=ride
+  a?0
+  != {
+    a=act_col
+    a?17
+    >= { x=1 }
+  }
+}
+
+func plat_hud {
+  hud_col=a=0x0C
+  x=0
+  a=cur_level
+  a?1
+  == {
+    a=cur_room
+    a?0
+    == { x=1 }
+    a?2
+    == {
+      x=3
+      a=fan_t
+      a&64
+      a?0
+      == { x=2 }
+    }
+    sw_ready
+    a?0
+    != { x=7 }
+  }
+  a=cur_level
+  a?2
+  == {
+    x=4
+    a=ride
+    a?0
+    != {
+      x=5
+      a=bw
+      a?0
+      != { x=6 }
+    }
+    a=dk
+    a?0
+    != { x=8 }
+    a=e_mode
+    a&1
+    a?0
+    != {
+      a=gate
+      a?0
+      != { x=9 }
+    }
+    a=cur_room
+    a?3
+    == { r4_goal }
+  }
+  a=cur_level
+  a?3
+  == {
+    a=dlg_done
+    a?0
+    != {
+      a=player_y
+      a?m_desk
+      == {
+        a=m_glass
+        c+ a-player_col
+        a?6
+        < { x=6 }
+      }
+    }
+  }
+  a=HintOff,x
+  msg_src=a
+  msg_src+1=a=&>Hints
+  hud_label
+  a=player_x
+  a>> a>> a>> a>>
+  c- a+2
+  hud_n=a
+  hud_bar
+}
+
+func plat_frame {
+  blink_leds
+  plat_input
+  a=level_finished
+  a?0
+  != { return }
+  plat_phys
+  plat_fan
+  plat_lift
+  plat_crumble
+  plat_actor
+  plat_pursuer
+  paw_both
+  plat_hit
+  plat_haz
+  plat_beam
+  plat_dlg
+  tick_cat
+  plat_hud
+  draw_player
+}
+
+func frame_any {
+  a=cur_level
+  a?0
+  == { game_frame } else { plat_frame }
+}
+
+func init_plat {
+  x=cur_level
+  a=LvC1,x
+  COLOR1=a
+  COLOR0=a=0x0A
+  COLOR3=a=0x34
+  COLOR4=a=0
+  init_pmg
+  cur_room=a=0
+  fire_prev=a=1
+  dlg_done=a=0
+  entry_col=a=0
+  level_finished=a=0
+  level_music
+  enter_plat_room
+}
+
+func next_level {
+  a=cur_level
+  a?3
+  >= { return }
+  cur_level++
+  init_plat
+}
+
+func dbg_level {			// TEST: keys 1-4 jump to level 1-4
+  a=CH
+  a?0x1F
+  == { CH=a=0xFF init_gameplay return }
+  a?0x1E
+  == { x=1 }
+  a?0x1A
+  == { x=2 }
+  a?0x18
+  == { x=3 }
+  a?0x1E
+  != { a?0x1A != { a?0x18 != { return } } }
+  CH=a=0xFF
+  cur_level=x
+  init_plat
+}
+
+func title_screen {
+  switch_to_term
+  GRACTL=a=0
+  SDMCTL=a=0
+  DMACTL=a
+  cur_room=a=0
+  level_finished=a
+  disk_dest=a=&<ZoomBuf
+  disk_dest+1=a=&>ZoomBuf
+  a=22
+  load_checked_chunk
+  disk_dest=a=&<TermScreen
+  disk_dest+1=a=&>TermScreen
+  a=23
+  load_checked_chunk
+  disk_dest=a=&<TitleBottom
+  disk_dest+1=a=&>TitleBottom
+  a=24
+  load_checked_chunk
+  init_audio
+  a=17
+  start_music
+  NMIEN=a=0x40				// static bitmap has no DLI
+  SDLSTL=a=&<dl_title
+  SDLSTH=a=&>dl_title
+  COLOR4=a=0x00
+  COLOR0=a=0x82
+  COLOR1=a=0x0E
+  COLOR2=a=0x28
+  SDMCTL=a=0x22
+  title_phase=a=1
+title_release:
+  CH=a=0xFF
+  x=1 wait_frames
+  input_pressed
+  a?0
+  != { goto title_release }
+  CH=a=0xFF
+  title_phase=a=2
+title_wait:
+  x=1 wait_frames
+  a=TRIG0
+  a&1
+  a?0
+  == { goto title_start }
+  a=CH
+  a?0x0C
+  == { goto title_start }
+  a?0x21
+  == { goto title_start }
+  goto title_wait
+title_start:
+  title_phase=a=0
+  music_ready=a
+  SDMCTL=a
+  DMACTL=a
+  CH=a=0xFF
+  cut_to_black
 }
 
 // ---------------------------------- Scene ------------------------------------
 
 main {
   init_system
-  goto intro_skip			// temporary level-only preview; remove to restore the intro
   build_storm_list
 
   switch_to_storm			// opening shows racks, but not the cat
@@ -2742,12 +5104,14 @@ intro_skip:
   AUDC1=a=0
   cut_to_black
 
+  title_screen
   init_gameplay
   {
     x=1
     wait_frames
+    dbg_level
     a=level_finished
     a?0
-    == { game_frame }
-  } always				// gameplay loop; idles forever once level_finished=1
+    == { frame_any } else { next_level }
+  } always				// gameplay loop; idles forever after the last level
 }

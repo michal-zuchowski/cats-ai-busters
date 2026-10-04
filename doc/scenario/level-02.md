@@ -30,6 +30,22 @@ Atari look, but leave clear space around ledges and landing zones.
    and tried again if missed. A final jump reaches the roof access and
    leaves the AI's uplink as the next story lead, not the game's finale.
 
+**Implemented rooms** (all exits on the right; each room starts at the
+height where the previous one ended, so the climb is continuous):
+
+1. *Shaft:* a left-right-left zigzag leads to a side ledge with the lift
+   controller. FIRE (a fresh press, standing near it) powers the lift that
+   was stationary and red; ride it to the marked exit ledge.
+2. *Trays:* a short route across three crumbling trays (they flash red
+   on contact, vanish after about 0.7 s and return after 2 s) or a longer
+   stable staircase. The floor catches misses.
+3. *Cooling:* the fan blades turn and airflow streaks show exactly where
+   the gust acts. The gust only pushes an airborne cat and alternates with
+   calm; the left nook is outside it. A wind-assisted jump crosses the
+   gap; a longer stable stairs route needs no wind.
+4. *Roof lift:* ride the lift to the controller ledge, FIRE to open the
+   roof gate, board the lift again and cross a final crumbling catwalk.
+
 The HUD gives short contextual hints such as `JUMP` or `WAIT`, without
 interrupting play with a tutorial. Moving machinery should have a clear
 cycle and safe waiting area. The rooms can load from disk as the existing

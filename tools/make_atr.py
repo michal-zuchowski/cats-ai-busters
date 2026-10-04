@@ -17,15 +17,17 @@ honor RUNAD at runtime -- see doc/tech/gameplay.md).
 After the resident program's sectors, extra named "chunks" are appended:
 room 0/1/2 art (960-byte slices of assets/level-rooms.pic), CamCfg
 (assets/level-cams.bin) and ConeStep (assets/cone-step.bin) -- level 01's
-disk-streamed assets (a3e.3) -- plus a next-level-placeholder chunk
-standing in for level 2's not-yet-authored data (a3e.5). assets/disk-chunks.bin
+disk-streamed assets (a3e.3) -- followed by ten platform rooms, the death cry,
+and the cat atlas. Chunks start after the reserved resident-bank range, so
+their addresses do not depend on the linked program's size. assets/disk-chunks.bin
 records, per chunk, a 5-byte entry: word start_sector, word sector_count,
 byte checksum (sum of the padded on-disk bytes, mod 256). main.k65's
 `disk_read` func loads each chunk with SIOV; `disk_selftest` re-checks
 chunk 0's (room 0 art) checksum as a boot-time smoke test, and
-`prefetch_next_level` re-checks the placeholder chunk's checksum during
+`prefetch_next_level` re-checks the next level's first room checksum during
 the level-ending pause -- see doc/tech/gameplay.md.
 """
+import argparse
 import struct
 import sys
 from pathlib import Path
@@ -42,10 +44,16 @@ EXTRA_CHUNKS = [
     ("room2-art", ROOT / "assets" / "level-rooms.pic", 1920, 960),
     ("cam-cfg", ROOT / "assets" / "level-cams.bin"),
     ("cone-step", ROOT / "assets" / "cone-step.bin"),
-    # a3e.5: level 2 doesn't exist yet, so this stands in for its data; the
-    # level-ending prefetch (main.k65's prefetch_next_level) reads and
-    # checksums this chunk to prove the continuous-loading trick works.
-    ("next-level-placeholder", ROOT / "assets" / "next-level-placeholder.bin"),
+    # chunks 5..14: rooms of levels 02 (4), 03 (4), 04 (2); 15: computer-death cry
+    *[("plat-room%d" % i, ROOT / "assets" / "plat-rooms.bin", i * 1024, 1024) for i in range(10)],
+    ("death-cry", ROOT / "assets" / "plat-cry.pcm"),
+    ("cat-atlas", ROOT / "assets" / "cat-sprites.bin"),
+    ("title-music", ROOT / "assets" / "music.bin"),
+    *[("level%d-music" % i, ROOT / "assets" / ("music-level-%02d.bin" % i)) for i in range(1, 5)],
+    ("title-top", ROOT / "assets" / "title-screen.pic", 0, 4000),
+    ("title-middle", ROOT / "assets" / "title-screen.pic", 4000, 960),
+    ("title-bottom", ROOT / "assets" / "title-screen.pic", 4960, 2560),
+    ("ai-portrait", ROOT / "assets" / "ai-portrait.pic"),
 ]
 
 SECTOR_SIZE = 128
@@ -54,6 +62,9 @@ BOOT_SECTORS = 1             # BRCNT: our loader fits in sector 1 alone
 BLDADR = 0x0700              # where the OS loads the boot sector(s)
 PAYLOAD_ADDR = 0x1000        # -lowAddr from main.k65proj
 FIRST_DATA_SECTOR = BOOT_SECTORS + 1   # sector 2 is the first free sector
+# main.k65proj's $1000..$9FFF bank; fixed chunks avoid a link/table/relink cycle.
+RESIDENT_CAPACITY = 0xA000 - PAYLOAD_ADDR
+FIRST_CHUNK_SECTOR = FIRST_DATA_SECTOR + RESIDENT_CAPACITY // SECTOR_SIZE
 
 # Fixed OS entry points / DCB, always present without DOS.
 DDEVIC, DUNIT, DCOMND, DSTATS = 0x0300, 0x0301, 0x0302, 0x0303
@@ -215,6 +226,8 @@ def parse_xex_main_segment(xex_bytes):
 
 
 def build_atr(payload, extra_chunks):
+    if len(payload) > RESIDENT_CAPACITY:
+        raise SystemExit("resident program exceeds the reserved $1000..$9FFF bank")
     padded_len = -(-len(payload) // SECTOR_SIZE) * SECTOR_SIZE
     payload = payload + b"\x00" * (padded_len - len(payload))
     sector_count = padded_len // SECTOR_SIZE
@@ -238,7 +251,7 @@ def build_atr(payload, extra_chunks):
         sectors[FIRST_DATA_SECTOR - 1 + n] = payload[n * SECTOR_SIZE:(n + 1) * SECTOR_SIZE]
 
     chunk_table = bytearray()
-    next_sector = FIRST_DATA_SECTOR + sector_count
+    next_sector = FIRST_CHUNK_SECTOR
     for entry in extra_chunks:
         if len(entry) == 4:
             name, path, offset, length = entry
@@ -266,14 +279,24 @@ def build_atr(payload, extra_chunks):
 
 
 def main():
-    if not XEX_PATH.exists():
-        raise SystemExit("missing %s; build main.k65proj first" % XEX_PATH)
-    xex = XEX_PATH.read_bytes()
-    payload = parse_xex_main_segment(xex)
+    parser = argparse.ArgumentParser(description="Pack the Atari disk and its stable chunk table.")
+    parser.add_argument("--table-only", action="store_true",
+                        help="prepare chunk metadata without requiring or changing XEX/ATR")
+    args = parser.parse_args()
+    if args.table_only:
+        payload = bytes(SECTOR_SIZE)  # layout-only input; no dummy program is written
+    else:
+        if not XEX_PATH.exists():
+            raise SystemExit("missing %s; build main.k65proj first" % XEX_PATH)
+        payload = parse_xex_main_segment(XEX_PATH.read_bytes())
     atr, sector_count, chunk_table = build_atr(payload, EXTRA_CHUNKS)
+    CHUNKS_PATH.write_bytes(chunk_table)
+    if args.table_only:
+        print("wrote %s (%d stable chunk entries; XEX/ATR unchanged)"
+              % (CHUNKS_PATH, len(EXTRA_CHUNKS)))
+        return
     ATR_PATH.parent.mkdir(parents=True, exist_ok=True)
     ATR_PATH.write_bytes(atr)
-    CHUNKS_PATH.write_bytes(chunk_table)
     print("wrote %s (%d bytes, %d payload sectors from sector %d, %d extra chunk(s))"
           % (ATR_PATH, len(atr), sector_count, FIRST_DATA_SECTOR, len(EXTRA_CHUNKS)))
 

@@ -14,6 +14,8 @@ Target platform: Atari XE/XL. This is a K65 language project, not C or a generic
 ## Model Usage Policy
 
 - Expensive, high-capability models (e.g. Claude Opus, GPT-*-sol class) are reserved for planning, task breakdown, delegation, supervision, code review and verification.
-- Implementation is delegated to cheaper models (e.g. Claude Sonnet, Haiku, GPT-*-mini/luna class) running as sub-agents with complete context, a bounded scope and explicit verification steps.
-- The planning model reviews every delegated diff, runs the build/tests/linters itself, and fixes only review findings directly; it does not write bulk implementation code.
+- Implementation is delegated to cheaper models (e.g. Claude Sonnet, Haiku, GPT-*-mini/luna class) running as sub-agents with complete context, a bounded scope, acceptance criteria and explicit verification steps.
+- The expensive coordinating model owns the plan, assigns implementation tasks, monitors progress and reviews every delegated diff. It independently verifies the requested behavior rather than accepting the implementing model's completion claim.
+- Substantive corrections found during review go back to the cheaper implementing model; the expensive model must not take over bulk implementation.
+- Use existing tests, linters and runtime checks for acceptance. Compile K65 only after an explicit user request; otherwise clearly distinguish source/data checks from fresh compiled-game verification.
 - Small, trivial edits (a few lines, docs, config) may be done directly when delegation would cost more than the change.

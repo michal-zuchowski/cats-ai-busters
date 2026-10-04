@@ -1,4 +1,4 @@
-"""Level theme: original spy-funk in D minor, 4/4, one step = one 16th (5 frames).
+"""Original title spy-funk and four level-specific POKEY scores.
 
 8-bit POKEY pure tones on the 64 kHz clock drift up to ~20 cents above C4,
 so the lead plays on channels 1+2 joined into one 16-bit voice clocked at
@@ -11,6 +11,8 @@ Layout of assets/music.bin (offsets used by main.k65):
   0 lead[256] (0 nothing, 1 cut, k >= 2: note k)  256 bass rhythm[16]
   272 drums[2*16]  304 bass low[16]  320 bass high[16]
   336 note AUDF1[16]  352 note AUDF2[16]  368 drum AUDF[4*8]  400 drum AUDC[4*8]
+  432 frames/step   433 lead attack volume   434 bass attack volume
+Each 435-byte track is streamed into a shared 512-byte RAM buffer.
 """
 
 from pathlib import Path
@@ -64,22 +66,103 @@ DRUM_C = ((0,) * 8,
           (0x85, 0x83, 0x81, 0, 0, 0, 0, 0))
 
 
-def music():
-    tokens = LEAD.split()
+def encode(lead, bass, drums, roots, settings, drum_gain=15):
+    tokens = lead.split()
+    assert len(tokens) == 256 and len(bass) == len(roots) == 16 and len(drums) == 32
     notes = sorted({t for t in tokens if t not in "-."}, key=audf16, reverse=True)
     assert len(notes) <= 16
     lead = [HOLD if t == "-" else REST if t == "." else notes.index(t) + 2 for t in tokens]
     freq = [audf16(n) for n in notes] + [0] * (16 - len(notes))
-    out = bytes(lead) + bytes(BASS_RHYTHM) + bytes(DRUMS)
-    out += bytes(N[lo] for lo, _ in ROOTS) + bytes(N[hi] for _, hi in ROOTS)
+    out = bytes(lead) + bytes(bass) + bytes(drums)
+    out += bytes(N[lo] for lo, _ in roots) + bytes(N[hi] for _, hi in roots)
     out += bytes(f & 255 for f in freq) + bytes(f >> 8 for f in freq)
-    out += bytes(v for row in DRUM_F for v in row) + bytes(v for row in DRUM_C for v in row)
-    return out
+    out += bytes(v for row in DRUM_F for v in row)
+    out += bytes((v & 0xF0) | ((v & 15) * drum_gain // 15) for row in DRUM_C for v in row)
+    return out + bytes(settings)
+
+
+def music():
+    return encode(LEAD, BASS_RHYTHM, DRUMS, ROOTS, (5, 12, 12))
+
+
+# Eight-bar phrases repeat twice; rests and cut notes leave space for gameplay cues.
+LEVEL_LEADS = (
+    """
+    D4 - - . - - - - A4 - - . - - - -
+    F4 - - . - - - - D4 - - - . - - -
+    E4 - - . - - - - C4 - - . - - - -
+    G4 - - - . - - - E4 - - . - - - -
+    F4 - - . - - - - Bb4 - - . - - - -
+    D4 - - . - - - - F4 - - - . - - -
+    C#4 - - . - - - - E4 - - . - - - -
+    A4 - - - . - - - C#4 - - . - - - -
+    """,
+    """
+    D4 - A4 - D5 - A4 - F4 - A4 - D5 - A4 -
+    D4 - F4 - A4 - F4 - D5 - A4 - F4 - A4 -
+    C4 - G4 - C5 - G4 - E4 - G4 - C5 - G4 -
+    C4 - E4 - G4 - E4 - C5 - G4 - E4 - G4 -
+    Bb4 - F4 - D4 - F4 - Bb4 - F4 - D5 - F4 -
+    F4 - C5 - A4 - C5 - F4 - A4 - C5 - A4 -
+    A4 - E4 - C#5 - E4 - A4 - E4 - C#5 - E4 -
+    A4 - C#5 - E5 - C#5 - A4 - E4 - C#4 . . -
+    """,
+    """
+    D5 - A4 D5 F5 - E5 D5 C5 - A4 C5 D5 F5 E5 -
+    E5 - C5 E5 G5 - E5 D5 C5 - G4 C5 E5 D5 C5 -
+    D5 - Bb4 D5 F5 - D5 C5 Bb4 - F4 Bb4 D5 C5 Bb4 -
+    C#5 - A4 C#5 E5 - C#5 A4 G4 - E4 G4 A4 C#5 E5 -
+    D5 F5 - A4 D5 - F5 E5 D5 C5 - A4 F4 A4 D5 -
+    F5 - C5 A4 F5 - E5 C5 A4 F4 - A4 C5 E5 F5 -
+    G5 - D5 Bb4 G5 - F5 D5 Bb4 G4 - Bb4 D5 F5 G5 -
+    E5 C#5 - A4 E5 - C#5 A4 G4 E4 - C#4 E4 A4 . .
+    """,
+    """
+    D4 . - - Eb4 . - - D4 . - - C#4 - . -
+    D4 - . - A4 - . - Eb4 - . - D4 . - -
+    E4 . - - F4 . - - E4 . - - Eb4 - . -
+    C4 - . - G4 - . - Eb4 - . - C4 . - -
+    Bb4 . - - A4 . - - F4 . - - E4 - . -
+    F4 - . - Eb4 - . - D4 - . - C#4 . - -
+    C#4 . - - E4 . - - A4 . - - Bb4 - . -
+    A4 - . - G4 - . - E4 - C#4 . D4 - . -
+    """,
+)
+LEVEL_ROOTS = (
+    (("D3", "D4"),) * 2 + (("C3", "C4"),) * 2 + (("Bb3", "Bb4"),) * 2 + (("A3", "A4"),) * 2,
+    (("D3", "D4"),) * 2 + (("C3", "C4"),) * 2 + (("Bb3", "Bb4"), ("F3", "F4")) + (("A3", "A4"),) * 2,
+    A[:1] + (("C3", "C4"), ("Bb3", "Bb4"), ("A3", "A4")) + A[:2] + (("G3", "G4"), ("A3", "A4")),
+    (("D3", "D4"),) * 2 + (("C3", "C4"),) * 2 + (("Bb3", "Bb4"), ("F3", "F4")) + (("A3", "A4"),) * 2,
+)
+LEVEL_BASS = (
+    (1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0),
+    (1, 0, 2, 0, 1, 0, 2, 0, 1, 0, 2, 0, 1, 0, 2, 0),
+    (1, 0, 2, 1, 0, 2, 1, 0, 1, 2, 0, 1, 2, 0, 1, 2),
+    (1, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 0, 0, 2, 0),
+)
+LEVEL_DRUMS = (
+    (3, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0,
+     3, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 3, 0),
+    (1, 0, 3, 0, 2, 0, 3, 0, 1, 0, 3, 0, 2, 0, 3, 0,
+     1, 0, 3, 0, 2, 0, 3, 0, 1, 3, 1, 3, 2, 0, 2, 3),
+    DRUMS,
+    (1, 0, 0, 0, 0, 0, 3, 0, 1, 0, 0, 0, 0, 0, 3, 0,
+     1, 0, 0, 0, 0, 3, 0, 0, 1, 0, 3, 0, 2, 0, 3, 0),
+)
+LEVEL_SETTINGS = ((8, 6, 6), (5, 9, 10), (4, 12, 12), (6, 8, 8))
+
+
+def level_music(level):
+    assert 0 <= level < 4
+    return encode(LEVEL_LEADS[level] * 2, LEVEL_BASS[level], LEVEL_DRUMS[level],
+                  LEVEL_ROOTS[level] * 2, LEVEL_SETTINGS[level], (6, 10, 15, 8)[level])
 
 
 if __name__ == "__main__":
     data = music()
-    assert len(data) == 432 and data[:256].count(HOLD) < 256
+    assert len(data) == 435 and data[:256].count(HOLD) < 256
     assert all(v > REST for v in data[304:336])
     assert abs(1789790 / (2 * (audf16("A4") + 7)) - 440) < 0.5
     (ROOT / "assets" / "music.bin").write_bytes(data)
+    for level in range(4):
+        (ROOT / "assets" / ("music-level-%02d.bin" % (level + 1))).write_bytes(level_music(level))

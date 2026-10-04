@@ -38,6 +38,11 @@ PLINTH_L = 87
 PLINTH = 88
 PLINTH_R = 89
 EDGE = 90
+DOME_L = 91           # vacuum / lift tiles: 91..94 are solid tops (platform levels)
+DOME_M = 92
+DOME_R = 93
+LIFT = 94
+BASE_L = 95           # vacuum base row (not solid)
 FR_TL = 96
 FR_T = 97
 FR_TR = 98
@@ -60,6 +65,29 @@ HUD_FULL = 120        # HUD bar cell, filled (COLPF1: state colour)
 HUD_EMPTY = 121       # HUD bar cell, empty (COLPF2)
 HUD_L = 122           # HUD bar brackets
 HUD_R = 123
+BASE_M = 124
+BASE_R = 125
+GLASS = 126
+CRUMB = 127           # level 02 crumbling catwalk tile; the warning is the same glyph inverse (red)
+CTRL = 62             # level 02 controller console (solid; stored inverse = unpowered, red)
+AIR_A = 8             # level 02 airflow streaks (alternate while the gust blows)
+AIR_B = 9
+FAN_A = (21, 22, 23, 24)   # fan rotor 2x2 (TL, TR, BL, BR), '+' pose
+FAN_B = (25, 27, 28, 60)   # same rotor turned 45 degrees
+CHASE_L = 1           # pursuer dome (lamp band); same row-2 silhouette as DOME_*
+CHASE_M = 2
+CHASE_R = 6
+DOCK_BAY = 12        # charger contacts, row above the floor
+DOCK_PLATE = PLINTH       # charger head, row above the bay
+READ_STRIP = DOCK_BAY       # service reader floor strip
+READ_HEAD = PLINTH        # service reader head
+
+VAC_BRUSHES = (
+    ("0100", "1331", "0010"),
+    ("1001", "0330", "1001"),
+    ("0010", "1331", "0100"),
+    ("0011", "0330", "1100"),
+)
 
 TILE_GLYPHS = {
     VOID: ("0000",) * 8,
@@ -111,11 +139,59 @@ TILE_GLYPHS = {
     CAM_L: ("0220", "0220", "2222", "2112", "2222", "3222", "0220", "0000"),
     CAM_R: ("0220", "0220", "2222", "2112", "2222", "2223", "0220", "0000"),
     PANEL: ("2222", "2112", "2332", "2112", "2222", "2002", "2222", "0000"),
+    DOME_L: ("0000", "0000", "0011", "0122", "1222", "1222", "1232", "1222"),
+    DOME_M: ("0000", "0000", "1111", "2222", "2222", "2222", "2332", "2222"),
+    DOME_R: ("0000", "0000", "1100", "2210", "2221", "2221", "2321", "2221"),
+    LIFT: ("0000", "0000", "0000", "0000", "0000", "3030", "3333", "2222"),
+    BASE_L: ("1222", "1222", "1222", "0222", "0010") + VAC_BRUSHES[0],
+    BASE_M: ("2222", "2112", "2222", "2222", "0220", "2002", "0000", "0000"),
+    BASE_R: ("2221", "2221", "2221", "2220", "0100") + tuple(row[::-1] for row in VAC_BRUSHES[0]),
+    CHASE_L: ("0000", "0000", "0011", "0133", "1333", "1333", "1232", "1222"),
+    CHASE_M: ("0000", "0000", "1111", "3333", "3333", "3333", "2332", "2222"),
+    CHASE_R: ("0000", "0000", "1100", "3310", "3331", "3331", "2321", "2221"),
+    DOCK_BAY: ("0000", "0000", "0000", "0000", "0000", "0330", "3333", "1111"),
+    GLASS: ("0000", "0000", "1001", "1001", "1221", "1221", "1111", "2222"),
     HUD_FULL: ("0000", "2220", "2220", "2220", "2220", "2220", "0000", "0000"),
     HUD_EMPTY: ("0000", "3330", "3030", "3030", "3030", "3330", "0000", "0000"),
     HUD_L: ("0000", "0033", "0030", "0030", "0030", "0033", "0000", "0000"),
     HUD_R: ("0000", "3300", "0300", "0300", "0300", "3300", "0000", "0000"),
 }
+
+def rotor(angle):
+    """8x16 pixel 4-blade rotor (a pixel is 2 colour clocks wide: 16x16 clocks) -> 2x2 glyphs."""
+    import math
+    pix = [[0] * 8 for _ in range(16)]
+    for y in range(16):
+        for x in range(8):
+            px, py = x * 2 + 1 - 8, y + 0.5 - 8
+            dist = math.hypot(px, py)
+            hit = 0
+            for k in range(4):
+                a = angle + k * math.pi / 2
+                along = px * math.cos(a) + py * math.sin(a)
+                side = abs(-px * math.sin(a) + py * math.cos(a))
+                if 1.5 <= along <= 8 and side <= 1.3 + (0.12 if k % 2 else 0):
+                    hit = 3
+            pix[y][x] = 1 if dist < 2.2 else hit
+    tiles = []
+    for ty in (0, 8):
+        for tx in (0, 4):
+            tiles.append(tuple("".join(str(pix[ty + r][tx + c]) for c in range(4)) for r in range(8)))
+    return tiles
+
+
+TILE_GLYPHS.update({
+    CRUMB: ("0000", "0000", "0000", "0000", "0000", "3003", "3333", "3131"),
+    CTRL: ("0000", "0110", "0110", "1331", "1221", "1111", "2121", "2222"),
+    AIR_A: ("0000", "1100", "0000", "0000", "0000", "0011", "0000", "0000"),
+    AIR_B: ("0000", "0011", "0000", "0000", "0000", "1100", "0000", "0000"),
+})
+for _ids, _angle in ((FAN_A, 0.0), (FAN_B, 3.141592653589793 / 4)):
+    TILE_GLYPHS.update(zip(_ids, rotor(_angle)))
+assert len(TILE_GLYPHS) == len({*TILE_GLYPHS}) and all(0 <= k < 128 for k in TILE_GLYPHS)
+_RESERVED = {1, 2, 6, 8, 9, 12, 21, 22, 23, 24, 25, 27, 28, 60, 62}   # glyph ids free of text/tiles
+assert {CRUMB, CTRL, AIR_A, AIR_B, *FAN_A, *FAN_B} - {127} <= _RESERVED
+
 
 SERVERS = (SRV_A, SRV_B | INV, SRV_A, SRV_C, SRV_A, SRV_D, SRV_A, SRV_A, SRV_D | INV)
 
@@ -261,6 +337,11 @@ def preview(path, number, cat=None):
 
 
 if __name__ == "__main__":
+    brushes = [row for phase in VAC_BRUSHES for row in phase]
+    brushes += [row[::-1] for phase in VAC_BRUSHES for row in phase]
+    (ROOT / "assets" / "vacuum-brushes.bin").write_bytes(bytes(
+        sum(int(pixel) << (6 - 2 * x) for x, pixel in enumerate(row)) for row in brushes
+    ))
     (ROOT / "assets" / "level-rooms.pic").write_bytes(
         b"".join(room(number) for number in range(3))
     )
