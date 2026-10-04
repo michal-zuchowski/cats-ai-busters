@@ -451,7 +451,7 @@ Weryfikacja bez kompilacji: `python3 tests/test_l03_routes.py` używa modelu `te
 - Captions: `r4_goal` writes four 36-character strings from `R4Goal` (`nocross`, charset ASCII-32) to TermScreen row 0 col 0 through `draw_row0_msg`, chosen by gate and `player_col` (0: SWAT, 1: RIDE/BALCONY, col>=23: GAP/EXIT, col>=33: ACCESS OPEN); the HUD action comes from `R4Hint` {SWAT, RIDE, JUMP, EXIT}.
 - Checks: `python3 tests/test_l03_assets.py`; `python3 tests/test_l03_routes.py` (model bots: 36 stand/boarding/rear variants with 0 respawns, every swing phase at x 17..21 gating inside the stun, per-frame three-column robot support, early dismount/reboard, late jump retry, pre-gate rider, captions/hook source checks); `python3 tests/test_l03_runtime.py --asset-overlay` runs the real 6502 `enter_plat_room`/`plat_frame` on the existing XEX via `tools/sim.py` with only the R4 ATR chunk 12 (and its checksum entry) replaced in memory; bot uses joystick/FIRE only, counts real `respawn` calls. Limits: no VBI/display/audio; overlay mode runs the old compiled code on the new room data only; the new captions, reader redraw/reset, door state and the gate-0/gate-1 root guard are checked only in the default branch, which needs a fresh authorised build and has not been run. `out/level03-room4-preview.png` is rendered from source data (initial `Game(3)` screen, font/palette, cat from the sprite atlas), not from a compiled emulator frame.
 
-Sprites: 54 logical frames (50-53 seated/shove) map through assets/cat-frame-map.bin to 40 physical frames (saves 1280 B, +54 B map).
+Sprites: 58 logical frames (50-53 seated/shove, 54-57 right-facing glass reach/contact/push/retract) map through assets/cat-frame-map.bin to 43 physical frames.
 Siedzenie (50/51) ma osobny, pionowy tułów, podniesiony pysk, złożone tylne
 łapy i niski zawinięty ogon; nie używa poziomego grzbietu animacji stania.
 Rzędy styku 21–23 oraz palce aktywnego kopnięcia pozostają bez zmian, więc
@@ -464,7 +464,11 @@ Two rebuilt rooms preserve L01–L03 data. The first has three rising ledges
 (standing Y168/152/136), a Y152 boarding dock and a lift (rows 9–18,
 12 frames per step) reaching the Y80 exit. The next room enters at Y80,
 crosses Y96/Y112 ledges, has a Y136 recovery ledge and keeps the final
-Y120 desk, glass column 33 and computer in their existing animation positions.
+Y120 desk, glass column 33 and computer in their existing animation positions. The
+L04 R2 shelf ends at column 34; the main computer unit occupies columns 35..38,
+rows 17..21, below it. The front-paw contact window is the four-pixel range
+`m_glass*4-player_x` 12..15, and the glass follows row/column positions
+33/13 → 34/13 → 35/13 → 35/14 → 36/15 → 36/17 before water reaches the unit.
 The exit height is enforced; no floor-walking shortcut reaches the core.
 
 Both electric bands span columns 7–34 on tile row 22. `RTCLOK&32` controls
@@ -502,7 +506,7 @@ matching ATR after preparing `assets/disk-chunks.bin`.
 
 ### Cat atlas streamed after the intro
 
-The 5120-byte packed atlas is no longer a resident `CatSprites` section.
+The 5504-byte packed atlas is no longer a resident `CatSprites` section.
 Disk chunk 16 loads it into the existing 6144-byte, 4K-aligned `RevealImg`
 panorama region after `cut_to_black`/`switch_to_term`, before the first PMG
 frame. The intro image stays in the XEX and works on a fresh boot; its RAM

@@ -59,6 +59,8 @@ def fan_frame(screen):
 
 def computer(screen):
     L.frame(screen, 35, 7, 39, 13, lambda x, y: L.TXT_B if (x * y) % 3 else L.TXT_A)
+    # Main computer unit: below and right of the shortened shelf.
+    L.frame(screen, 35, 17, 38, 21, lambda x, y: L.PANEL if y == 18 else L.TXT_B)
 
 
 FLOOR_ALL = [(22, 0, 39)]
@@ -234,7 +236,7 @@ ROOMS = [
           sx=0, h0=7, h1=34, lrow=18, lcol=32, lw=3, lmin=9, lmax=18, lspd=12,
           exit_y=ground(9)),
     build((3, 25), FLOOR_ALL + [(9, 0, 6), (11, 11, 16), (13, 20, 24),
-                              (16, 24, 28), (14, 30, 39)], decor=room4_2,
+                              (16, 24, 28), (14, 30, 34)], decor=room4_2,
           sx=0, sy=ground(9), h0=7, h1=34, glass=33, dlg=ground(13), desk=ground(14)),
 ]
 assert len(ROOMS) == 10 and all(len(r) == 1024 for r in ROOMS)

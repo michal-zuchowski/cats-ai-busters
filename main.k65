@@ -356,7 +356,7 @@ data MsgDiskErr { // 'DISKERR'
   36 41 51 43 37 50 50
 }
 
-data FrameMap { binary "assets/cat-frame-map.bin" }	// 54 logical frames -> physical frame
+data FrameMap { binary "assets/cat-frame-map.bin" }	// 58 logical frames -> physical frame
 
 // The panorama is 256x96; the visible window is 160 pixels (40 bytes) wide.
 data RevealImg { // 64 bytes x 96 rows, two scanlines per row
@@ -3078,6 +3078,14 @@ data R4Goal {
 }
 data R4Off { 0 36 72 108 }
 data R4Hint { 4 5 1 9 }
+// Four 8-byte glyph poses: upright, edge-tilted, tumbling and splash.
+// Pose 0 is the generated GLASS glyph and is restored on every ordinary draw.
+data GlassPoses {
+  0 0 65 65 105 105 85 170
+  0 65 65 105 105 85 170 0
+  0 65 105 85 170 0 65 0
+  0 65 85 170 0 65 105 0
+}
 
 func row_ptr {				// x = TermScreen row -> sp (screen), ap (art copy)
   a=RowLo,x
@@ -3296,9 +3304,41 @@ func draw_lift {
   put_run
 }
 
+func glass_glyph {			// kk = 0..3; update only resident glyph 126
+  a=kk
+  a<< a<< a<<
+  x=a
+  y=0
+  {
+    a=GlassPoses,x
+    TermFont+1008,y=a
+    x++
+    y++
+    y?8
+  } !=
+}
+
 func draw_glass {			// gcol = glass column, on the cat's body row
+  kk=a=0
+  glass_glyph
   tmp=a=126
   x=13
+  y=gcol
+  cnt=a=1
+  put_run
+}
+
+func clear_glass_scene {		// wm = row, gcol = column
+  tmp=a=0
+  x=wm
+  y=gcol
+  cnt=a=1
+  put_run
+}
+
+func draw_glass_scene {		// wm = row, gcol = column; the moving glass stays visible
+  tmp=a=126
+  x=wm
   y=gcol
   cnt=a=1
   put_run
@@ -3679,20 +3719,34 @@ func paw_both {				// each actor has its own immunity, direction and timer
   slot=a=0
 }
 
-func plat_push {			// level 04: shove the glass off the desk
+func glass_ready {			// a = 1 only for a grounded, right-facing desk contact
   a=dlg_done
-  a?0
-  == { return }
+  a?0 == { a=0 return }
   a=m_glass
-  a?0
-  == { return }
+  a?0 == { a=0 return }
   a=player_y
-  a?m_desk
-  != { return }
+  a?m_desk != { a=0 return }
+  a=air
+  a?0 != { a=0 return }
+  a=jprep
+  a?0 != { a=0 return }
+  a=lnd
+  a?0 != { a=0 return }
+  a=paw_t
+  a?0 != { a=0 return }
+  a=facing
+  a?0 != { a=0 return }
   a=m_glass
-  c+ a-player_col
-  a?6
-  >= { return }
+  a<< a<<
+  c+ a-player_x
+  a?12 < { a=0 return }
+  a?16 >= { a=0 return }
+  a=1
+}
+
+func plat_push {			// level 04: shove the glass off the desk
+  glass_ready
+  a?0 == { return }
   call final_scene
 }
 
@@ -4714,25 +4768,69 @@ func plat_dlg {				// once per L04 visit, on the grounded approach to the core
 }
 
 func final_scene {			// glass off the desk, the computer dies, the cats know better
+  // Four readable poses: look, reach, front-paw contact, retract.
+  a=54
+  draw_frame
+  x=8 wait_frames
+  a=55
+  draw_frame
+  x=8 wait_frames
+  // Contact is the acceptance point; only now does the glass begin moving.
   level_finished=a=1
+  a=56
+  draw_frame
+  x=4 wait_frames
+  wm=a=13
+  gcol=a=m_glass
+  clear_glass_scene
+  kk=a=0
+  glass_glyph
+  gcol++
+  draw_glass_scene
+  x=4 wait_frames
+  wm=a=13
+  clear_glass_scene
+  kk=a=0
+  glass_glyph
+  gcol++
+  draw_glass_scene
+  x=3 wait_frames
+  wm=a=13
+  clear_glass_scene
+  wm=a=14
+  kk=a=1
+  glass_glyph
+  draw_glass_scene
+  x=3 wait_frames
+  wm=a=14
+  clear_glass_scene
+  wm=a=15
+  gcol=a=36
+  kk=a=2
+  glass_glyph
+  draw_glass_scene
+  x=3 wait_frames
+  wm=a=15
+  clear_glass_scene
+  wm=a=17
+  gcol=a=36
+  kk=a=3
+  glass_glyph
+  draw_glass_scene
+  // Water lands on the main computer unit below the shelf.
+  tmp=a=12
+  x=18
+  y=35
+  cnt=a=4
+  put_run
+  a=57
+  draw_frame
+  x=8 wait_frames
   AUDC1=a=0
   AUDC2=a=0
   AUDC3=a=0
   AUDC4=a=0
   clear_row0
-  kk=a=4
-  {
-    x=10
-    wait_frames
-    tmp=a=0
-    x=13
-    y=gcol
-    cnt=a=1
-    put_run
-    gcol++
-    draw_glass
-    kk--
-  } !=
   x=8					// computer screen goes inverse (dead)
   {
     row_ptr
@@ -4763,8 +4861,13 @@ func final_scene {			// glass off the desk, the computer dies, the cats know bet
   COLBK=a=0
   x=60
   wait_frames
-  clear_term_screen
+  // PMG is already off before the first aftermath text write.
+  GRACTL=a=0
   SDMCTL=a=0x22
+  SDLSTL=a=&<dl_term
+  SDLSTH=a=&>dl_term
+  CHBAS=a=&>TermFont
+  clear_term_screen
   COLOR0=a=0x0E
   COLOR1=a=0x0E
   COLOR2=a=0x0E
@@ -4888,18 +4991,8 @@ func plat_hud {
   a=cur_level
   a?3
   == {
-    a=dlg_done
-    a?0
-    != {
-      a=player_y
-      a?m_desk
-      == {
-        a=m_glass
-        c+ a-player_col
-        a?6
-        < { x=6 }
-      }
-    }
+    glass_ready
+    a?0 != { x=6 }
   }
   a=HintOff,x
   msg_src=a

@@ -16,7 +16,9 @@ assert all(A(5, 20, c) & 127 != 70 for c in range(35, 40))  # no head-height exi
 assert all(A(5, 22, c) == 70 for c in range(35, 40))
 assert all(A(5, r, 39) == 85 for r in range(19, 22))  # floor-height hatch
 import hashlib
-assert hashlib.sha256(new[:7168] + new[8192:]).hexdigest() == "93d290a72a3dc2bed518097e5b4af8b0c176c255c6ad87dea3746a8f90c43024"
+# Preserve the established regression scope: rooms 0..6 and L04-R1;
+# exclude the separately tracked R4 and L04-R2 chunks.
+assert hashlib.sha256(new[:7168] + new[8192:9216]).hexdigest() == "7bfe2dc731e0b4090555a184032ecdec0e54a686aadab361354d88750b8e288c"
 assert M(5)[4] == 22 and M(5)[6] == 6 and M(5)[7] == 33 and M(5)[3] == 28 and M(5)[30] == 1
 assert M(7)[30] == 2 and M(7)[6] == M(7)[7] == 12 and M(7)[3] == 19
 assert M(6)[29] and not any(M(i)[29] for i in (4, 5, 7))  # pursuer only in R3

@@ -8,7 +8,8 @@ Frame layout (128 bytes each): P0 dark-left, P1 dark-right, P2 fur-left, P3 fur-
 14-27 the same mirrored for walking left; 28-35 leap right, 36-43 leap left;
 44-45 raised forepaw / hind kick right, 46-47 mirrored left;
 48-49 downward forepaw strike right / left; 50-51 seated on a vacuum roof right / left;
-52-53 seated hind-leg shove right / left (toes at (0,23),(1,23), mirrored 15-x).
+52-53 seated hind-leg shove right / left (toes at (0,23),(1,23), mirrored 15-x);
+54-57 are the right-facing desk-glass reach, contact, push and retract.
 Logical frames are packed: byte-identical drawings share one 128-byte physical
 frame and assets/cat-frame-map.bin maps logical -> physical (main.k65 FrameMap).
 """
@@ -240,6 +241,31 @@ def seated(shove=False):
     return img
 
 
+def glass_push(kind):
+    """Four deliberate right-facing forepaw poses for the L04 glass beat."""
+    img = drawing(0)
+    for y in range(TOP, H):
+        img[y] = [0] * W
+    # Turn the muzzle down toward the shelf so distant poses have no
+    # accidental front-paw-sized pixels at the glass height.
+    for y in range(10, 17):
+        for x in range(12, W):
+            img[y][x] = 0
+    # Keep three planted support legs: two hind legs and the far foreleg.
+    hind(img, 1, 0, FILL, 0)
+    fore(img, 8, 0, FILL, 0)
+    hind(img, 5, 0, FILL, 0)
+    # Keep the body/feet planted while the near foreleg makes the readable
+    # reach.  Pose 2 is the only contact: its tip is exactly (15, 12).
+    targets = ((10, 16), (11, 14), (15, 12), (12, 14))
+    tx, ty = targets[kind]
+    line(img, SHOULDER, TOP, tx, ty, FILL)
+    put(img, tx, ty, FILL)
+    if kind == 2:
+        put(img, min(W - 1, tx + 1), ty, FILL)
+    return img
+
+
 def frames():
     right = [drawing(0, k) for k in range(12)]  # tail held still while walking
     right += [drawing(0), drawing(2)]
@@ -249,10 +275,12 @@ def frames():
     attacks = [paw_attack(False), paw_attack(True)]
     strike = paw_attack(False, strike=True)
     sit, shove = seated(), seated(True)
+    glass = [glass_push(k) for k in range(4)]
     return (right + left + jr + jl + attacks
             + [[row[::-1] for row in f] for f in attacks]
             + [strike, [row[::-1] for row in strike]]
-            + [sit, [row[::-1] for row in sit], shove, [row[::-1] for row in shove]])
+            + [sit, [row[::-1] for row in sit], shove, [row[::-1] for row in shove]]
+            + glass)
 
 
 def packed_atlas(imgs):
@@ -290,13 +318,97 @@ def preview(path, imgs, scale=10):
     sheet.save(path)
 
 
+def glass_preview(path, imgs):
+    """Source-data filmstrip in playfield coordinates, not an emulator capture."""
+    from PIL import Image, ImageDraw
+    import re
+    import make_plat_levels as P
+
+    # Room art, charset glyphs, and PMG pixels are all colour-clock data.
+    # Only the display scale turns those logical coordinates into preview px.
+    xscale, yscale = 4, 2
+    left, top, cols, rows = 20, 8, 20, 15
+    panel_w, panel_h = cols * 4, rows * 8
+    out = Image.new("RGB", (panel_w * xscale, panel_h * yscale * 3), (8, 12, 20))
+    draw = ImageDraw.Draw(out)
+    room = P.ROOMS[9][:960]
+    colours = {0: (8, 12, 20), 1: (150, 180, 190), 2: (35, 100, 145), 3: (30, 190, 220)}
+    poses = ((54, 33, 13, "reach: upright glass col33,row13"),
+             (56, 33, 13, "contact: toe x133,y132 / glass col33,row13"),
+             (57, 36, 17, "impact: pose3 on unit; water glyph12 row18"))
+
+    # Keep the preview tied to the K65 source rather than copying its glyph
+    # bytes into this generator.
+    source = (ROOT / "main.k65").read_text()
+    raw = re.search(r"data GlassPoses \{(.*?)\}", source, re.S).group(1)
+    glass_poses = [int(v) for v in re.findall(r"\b\d+\b", raw)]
+    assert len(glass_poses) == 32
+
+    def rect(x, y, colour, w=1, h=1):
+        draw.rectangle((x * xscale, y * yscale,
+                        (x + w) * xscale - 1, (y + h) * yscale - 1),
+                       fill=colour)
+
+    for panel, (frame, glass_col, glass_row, label) in enumerate(poses):
+        oy = panel * panel_h * yscale
+        for row in range(rows):
+            for col in range(cols):
+                glyph = P.L.TILE_GLYPHS[room[(top + row) * 40 + left + col] & 127]
+                for py, line_ in enumerate(glyph):
+                    for px, value in enumerate(line_):
+                        rect((col * 4 + px), oy // yscale + row * 8 + py,
+                             colours[int(value)])
+        # The first two panels show upright glyph 126; impact uses the actual
+        # pose-3 bytes written by glass_glyph, not the upright room glyph.
+        pose = glass_poses[24:32] if panel == 2 else None
+        if pose is None:
+            glyph = P.L.TILE_GLYPHS[P.L.GLASS]
+            for py, line_ in enumerate(glyph):
+                for px, value in enumerate(line_):
+                    rect((glass_col - left) * 4 + px,
+                         oy // yscale + (glass_row - top) * 8 + py,
+                         colours[int(value)])
+        else:
+            for py, byte in enumerate(pose):
+                for px in range(4):
+                    value = (byte >> (6 - 2 * px)) & 3
+                    rect((glass_col - left) * 4 + px,
+                         oy // yscale + (glass_row - top) * 8 + py,
+                         colours[value])
+        # PMG dark/fill planes remain separate colours; each source pixel is
+        # one native colour-clock wide, just like the room art.
+        visual_top = 120 - 24
+        for y, line_ in enumerate(imgs[frame]):
+            for x, value in enumerate(line_):
+                if not value:
+                    continue
+                px = 118 - left * 4 + x
+                py = oy // yscale + visual_top - top * 8 + y
+                colour = (100, 45, 20) if value == DARK else (220, 150, 55)
+                rect(px, py, colour)
+        if panel == 2:
+            # Water is the actual source glyph used by the scene's put_run.
+            water = P.L.TILE_GLYPHS[12]
+            for col in range(35, 39):
+                for py, line_ in enumerate(water):
+                    for px, value in enumerate(line_):
+                        rect((col - left) * 4 + px,
+                             oy // yscale + (18 - top) * 8 + py,
+                             colours[int(value)])
+        draw.text((3, oy + 3), label, fill=(240, 240, 240))
+    out.save(path)
+
+
 if __name__ == "__main__":
     imgs = frames()
     assert all(len(r) == W for f in imgs for r in f) and all(len(f) == H for f in imgs)
-    assert len(imgs) == 54
+    assert len(imgs) == 58
     data, mapping = packed_atlas(imgs)
     (ROOT / "assets" / "cat-sprites.bin").write_bytes(data)
     (ROOT / "assets" / "cat-frame-map.bin").write_bytes(mapping)
     import sys
     if len(sys.argv) > 1:
-        preview(Path(sys.argv[1]), imgs)
+        if Path(sys.argv[1]).name == "glass-knock-preview.png":
+            glass_preview(Path(sys.argv[1]), imgs)
+        else:
+            preview(Path(sys.argv[1]), imgs)

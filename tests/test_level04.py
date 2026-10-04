@@ -33,6 +33,14 @@ class Finale(M.Sim):
     def __init__(self, chunk):
         super().__init__(chunk)
         self.dlg_done = self.scenes = 0
+        self.facing = 0
+
+    def glass_ready(self):
+        delta = self.m["glass"] * 4 - self.x
+        return (self.dlg_done and self.m["glass"] and self.y == self.m["desk"]
+                and not self.air and not self.jprep and not self.lnd
+                and not getattr(self, "paw_t", 0) and self.facing == 0
+                and 12 <= delta < 16)
 
     def under(self):
         if not self.y & 7:
@@ -42,9 +50,10 @@ class Finale(M.Sim):
         return super().under()
 
     def switch(self):
-        if (self.dlg_done and self.m["glass"] and self.y == self.m["desk"]
-                and 0 <= self.m["glass"] - self.col < 6):
+        # Model the shared pixel-edge gate, not the old six-column shortcut.
+        if self.glass_ready():
             self.done = True
+            self.stages = (54, 55, 56, 57)
 
     def step(self, keys=0):
         self.input(keys)
@@ -140,6 +149,8 @@ assert r2.y == 120 and r2.deaths == 0 and r2.scenes == 1 and not r2.done
 walk(r2, 32)
 r2.step(M.FIRE)
 assert r2.done
+# Preserve the original dialogue/action edge coverage: the first FIRE starts
+# dialogue, held FIRE is ignored, and only a fresh release/new press pushes.
 s = Finale(P.ROOMS[9])
 s.x, s.y = 118, 120  # direct/debug approach cannot bypass the scene with FIRE
 s.step(M.FIRE)
@@ -154,11 +165,57 @@ assert s.dlg_done and s.scenes == 1  # falling does not force another monologue
 s.x, s.y = 90, 136
 s.step()
 assert s.scenes == 1
+for x in range(117, 121):
+    s = Finale(P.ROOMS[9])
+    s.dlg_done, s.x, s.y, s.fire_prev = 1, x, 120, 1
+    s.step(M.FIRE)  # each case starts with a fresh released FIRE edge
+    assert s.done and s.stages == (54, 55, 56, 57), x
+for attr in ("air", "jprep", "lnd", "paw_t"):
+    s = Finale(P.ROOMS[9])
+    s.dlg_done, s.x, s.y, s.fire_prev = 1, 118, 120, 1
+    setattr(s, attr, 1)
+    s.step(M.FIRE)
+    assert not s.done, attr
+s = Finale(P.ROOMS[9])
+s.dlg_done, s.x, s.y, s.facing, s.fire_prev = 1, 118, 120, 1, 1
+s.step(M.FIRE)
+assert not s.done  # wrong-facing FIRE cannot trigger the push
 s = Finale(P.ROOMS[9])
 s.x, s.y, s.t = 74, 184, 32
 s.step()
 assert not s.dlg_done  # floor is not a safe cinematic perch
-assert body("plat_push").startswith("a=dlg_done a?0 == { return } a=m_glass a?0 == { return }")
+assert "glass_ready" in body("plat_push")
+ready = body("glass_ready")
+for needle in ("a=dlg_done", "a=m_glass", "a=player_y", "a=air", "a=jprep",
+               "a=lnd", "a=paw_t", "a=facing", "a<< a<<",
+               "c+ a-player_x", "a?12", "a?16"):
+    assert needle in ready
+assert "a=54" in body("final_scene") and "a=55" in body("final_scene")
+assert "a=56" in body("final_scene") and "a=57" in body("final_scene")
+assert body("final_scene").index("a=56") < body("final_scene").index("gcol++")
+assert body("final_scene").index("put_run") < body("final_scene").index("AUDC1=a=0")
+scene = body("final_scene")
+events = (
+    "wm=a=13 gcol=a=m_glass clear_glass_scene kk=a=0 glass_glyph gcol++ draw_glass_scene",
+    "wm=a=13 clear_glass_scene kk=a=0 glass_glyph gcol++ draw_glass_scene",
+    "wm=a=13 clear_glass_scene wm=a=14 kk=a=1 glass_glyph draw_glass_scene",
+    "wm=a=14 clear_glass_scene wm=a=15 gcol=a=36 kk=a=2 glass_glyph draw_glass_scene",
+    "wm=a=15 clear_glass_scene wm=a=17 gcol=a=36 kk=a=3 glass_glyph draw_glass_scene",
+)
+last = -1
+for event in events:
+    pos = scene.index(event)
+    assert pos > last
+    last = pos
+assert scene.index("tmp=a=12 x=18 y=35 cnt=a=4 put_run") > last
+ending = body("final_scene")
+pmg_off = ending.rindex("GRACTL=a=0")
+pcm_end = ending.rindex("AUDC1=a=0")
+text_switch = ending.index("clear_term_screen")
+assert pcm_end < pmg_off < text_switch
+for register in ("SDMCTL=a=0x22", "SDLSTL=a=&<dl_term",
+                 "SDLSTH=a=&>dl_term", "CHBAS=a=&>TermFont"):
+    assert ending.index(register, pmg_off) < text_switch
 assert "a?3 != { return }" in body("plat_dlg") and "a?137 >= { return }" in body("plat_dlg")
 assert "a?20 < { return }" in body("plat_dlg") and "ai_cutscene" in body("plat_dlg")
 assert "dlg_done=a=0" in body("init_plat") and "dlg_done" not in body("respawn")

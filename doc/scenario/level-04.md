@@ -44,9 +44,12 @@ confrontation, not a surprise ending on entering the room:
    trigger it. The conversation plays once per level visit, not after
    every fall; restarting the level with debug key 4 resets it.
 3. **The paw:** the player makes the last, readable jump to the desk.
-   The HUD prompts `PUSH` beside the glass; pressing action makes the
-   cat nudge it with its paw. It teeters, falls and spills onto the
-   central computer. No weapon, health bar or extra boss phase: a
+   The HUD prompts `PUSH` beside the glass; pressing action only succeeds
+   while the grounded, right-facing cat is in the four-pixel contact window.
+   The cat deliberately reaches with its **front paw**, touches the glass,
+   nudges it over the shelf edge, and lets gravity carry it down onto the
+   main computer unit below. It teeters, falls and spills water. No weapon,
+   health bar or extra boss phase: a
    perfectly ordinary cat gesture ends an elaborate takeover.
 4. **Shutdown and aftermath:** immediately after the water reaches the
    machine, stop or duck the music and play a short **original PCM
@@ -69,6 +72,11 @@ read occurs during PCM playback.
 Source/data routes and scene contracts are checked by
 `python3 tests/test_level04.py`. Fresh compiled XEX/ATR and emulator
 acceptance are still needed for display, sound and linker verification.
+The current post-shutdown text/fade is a temporary aftermath placeholder while
+the ending cinematic is redesigned. Its PMG cleanup is nevertheless explicit:
+the cat remains visible through the glass impact and PCM cry, then `GRACTL=0`
+and terminal DMA/display-list state are installed before aftermath text clears
+the screen.
 
 ### Disk-checked cinematic loads
 

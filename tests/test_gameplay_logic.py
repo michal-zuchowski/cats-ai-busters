@@ -13,9 +13,12 @@ bug, or the frozen switch_timer bug would fail a test, not just a search.
 
 from pathlib import Path
 import re
+import sys
 
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / "tools"))
+import make_level_art as L
 main = (root / "main.k65").read_text()
 room_art = (root / "assets/level-rooms.pic").read_bytes()
 
@@ -103,12 +106,12 @@ for pos in redraw_call_sites:
 sprites = (root / "assets/cat-sprites.bin").read_bytes()
 # Packed atlas: identical drawings share a physical frame; FrameMap maps logical -> physical.
 frame_map = (root / "assets/cat-frame-map.bin").read_bytes()
-assert len(frame_map) == 54 and len(sprites) == (max(frame_map) + 1) * 128
-assert len(sprites) == 40 * 128 and 'binary "assets/cat-frame-map.bin"' in main
-assert sorted(set(frame_map)) == list(range(40))
+assert len(frame_map) == 58 and len(sprites) == (max(frame_map) + 1) * 128
+assert len(sprites) == 43 * 128 and 'binary "assets/cat-frame-map.bin"' in main
+assert sorted(set(frame_map)) == list(range(43))
 frames = [sprites[p * 128:(p + 1) * 128] for p in frame_map]
-assert len(frames) == 54
-assert len({f for f in frames}) == 40 and len(sprites) < 50 * 128  # 14 duplicates removed
+assert len(frames) == 58
+assert len({f for f in frames}) == 43 and len(sprites) < 50 * 128  # packed atlas
 import hashlib
 assert hashlib.sha256(b"".join(frames[:50])).hexdigest() == "015127fe60b2317ff0b6e85f8503c8a8d122624b32cfdaa93b57af2003c159b6"
 assert re.search(r"func draw_frame \{[^}]*?x=a\s*a=FrameMap,x\s*x=a", main, re.S)
@@ -154,6 +157,28 @@ for k in range(2):
         assert fur_pixels(frames[46 + k], row) == sorted(15 - x for x in fur_pixels(frames[44 + k], row))
 for row in range(24):
     assert fur_pixels(frames[49], row) == sorted(15 - x for x in fur_pixels(frames[48], row))
+assert len(frames) == 58
+assert 15 in fur_pixels(frames[56], 12) and 11 >= max(fur_pixels(frames[55], 12), default=0)
+assert max(fur_pixels(frames[54], 12), default=0) <= 11
+glass_pixels = {
+    (33 * 4 + px, 128 + py)
+    for py, row in enumerate(L.TILE_GLYPHS[L.GLASS])
+    for px, value in enumerate(row)
+    if value != "0"
+}
+for logical in (54, 55):
+    for origin in range(117, 121):
+        image_pixels = {
+            (origin + x, 120 + y)
+            for y in range(24)
+            for x in range(16)
+            if any(frames[logical][(colour * 2 + (x // 8)) * 32 + y] & (0x80 >> (x % 8))
+                   for colour in range(2))
+        }
+        assert not image_pixels & glass_pixels, (logical, origin, image_pixels & glass_pixels)
+for origin in range(117, 121):
+    assert (origin + 15, 132) in glass_pixels
+    assert any(frames[56][(colour * 2 + 1) * 32 + 12] & 1 for colour in range(2))
 draw = body("draw_frame")
 assert all(p in draw for p in ("PmMem,x", "PmMem+256,x", "PmMem+512,x", "PmMem+768,x", "HPOSP0", "HPOSP3"))
 dp = body("draw_player")

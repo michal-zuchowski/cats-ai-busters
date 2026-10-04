@@ -20,7 +20,7 @@ def body(name):
 
 assert 'binary "assets/cat-sprites.bin"' not in source and "data CatSprites {" not in source
 assert "align 4096" in body("RevealImg") and 'binary "assets/room.pic"' in body("RevealImg")
-assert len(atlas) == 5120 <= len(panorama) == 6144
+assert len(atlas) == 5504 <= len(panorama) == 6144
 assert "&>RevealImg" in body("draw_frame") and "a=FrameMap,x" in body("draw_frame")
 assert re.search(r"disk_dest=a=&<RevealImg\s+disk_dest\+1=a=&>RevealImg\s+a=16\s+load_room_chunk",
                  body("load_level_assets"))
@@ -55,7 +55,7 @@ for i, entry in enumerate(M.EXTRA_CHUNKS):
     assert disk == padded and checksum == sum(padded) & 255, entry[0]
 
 start, count, _ = struct.unpack_from("<HHB", table, 16 * 5)
-assert count == 40
+assert count == 43
 streamed = image[16 + (start - 1) * 128:16 + (start - 1 + count) * 128]
 memory = bytearray(b"\xAA" + panorama + b"\xBB")
 memory[1:1 + len(streamed)] = streamed
@@ -65,4 +65,9 @@ for physical in mapping:
     offset = physical * 128
     assert memory[1 + offset:1 + offset + 128] == atlas[offset:offset + 128]
 
-print("test_cat_streaming.py: all checks passed (5120-byte atlas, 26 stable disk chunks)")
+assert len(mapping) == 58 and max(mapping) == 42
+assert mapping[:54] == bytes.fromhex(
+    "000102030405000102030405060708090a0b0c0d08090a0b0c0d0e0f101112131415"
+    "16061718191a1b1c1d0e1e1f2021222324252627"
+)  # old logical prefix remains mapped byte-for-byte
+print("test_cat_streaming.py: all checks passed (5504-byte atlas, 26 stable disk chunks)")
