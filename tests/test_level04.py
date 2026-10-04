@@ -206,7 +206,10 @@ for src, dest in ((3200, 2256), (3206, 2296), (3212, 2336), (3218, 2376), (3224,
 assert "y?6" in mouth and "x=ai_pose" in mouth
 scene = body("ai_cutscene")
 assert "a=25 load_checked_chunk" in scene and "a?180" in scene and "a?5" in scene
-assert scene.count("load_checked_chunk") == 3 and scene.count("call music_failure") == 3
+assert scene.count("load_checked_chunk") == 3 and scene.count("call music_failure") == 0
+checked = body("load_checked_chunk")
+assert "a?0" in checked and "!= { music_failure }" in checked
+assert checked.index("disk_failed") < checked.index("disk_checksum")
 restore = scene.split("ai_restore:", 1)[1]
 for required in ("paint_room_art", "a=15 load_checked_chunk", "draw_glass", "draw_hud_static",
                  "clear_row0", "clear_row1", "&<dl_term", "LvC1,x", "LvC2,x", "init_pmg",

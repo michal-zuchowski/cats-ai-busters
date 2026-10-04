@@ -21,17 +21,20 @@ assert M(5)[4] == 22 and M(5)[6] == 6 and M(5)[7] == 33 and M(5)[3] == 28 and M(
 assert M(7)[30] == 2 and M(7)[6] == M(7)[7] == 12 and M(7)[3] == 19
 assert M(6)[29] and not any(M(i)[29] for i in (4, 5, 7))  # pursuer only in R3
 assert M(6)[28] == 26 and M(4)[30] == M(6)[30] == 0
-# charger bay marks and no baked beam; reader marks; pit has no floor
+# charger bay marks and no baked beam; reader marks; R4 has one grounded lane,
+# a clear first pit, and a balcony with no cosmetic lower-middle support.
 assert all(A(5, 21, c) == 12 and A(5, 20, c) == 88 for c in (22, 23, 24))
 assert all(A(5, 19, c) & 0x7F != 79 for c in range(40))
 assert all(A(7, 21, c) == 12 for c in (12, 13, 14))
 assert all(A(7, 20, c) == 83 for c in (12, 13, 14))
 assert all(A(6, 22, c) & 127 != 70 for c in range(17, 33))
 assert all(A(6, 22, c) == 70 for c in (*range(17), *range(33, 40)))
-assert all(A(7, r, c) == 64 for r in (22, 23) for c in (*range(14, 23), *range(30, 33)))
-assert all(A(7, 22, c) == 70 for c in (*range(14), *range(23, 30), *range(33, 40)))
+assert all(A(7, r, c) == 64 for r in (22, 23) for c in range(23, 33))
+assert all(A(7, 22, c) == 70 for c in (*range(23), *range(33, 40)))
+assert all(A(7, 22, c) != 70 for c in range(23, 33))
 assert M(7)[9] == 8 and M(7)[10] == 10 and M(7)[12] == 8  # amin, amax, acol: patrol 8..10, starts at 8
 assert all(A(7, 18, c) == 70 for c in range(23, 28))
+assert all(A(7, 22, c) == 70 for c in range(8, 22))  # every normal robot footprint has real floor support
 assert sum(A(7, r, c) != 64 for r in range(5, 18) for c in range(40)) >= 200
 assert bytes(A(7, 18, c) for c in range(11, 15)) == bytes(ord(ch) - 32 for ch in "SCAN")
 assert bytes(A(7, 18, c) for c in range(34, 38)) == bytes(ord(ch) - 32 for ch in "EXIT")

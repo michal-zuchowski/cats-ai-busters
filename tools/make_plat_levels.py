@@ -62,7 +62,7 @@ def computer(screen):
 
 
 FLOOR_ALL = [(22, 0, 39)]
-PIT = (17, 32)  # nonwalkable section of rooms 3 and 4 of level 03 (wider than any jump)
+PIT = (17, 32)  # nonwalkable section of room 3 of level 03 (wider than any jump)
 
 
 def charger(screen):  # marked alcove: robot base cols 22..24
@@ -73,9 +73,8 @@ def charger(screen):  # marked alcove: robot base cols 22..24
 def reader(screen):  # service reader over the vacuum's lane
     for c in range(12, 15):
         screen[20][c], screen[21][c] = L.RELAY, L.READ_STRIP
-    for c0, c1 in ((14, 22), (30, 32)):
-        for c in range(c0, c1 + 1):
-            screen[22][c] = screen[23][c] = L.VOID
+    for c in range(23, 33):
+        screen[22][c] = screen[23][c] = L.VOID
 
 
 def pit(screen):
@@ -225,7 +224,7 @@ ROOMS = [
           arow=21, amin=6, amax=29, aspd=12, acol=8, exit_y=ground(20),
           l03=dict(bcol=0, bmin=0, bmax=26, bspd=6)),
     # 4 scan -> one clear carrier -> service balcony -> jump to the floor-height exit
-    build((10, 33), [(22, 0, 13), (22, 23, 29), (22, 33, 39), (18, 23, 27)],
+    build((10, 33), [(22, 0, 22), (22, 33, 39), (18, 23, 27)],
           decor=service_room, extra=reader,
           arow=21, amin=8, amax=10, aspd=8, acol=8, exit_y=ground(22),
           l03=dict(xmax=19, z0=12, z1=12, mode=2)),

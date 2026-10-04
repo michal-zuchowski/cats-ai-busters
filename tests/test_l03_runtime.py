@@ -1,7 +1,7 @@
 """R4 joystick route on the user's XEX. --asset-overlay tests new room data on that engine.
 
 No compilation, executable patching or file writes. The overlay changes only the in-memory
-ATR room sector bytes and corresponding chunk checksum; new HUD/helper code needs a fresh build.
+ATR room sector bytes and corresponding chunk checksum; it does not test uncompiled source changes.
 """
 import argparse
 import sys
@@ -53,6 +53,11 @@ def frame(s, joy=0, fire=False):
     s.mem[0x14] = (s.mem[0x14] + 1) & 255
     s.next_tick = s.mpu.processorCycles + FRAME_CYCLES
     invoke(s, "plat_frame")
+    if s["cur_room"] == 3 and "RoomArtBuf" in s.sym:
+        base = s.sym["RoomArtBuf"] + 22 * 40
+        col = s["act_col"]
+        assert bytes(s.mem[base + col:base + col + 3]) == bytes((70, 70, 70)), (
+            "R4 robot footprint is not grounded", col)
 
 
 def entry(s):
@@ -189,7 +194,7 @@ def main():
         invoke(s, "act_init")
         assert s["gate"] == 0 and reader(s) == (83,) and door(s) == (81, 81, 81)  # reset: RELAY, closed door
     print("Actual 6502 logic passed; no VBI/display/audio emulation."
-          + (" Asset overlay only: new HUD/reader/root-guard code remains uncompiled (not run)." if overlay else ""))
+          + (" Asset overlay only: new room data ran in memory, not from a freshly built ATR." if overlay else ""))
 
 
 if __name__ == "__main__":

@@ -64,9 +64,11 @@ Exact platform positions, timing and vacuum art remain open for playtesting.
   and the visibly closed door opens. Wait near the first pit, jump onto
   the returning vacuum and ride it right. Jump to the service balcony,
   then across the last gap to the floor-height exit. The captions and
-  SWAT / RIDE / JUMP / EXIT hints follow each stage. An early dismount can
-  land on the lower middle island: walk toward its right edge and jump
-  the remaining gap. Falling resets the room, closes the door and returns
+  SWAT / RIDE / JUMP / EXIT hints follow each stage. The vacuum's entire
+  route has solid floor beneath it; the balcony is too high to reach from
+  that floor without boarding the vacuum. Returning to the lane allows
+  reboarding; missing the balcony and falling into the gap resets the room,
+  closes the door and returns
   the reader to `RELAY`. There is no rear pursuer or shove here: the parked
   rear robot that could trap the cat on an unmoving roof has been removed.
 Lamp glyphs: patrol 91-93, struck 124/125 base, chase 1/2/6, dock bay/reader strip 12, dock/reader head reuses plinth 88.

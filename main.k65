@@ -2899,7 +2899,7 @@ func music_failure {
   { x=1 wait_frames } always
 }
 
-func load_checked_chunk {		// a = chunk index; caller sets disk_dest, count fits one byte
+func load_checked_chunk {		// a = chunk index; returns the verified checksum in A
   x=a
   tmp=a
   a<< a<<
@@ -4614,8 +4614,6 @@ func ai_cutscene {
   disk_dest+1=a=&>ZoomBuf
   a=25
   load_checked_chunk
-  a?0
-  != { call music_failure }
   clear_term_screen
   SDLSTL=a=&<dl_ai
   SDLSTL+1=a=&>dl_ai
@@ -4660,15 +4658,11 @@ ai_restore:
   a=LvBase,x
   c- a+cur_room
   load_checked_chunk
-  a?0
-  != { call music_failure }
   paint_room_art
   disk_dest=a=&<CryBuf
   disk_dest+1=a=&>CryBuf
   a=15
   load_checked_chunk			// portrait temporarily overwrites part of the death cry
-  a?0
-  != { call music_failure }
   draw_glass
   call draw_hud_static
   x=cur_level

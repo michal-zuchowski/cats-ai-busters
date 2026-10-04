@@ -6,7 +6,7 @@ import sys
 import re
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from l03_model import Game
+from l03_model import Game, FLOOR
 from l03_model import SRC, FONT, ActT, ROOT
 
 
@@ -79,6 +79,9 @@ def run(g, pol, n=3000, stop=("respawn",)):
     ev = []
     for i in range(n):
         g.frame(pol(g, i))
+        if g.cur_room == 3:
+            assert all(g.art[22][c] == FLOOR for c in range(g.act_col[0], g.act_col[0] + 3)), (
+                "R4 robot footprint lost floor support", i, g.act_col[0])
         ev += g.events
         g.events = []
         if any(e in ev for e in stop) or g.level_finished or any(e.startswith("room") for e in ev):
@@ -482,6 +485,25 @@ assert "a=m_arow a?0 == { return } draw_reader draw_act" in body("act_init")  # 
 assert body("plat_reset").endswith("act_init") and body("act_init").count("draw_reader") == 1
 assert sum(body(n).count("draw_reader") for n in re.findall(r"func (\w+) \{", SRC)) == 2  # act_init + a_events only
 
+# A genuine post-gate floor approach still cannot jump the first pit or the
+# final gap.  These starts are on supported floor, unlike a void-start probe.
+for x in range(74, 82):
+    g = Game(3)
+    g.gate, g.player_x, g.player_y = 1, x, 184
+    g.set_col()
+    assert g.under(), (x, g.player_col)
+    respawned = False
+    for _ in range(300):
+        g.frame({"up": 1, "right": 1})
+        assert not (not g.air and g.player_y == 152), (x, "balcony bypass")
+        assert not (not g.air and g.player_y == 184 and g.player_col >= 33), (x, "final-floor bypass")
+        assert not g.level_finished
+        if "respawn" in g.events:
+            respawned = True
+            break
+        g.events = []
+    assert respawned, (x, g.player_x, g.player_y, g.player_col)
+
 # R2 dock latch: after the wobble recovery the normal patrol limit applies again.
 g = Game(1)
 pol = swat_pol(1, 14, 13)
@@ -500,10 +522,10 @@ for _ in range(500):
 assert peak <= g.m["amax"]
 
 # ---------------------------------------------------------------- R4 robustness: timing, dismount, recovery
-def r4_bot(stand=17, board=(5, 7), edge=11, rear=0, dismount=None, delay=0, retry_shift=True, mid_x=99):
+def r4_bot(stand=17, board=(5, 7), edge=11, rear=0, dismount=None, delay=0, retry_shift=True):
     """Input policy only: swing again after a miss, wait at the first pit for the patrolling
     vacuum, jump to its roof, ride, leave at the balcony and cross the gaps by position."""
-    st = {"cool": 0, "swings": 0, "left": 0, "mid": 0, "deaths": 0}
+    st = {"cool": 0, "swings": 0, "left": 0, "deaths": 0}
 
     def pol(g, i):
         col, robot, x = g.player_col, g.act_col[0], g.player_x
@@ -524,9 +546,6 @@ def r4_bot(stand=17, board=(5, 7), edge=11, rear=0, dismount=None, delay=0, retr
             return {}
         if g.player_y == 184 and not g.air and not g.ride and col >= 33:
             return {"right": 1}
-        if g.player_y == 184 and not g.air and not g.ride and 23 <= col < 33:
-            st["mid"] = 1  # landed on the floor between the pits: stop at its edge, then leap
-            return {"right": 1} if x < mid_x else {"up": 1, "right": 1}
         if g.player_y == 152 and not g.air:
             return {"right": 1} if col < 27 else {"up": 1, "right": 1}
         if g.air:
@@ -552,6 +571,8 @@ def r4_run(n=6000, **kw):
     g, pol, deaths, seen = Game(3), r4_bot(**kw), 0, set()
     for i in range(n):
         g.frame(pol(g, i))
+        assert all(g.art[22][c] == FLOOR for c in range(g.act_col[0], g.act_col[0] + 3)), (
+            "R4 robot footprint lost floor support", i, g.act_col[0])
         deaths += g.events.count("respawn")
         pol.st["deaths"] = deaths
         g.events = []
@@ -570,17 +591,10 @@ for stand in (17, 19, 21):  # forepaw contact needs x 17..21 for the 8..10 patro
             n, deaths, _ = r4_run(stand=stand, board=board, rear=rear, delay=3 * stand % 17)
             assert deaths == 0, (stand, board, rear, deaths)
             runs += 1
-mids = []
-for dismount in (16, 17, 18):  # leaving the carrier early: balcony or mid-floor landing, no retry needed
+for dismount in (16, 17, 18):  # leaving before the balcony is fatal, not a soft-supported bypass
     n, deaths, st = r4_run(dismount=dismount)
-    assert deaths == 0 and st["left"] == 1, (dismount, deaths)
-    mids.append(st["mid"])
-assert mids == [0, 1, 1]  # the mid-floor edge leap recovers without a respawn
-for mx in (99, 103, 106, 109):  # the lower mid floor (cols 23..29) now gives an 11 px jump window
-    for dismount in (17, 18):
-        n, deaths, st = r4_run(dismount=dismount, mid_x=mx)
-        assert deaths == 0 and st["mid"] == 1, (mx, dismount, deaths)
-for x in range(90, 112):  # walking-off positions: only the first pit and the 110.. void are fatal
+    assert (deaths == 0 if dismount == 16 else deaths >= 1) and st["left"] == 1, (dismount, deaths)
+for x in range(90, 112):  # the clear first pit and second gap are both fatal without the ride
     g = Game(3)
     g.gate, g.player_x, g.player_y = 1, x, 184
     g.set_col()
@@ -591,10 +605,10 @@ for x in range(90, 112):  # walking-off positions: only the first pit and the 11
         dead |= "respawn" in g.events
         if g.player_col >= 34 and not g.air:
             break
-    assert dead == (x < 99) or x >= 110, (x, dead)  # 99..109 clear the second pit onto floor 33..39
+    assert dead, (x, dead)
 late = [(b, r4_run(board=(b, b))[1]) for b in (8, 9)]  # a late jump falls in the pit, resets the room, retries
-assert late == [(8, 1), (9, 2)], late
-print(f"R4 model timing/boarding variants: {runs} complete with 0 respawns; dismount {mids}; late jumps {late}")
+assert all(deaths >= 1 for _, deaths in late), late
+print(f"R4 model timing/boarding variants: {runs} complete with 0 respawns; early dismount retries; late jumps {late}")
 
 # A rider boarded before the reader opens cannot carry the cat past the first pit: no softlock, no bypass.
 g, pol = Game(3), None

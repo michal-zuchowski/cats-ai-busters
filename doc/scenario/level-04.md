@@ -69,3 +69,13 @@ read occurs during PCM playback.
 Source/data routes and scene contracts are checked by
 `python3 tests/test_level04.py`. Fresh compiled XEX/ATR and emulator
 acceptance are still needed for display, sound and linker verification.
+
+### Disk-checked cinematic loads
+
+The portrait, restored room art and death cry are loaded through
+`load_checked_chunk`. That helper owns both SIO error handling and the
+chunk-table checksum comparison; on success it leaves the verified
+checksum in `A`, not a zero-on-success status. The cinematic consumes the loader's
+return contract directly and does not interpret `A=0` as a second status
+value. A disk error or checksum mismatch still enters the shared
+`music_failure` DISKERR path.
