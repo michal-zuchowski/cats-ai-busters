@@ -1,0 +1,227 @@
+// Zero-page and page-6 variable map shared by every scene.
+// - Intro cutscene state: pan/zoom/call pointers, LED blink, meow/face-kernel scratch
+// - Level 01 gameplay: room, player column/x/y, timers, relay, alert, sfx/music sequencer state
+// - Disk I/O parameters (SIO sector, count, destination, checksum, busy/failed flags)
+// - Platform levels 02-04 state: per-room metadata slots (m_*), actors, lift, paw, switch, crumble, vacuum
+// - Lives counter (lives, page 6)
+// - Terminal, HUD and camera slot variables; screen/PMG memory addresses (TermScreen, PmMem)
+
+
+var mouth_flag		// scratch flag toggled by mouth_tick (auto-allocated byte)
+var pan_ptr[2] = 0x84
+var pan_phase = 0x86
+var led_bit = 0x87
+var led_ptr[2] = 0x99
+var dl_ptr[2] = 0x88
+var strip_ptr[2] = 0x8A
+var art_ptr[2] = 0x8C
+var zoom_ptr[2] = 0x8E
+var zoom_left = 0x90
+var zoom_right = 0x91
+var zoom_rows = 0x92
+var zoom_col = 0x93
+var zoom_dest_col = 0x94
+var zoom_second_ptr[2] = 0x95
+var call_src[2] = 0x97
+var call_count = 0x9B
+var call_tile = 0x9C
+var call_lines_left = 0x9D
+var face_groups = 0x9E
+var meow_page = 0x9F
+var audc_ptr[2] = 0xA0		// AUDC1 while the meow plays, else meow_sink
+var meow_sink = 0xA2
+var ZoomBuf = 0xA000
+
+// ------------------------- Level 01 gameplay state --------------------------
+// Fresh zero-page bytes (no aliasing with intro vars, to avoid any risk of
+// two `var` declarations sharing one address); only ever touched after
+// cut_to_black, when the intro's own zero-page vars are already dead.
+var cur_room = 0xA3		// 0 = corridor, 1 = server aisle, 2 = relay room
+var player_col = 0xA4		// 2..38, column of the cat on the play row
+var move_timer = 0xA5		// frames until another joystick move is accepted
+var fire_prev = 0xA6		// 1 = TRIG0 seen released (arms the next press)
+var switch_timer = 0xA7	// room1: frames the switch keeps segment A dark
+var art_base[2] = 0xA8		// RoomArt of the current room
+var floor_ptr[2] = 0xAA		// art_base + 880: the room's floor row (FLOOR = seen by cameras)
+var relay_progress = 0xAC	// frames spent holding the relay terminal
+var relay_done = 0xAD		// 1 once the relay is diverted; never cleared by alerts
+var relay_active = 0xAE	// 1 while the player is working the relay terminal
+var alert_timer = 0xAF		// >0 while "UNRECOGNIZED DEVICE" freezes play
+var sfx_timer = 0xB1		// frames left for the current one-shot cue
+var mus_timer = 0xB2		// frames until the next music step (16th note)
+var mus_step = 0xB3		// 0..255: position in the 16-bar lead
+var mus_bar = 0xB0		// bar of the song, 0..15
+var lead_vol = 0xBA
+var bass_vol = 0xC4
+var drum_type = 0xC5		// 0 none, 1 kick, 2 snare, 3 hat
+var drum_t = 0xC6		// frame of the drum's 8-frame table
+
+// -------------------------- Disk I/O (no DOS) --------------------------
+// disk_read params: caller sets these three, then `call disk_read`. Free
+// zero-page bytes right after drum_t; nothing else is alive while loading.
+var disk_sector[2] = 0xC7	// starting sector number (low, high)
+var disk_count[2] = 0xC9	// sectors to read; destroyed by disk_read
+var disk_dest[2] = 0xCB	// destination address; DBUFLO/DBUFHI track it live
+var disk_chk = 0xCD		// disk_selftest: running checksum accumulator
+var disk_ptr[2] = 0xCE		// disk_selftest: read-back pointer while checksumming
+var disk_busy = 0xD0		// 1 while disk_read owns ch3/ch4; tick_music mutes around it
+var old_vviblki[2] = 0xD1	// saved OS VVBLKI, chained from music_vbi_imm
+var bass_freq = 0xD3		// note picked by music_step, applied to AUDF3 once disk_busy clears
+
+var level_finished = 0xB4	// 1 once the ending has played; freezes game_frame
+var entry_col = 0xB5		// player_x to enter the destination room at
+var msg_src[2] = 0xB6		// HUD string read pointer (low, high)
+var msg_len = 0xB8		// HUD string length for the current row message
+var walk_timer = 0xB9		// frames until walking pose returns to idle
+var idle_timer = 0xBB		// periodic tail flick while standing still
+var player_x = 0xBC		// left pixel of the PMG cat, 0..140 (144 on the exit)
+var facing = 0xBD		// 0 = right, 1 = left
+var spr_ptr[2] = 0xBE		// streamed cat frame in the retired RevealImg region
+
+// ---------------------- Platform levels 02-04 state ----------------------
+var player_y = 0xD5		// PM byte of the cat's sprite top; standing = (tile row + 1) * 8
+var old_y = 0xD6		// where the sprite was last drawn (erased next draw)
+var vy = 0xD7			// signed pixels per frame, -5 (jump) .. +5 (fall)
+var air = 0xD8			// 1 while jumping/falling
+var cur_level = 0xD9		// 0 = level 01 .. 3 = level 04
+var cnt = 0xDA
+var tmp = 0xDB
+var sp[2] = 0xDC		// TermScreen row pointer (row_ptr)
+var ap[2] = 0xDE		// RoomArtBuf row pointer
+var cry_ptr[2] = 0xE0
+var CryBuf = 0xA600		// death-cry PCM, preloaded before the confrontation
+// Room metadata: the 64 bytes after the 960 tile bytes of each room chunk.
+var m_sx = 0x06B0		// spawn x, y
+var m_sy = 0x06B1
+var m_fan = 0x06B2		// first column of the gust zone (0 = no fan)
+var m_lrow = 0x06B3		// lift: start row, column, width, min/max row
+var m_lcol = 0x06B4
+var m_lw = 0x06B5		// 0 = no lift
+var m_lmin = 0x06B6
+var m_lmax = 0x06B7
+var m_arow = 0x06B8		// vacuum dome row, 0 = none; patrol min/max col, frames per col, start col
+var m_amin = 0x06B9
+var m_amax = 0x06BA
+var m_aspd = 0x06BB
+var m_acol = 0x06BC
+var m_h0 = 0x06BD		// electrified floor columns (0 = none)
+var m_h1 = 0x06BE
+var m_glass = 0x06BF		// desk glass column (0 = none)
+var m_dlg = 0x06C0		// standing y that starts the confrontation
+var m_desk = 0x06C1		// standing y on the desk
+var m_exit = 0x06C2		// required standing y at the exit; 0 = unrestricted
+var m_swy = 0x06C3		// controller: standing y (0 = none) and column; FIRE within 2 columns opens the exit
+var m_swc = 0x06C4
+var m_lpow = 0x06C5		// 1 = lift moves only after the controller is used
+var m_fc1 = 0x06C6		// gust zone end column (exclusive), body rows fr0..fr1-1
+var m_fr0 = 0x06C7
+var m_fr1 = 0x06C8
+var m_lspd = 0x06C9		// frames per lift row (0 = 24)
+var lift_row = 0x06D0
+var lift_dir = 0x06D1
+var lift_t = 0x06D2
+var act_col = 0x06D3
+var act_dir = 0x06D4
+var act_t = 0x06D5
+var act_wob = 0x06D6
+var ride = 0x06D7
+var dlg_done = 0x06D8
+var gt = 0x06DC			// gravity divider
+var lnd = 0x06DD		// landing-crouch frames left
+var jprep = 0x06DE		// grounded anticipation before takeoff
+var paw_t = 0x06DF
+var paw_kind = 0x06E0		// 0 front jab, 1 hind kick
+var paw_x = 0x06E1
+var paw_y = 0x06E2
+var paw_hit = 0x06E3		// one hit per swing
+var sw_on = 0x06E4		// controller used in this room
+var fan_t = 0x06E5		// fan phase counter: bit 6 = gust
+var cr_i = 0x06E7		// scratch: slot / row
+var cr_t = 0x06E8		// 8 crumble slots: age (0 = free), row, column
+var cr_r = 0x06F0
+var cr_c = 0x06F8
+// Level 03 (cur_level == 2) only. Metadata aliases reuse unused lift bytes plus the five free
+// bytes. Runtime aliases overlap L02 crumble slots: guard L03 frame logic by cur_level.
+var m_xmax = 0x06B3		// R2/R4: patrol limit while struck / unlocked
+var m_dock = 0x06B4		// R2: first column of the charging bay
+var m_z0 = 0x06B6		// R2: laser zone; R4: reader zone
+var m_z1 = 0x06B7
+var m_bcol = 0x06CA		// pursuer home column, min, max, frames per column (0 = none)
+var m_bmin = 0x06CB
+var m_bmax = 0x06CC
+var m_bspd = 0x06CD
+var m_mode = 0x06CE		// bit0 charger room, bit1 reader/gate room
+var bcol = 0x06E8		// pursuer slot: bcol/bdir/bt/bwob sit 21 bytes after act_col..act_wob
+var bdir = 0x06E9
+var bt = 0x06EA
+var bwob = 0x06EB
+var carrier = 0x06EC		// 0 / 21: slot whose roof carries the cat
+var slot = 0x06ED		// 0 / 21: actor being drawn, struck or stepped
+var dk = 0x06EE			// R2 dock timer, frames left
+var gate = 0x06EF		// R4 reader has been crossed by a vacuum
+var bw = 0x06F0			// pursuer awake (chase lamp)
+var bk = 0x06F1			// frames the pursuer has been touching the carrier
+var e_mode = 0x06F2
+var e_bspd = 0x06F3
+var gcol = 0x06D9
+var kk = 0x06DA
+var wm = 0x06DB
+
+// Single-line PMG at $B800 (free after the intro): players at $BC00-$BFFF.
+// Each base is (player page + 152 scanlines) minus the frame chunk offset
+// (0/32/64/96) so one y index walks both the frame and the player.
+var PmMem = 0xBC00
+
+// ------------------------------- Terminal text -----------------------------
+// ANTIC 4 uses a 3x5 font for ASCII 32..95 mapped to internal (ascii-32).
+// Separate foreground and background colors keep white text on green CRT.
+
+// 24 rows x 40 cols in free RAM after ZoomBuf; cleared before each use.
+var TermScreen = 0xB000
+
+// Camera cones (page 6 is free on the Atari OS). Two camera slots per room,
+// loaded from CamCfg (tools/cmd/make-level-art CAMERAS); old* hold the cone
+// span drawn on each of the 17 rows so it can be erased from RoomArt.
+var hud_n = 0x06A0		// HUD bar: filled cells
+var hud_col = 0x06A1		// HUD bar colour (state)
+var music_ready = 0x06A2		// VBI must not read a track while it is being replaced
+var title_phase = 0x06A3		// 0 gameplay/intro, 1 release FIRE, 2 await start
+var music_chunk = 0x06A4
+var disk_failed = 0x06A5		// any SIO sector error in the most recent disk_read
+var ai_line = 0x06A6
+var ai_frame = 0x06A7
+var ai_pose = 0x06A8
+var lives = 0x06A9		// cat lives left, 9..1 (0 = game over, which restarts at the title); 0x06A9 is free page 6
+var Music = 0xB400		// one 512-byte streamed track, after the 1000-byte screen
+var TitleBottom = 0xB600		// title only; PMG is disabled while this buffer is displayed
+var cone_i = 0x0600
+var cone_L = 0x0601
+var cone_R = 0x0602
+var cone_cxl = 0x0603
+var cone_cxh = 0x0604
+var cone_hwl = 0x0605
+var cone_hwh = 0x0606
+var cone_sl = 0x0607
+var cone_sh = 0x0608
+var cone_lc = 0x0609
+var cone_rc = 0x060A
+var cone_end = 0x060B
+var cone_dirty = 0x060C
+var cone_hws = 0x060D
+var cone_base = 0x060E
+var cone_t = 0x060F
+var sl_cam = 0x0610		// camera column, 0 = slot unused
+var sl_min = 0x0612		// sweep limits (footprint centre column)
+var sl_max = 0x0614
+var sl_speed = 0x0616		// frames per column
+var sl_pause = 0x0618		// frames held at each end
+var sl_hw = 0x061A		// footprint half-width in columns
+var sl_gate = 0x061C		// 1 = powered down while switch_timer > 0
+var sl_hwstep = 0x061E
+var sl_c = 0x0620		// footprint centre column
+var sl_dir = 0x0622		// 0 = sweeping right, 1 = left
+var sl_wait = 0x0624
+var sl_on = 0x0626
+var oldL = 0x0630		// 2 x 17 rows, 0xFF = nothing drawn
+var oldR = 0x0660
+

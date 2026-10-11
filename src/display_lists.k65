@@ -1,0 +1,336 @@
+// ANTIC display lists.
+// - dl_term - text/tile terminal and level 01 play screen
+// - dl_call - video-call picture (ANTIC D)
+// - dl_ai - AI face portrait screen
+// - dl_title - title screen
+// - dl_storm - panorama pan list, filled at runtime by build_storm_list
+// - dl_reveal - panorama reveal with its floor-recolor DLI
+// - dl_face - cat face close-up driven by face_kernel
+// Bitmap rows are fetched twice with LMS; images are 4K aligned for ANTIC DMA.
+
+// --------------------------- Display lists ---------------------------------
+// Every bitmap row is fetched twice with LMS. The 4K-aligned images keep
+// each 40-byte DMA fetch within one ANTIC 4K block, even at pan offset 24.
+
+data dl_term {
+  nocross
+  0x70 0x70				// 16 blank scanlines top margin
+  0x44 &<TermScreen &>TermScreen	// row 0 (8 scanlines)
+  for x=0..22 eval [0x04]	// rows 1..23 (24 rows total, 192 scanlines)
+  0x90					// 2-line gap under the floor; DLI recolours the HUD
+  0x04					// row 24: HUD (TermScreen+960)
+  0x41 &<dl_term &>dl_term
+}
+
+data dl_call {
+  nocross
+  0x70 0x70 0x70
+  0x4D &<CallImg &>CallImg		// 160x80 portrait, 4K-aligned so one LMS is enough
+  for x=0..78 eval [0x0D]
+  0x70
+  0x44 &<TermScreen+840 &>TermScreen+840	// one dialogue row
+  0x41 &<dl_call &>dl_call
+}
+
+data dl_ai {
+  nocross
+  0x70 0x70 0x70
+  0x4D &<ZoomBuf &>ZoomBuf
+  for x=0..78 eval [0x0D]
+  0x70
+  0x44 &<TermScreen+840 &>TermScreen+840
+  0x41 &<dl_ai &>dl_ai
+}
+
+data dl_title {
+  nocross
+  0x70 0x70 0x70
+  0x4E &<ZoomBuf &>ZoomBuf
+  for x=0..98 eval [0x0E]	// 100 rows, no ANTIC 4K wrap
+  0x4E &<TermScreen &>TermScreen
+  for x=0..22 eval [0x0E]	// 24 rows, stops before Music
+  0x4E &<TitleBottom &>TitleBottom
+  for x=0..62 eval [0x0E]	// 64 rows, ends at $C000
+  0x30					// last four rows of the mockup are blank
+  0x41 &<dl_title &>dl_title
+}
+
+// Built at startup: 96 rows, each fetched twice from a 64-byte-wide panorama.
+// The extra bytes reserve space for the rows beyond the old static list.
+data dl_storm {
+  align 1024
+  0x70 0x70 0x70
+  repeat 2 { 0x4E &<RevealImg &>RevealImg }
+  repeat 2 { 0x4E &<RevealImg+40 &>RevealImg+40 }
+  repeat 2 { 0x4E &<RevealImg+80 &>RevealImg+80 }
+  repeat 2 { 0x4E &<RevealImg+120 &>RevealImg+120 }
+  repeat 2 { 0x4E &<RevealImg+160 &>RevealImg+160 }
+  repeat 2 { 0x4E &<RevealImg+200 &>RevealImg+200 }
+  repeat 2 { 0x4E &<RevealImg+240 &>RevealImg+240 }
+  repeat 2 { 0x4E &<RevealImg+280 &>RevealImg+280 }
+  repeat 2 { 0x4E &<RevealImg+320 &>RevealImg+320 }
+  repeat 2 { 0x4E &<RevealImg+360 &>RevealImg+360 }
+  repeat 2 { 0x4E &<RevealImg+400 &>RevealImg+400 }
+  repeat 2 { 0x4E &<RevealImg+440 &>RevealImg+440 }
+  repeat 2 { 0x4E &<RevealImg+480 &>RevealImg+480 }
+  repeat 2 { 0x4E &<RevealImg+520 &>RevealImg+520 }
+  repeat 2 { 0x4E &<RevealImg+560 &>RevealImg+560 }
+  repeat 2 { 0x4E &<RevealImg+600 &>RevealImg+600 }
+  repeat 2 { 0x4E &<RevealImg+640 &>RevealImg+640 }
+  repeat 2 { 0x4E &<RevealImg+680 &>RevealImg+680 }
+  repeat 2 { 0x4E &<RevealImg+720 &>RevealImg+720 }
+  repeat 2 { 0x4E &<RevealImg+760 &>RevealImg+760 }
+  repeat 2 { 0x4E &<RevealImg+800 &>RevealImg+800 }
+  repeat 2 { 0x4E &<RevealImg+840 &>RevealImg+840 }
+  repeat 2 { 0x4E &<RevealImg+880 &>RevealImg+880 }
+  repeat 2 { 0x4E &<RevealImg+920 &>RevealImg+920 }
+  repeat 2 { 0x4E &<RevealImg+960 &>RevealImg+960 }
+  repeat 2 { 0x4E &<RevealImg+1000 &>RevealImg+1000 }
+  repeat 2 { 0x4E &<RevealImg+1040 &>RevealImg+1040 }
+  repeat 2 { 0x4E &<RevealImg+1080 &>RevealImg+1080 }
+  repeat 2 { 0x4E &<RevealImg+1120 &>RevealImg+1120 }
+  repeat 2 { 0x4E &<RevealImg+1160 &>RevealImg+1160 }
+  repeat 2 { 0x4E &<RevealImg+1200 &>RevealImg+1200 }
+  repeat 2 { 0x4E &<RevealImg+1240 &>RevealImg+1240 }
+  repeat 2 { 0x4E &<RevealImg+1280 &>RevealImg+1280 }
+  repeat 2 { 0x4E &<RevealImg+1320 &>RevealImg+1320 }
+  repeat 2 { 0x4E &<RevealImg+1360 &>RevealImg+1360 }
+  repeat 2 { 0x4E &<RevealImg+1400 &>RevealImg+1400 }
+  repeat 2 { 0x4E &<RevealImg+1440 &>RevealImg+1440 }
+  repeat 2 { 0x4E &<RevealImg+1480 &>RevealImg+1480 }
+  repeat 2 { 0x4E &<RevealImg+1520 &>RevealImg+1520 }
+  repeat 2 { 0x4E &<RevealImg+1560 &>RevealImg+1560 }
+  repeat 2 { 0x4E &<RevealImg+1600 &>RevealImg+1600 }
+  repeat 2 { 0x4E &<RevealImg+1640 &>RevealImg+1640 }
+  repeat 2 { 0x4E &<RevealImg+1680 &>RevealImg+1680 }
+  repeat 2 { 0x4E &<RevealImg+1720 &>RevealImg+1720 }
+  repeat 2 { 0x4E &<RevealImg+1760 &>RevealImg+1760 }
+  repeat 2 { 0x4E &<RevealImg+1800 &>RevealImg+1800 }
+  repeat 2 { 0x4E &<RevealImg+1840 &>RevealImg+1840 }
+  repeat 2 { 0x4E &<RevealImg+1880 &>RevealImg+1880 }
+  repeat 2 { 0x4E &<RevealImg+1920 &>RevealImg+1920 }
+  repeat 2 { 0x4E &<RevealImg+1960 &>RevealImg+1960 }
+  repeat 2 { 0x4E &<RevealImg+2000 &>RevealImg+2000 }
+  repeat 2 { 0x4E &<RevealImg+2040 &>RevealImg+2040 }
+  repeat 2 { 0x4E &<RevealImg+2080 &>RevealImg+2080 }
+  repeat 2 { 0x4E &<RevealImg+2120 &>RevealImg+2120 }
+  repeat 2 { 0x4E &<RevealImg+2160 &>RevealImg+2160 }
+  repeat 2 { 0x4E &<RevealImg+2200 &>RevealImg+2200 }
+  repeat 2 { 0x4E &<RevealImg+2240 &>RevealImg+2240 }
+  repeat 2 { 0x4E &<RevealImg+2280 &>RevealImg+2280 }
+  repeat 2 { 0x4E &<RevealImg+2320 &>RevealImg+2320 }
+  repeat 2 { 0x4E &<RevealImg+2360 &>RevealImg+2360 }
+  repeat 2 { 0x4E &<RevealImg+2400 &>RevealImg+2400 }
+  repeat 2 { 0x4E &<RevealImg+2440 &>RevealImg+2440 }
+  repeat 2 { 0x4E &<RevealImg+2480 &>RevealImg+2480 }
+  repeat 2 { 0x4E &<RevealImg+2520 &>RevealImg+2520 }
+  repeat 8 { 0x70 }
+  repeat 184 { 0x00 }
+  0x41 &<dl_storm &>dl_storm
+}
+
+data dl_reveal {
+  align 1024
+  0x70 0x70 0x70
+  repeat 2 { 0x4E &<RevealImg &>RevealImg }
+  repeat 2 { 0x4E &<RevealImg+40 &>RevealImg+40 }
+  repeat 2 { 0x4E &<RevealImg+80 &>RevealImg+80 }
+  repeat 2 { 0x4E &<RevealImg+120 &>RevealImg+120 }
+  repeat 2 { 0x4E &<RevealImg+160 &>RevealImg+160 }
+  repeat 2 { 0x4E &<RevealImg+200 &>RevealImg+200 }
+  repeat 2 { 0x4E &<RevealImg+240 &>RevealImg+240 }
+  repeat 2 { 0x4E &<RevealImg+280 &>RevealImg+280 }
+  repeat 2 { 0x4E &<RevealImg+320 &>RevealImg+320 }
+  repeat 2 { 0x4E &<RevealImg+360 &>RevealImg+360 }
+  repeat 2 { 0x4E &<RevealImg+400 &>RevealImg+400 }
+  repeat 2 { 0x4E &<RevealImg+440 &>RevealImg+440 }
+  repeat 2 { 0x4E &<RevealImg+480 &>RevealImg+480 }
+  repeat 2 { 0x4E &<RevealImg+520 &>RevealImg+520 }
+  repeat 2 { 0x4E &<RevealImg+560 &>RevealImg+560 }
+  repeat 2 { 0x4E &<RevealImg+600 &>RevealImg+600 }
+  repeat 2 { 0x4E &<RevealImg+640 &>RevealImg+640 }
+  repeat 2 { 0x4E &<RevealImg+680 &>RevealImg+680 }
+  repeat 2 { 0x4E &<RevealImg+720 &>RevealImg+720 }
+  repeat 2 { 0x4E &<RevealImg+760 &>RevealImg+760 }
+  repeat 2 { 0x4E &<RevealImg+800 &>RevealImg+800 }
+  repeat 2 { 0x4E &<RevealImg+840 &>RevealImg+840 }
+  repeat 2 { 0x4E &<RevealImg+880 &>RevealImg+880 }
+  repeat 2 { 0x4E &<RevealImg+920 &>RevealImg+920 }
+  repeat 2 { 0x4E &<RevealImg+960 &>RevealImg+960 }
+  repeat 2 { 0x4E &<RevealImg+1000 &>RevealImg+1000 }
+  repeat 2 { 0x4E &<RevealImg+1040 &>RevealImg+1040 }
+  repeat 2 { 0x4E &<RevealImg+1080 &>RevealImg+1080 }
+  repeat 2 { 0x4E &<RevealImg+1120 &>RevealImg+1120 }
+  repeat 2 { 0x4E &<RevealImg+1160 &>RevealImg+1160 }
+  repeat 2 { 0x4E &<RevealImg+1200 &>RevealImg+1200 }
+  repeat 2 { 0x4E &<RevealImg+1240 &>RevealImg+1240 }
+  repeat 2 { 0x4E &<RevealImg+1280 &>RevealImg+1280 }
+  repeat 2 { 0x4E &<RevealImg+1320 &>RevealImg+1320 }
+  repeat 2 { 0x4E &<RevealImg+1360 &>RevealImg+1360 }
+  repeat 2 { 0x4E &<RevealImg+1400 &>RevealImg+1400 }
+  repeat 2 { 0x4E &<RevealImg+1440 &>RevealImg+1440 }
+  repeat 2 { 0x4E &<RevealImg+1480 &>RevealImg+1480 }
+  repeat 2 { 0x4E &<RevealImg+1520 &>RevealImg+1520 }
+  repeat 2 { 0x4E &<RevealImg+1560 &>RevealImg+1560 }
+  repeat 2 { 0x4E &<RevealImg+1600 &>RevealImg+1600 }
+  repeat 2 { 0x4E &<RevealImg+1640 &>RevealImg+1640 }
+  repeat 2 { 0x4E &<RevealImg+1680 &>RevealImg+1680 }
+  repeat 2 { 0x4E &<RevealImg+1720 &>RevealImg+1720 }
+  repeat 2 { 0x4E &<RevealImg+1760 &>RevealImg+1760 }
+  repeat 2 { 0x4E &<RevealImg+1800 &>RevealImg+1800 }
+  repeat 2 { 0x4E &<RevealImg+1840 &>RevealImg+1840 }
+  repeat 2 { 0x4E &<RevealImg+1880 &>RevealImg+1880 }
+  repeat 2 { 0x4E &<RevealImg+1920 &>RevealImg+1920 }
+  repeat 2 { 0x4E &<RevealImg+1960 &>RevealImg+1960 }
+  repeat 2 { 0x4E &<RevealImg+2000 &>RevealImg+2000 }
+  repeat 2 { 0x4E &<RevealImg+2040 &>RevealImg+2040 }
+  repeat 2 { 0x4E &<RevealImg+2080 &>RevealImg+2080 }
+  repeat 2 { 0x4E &<RevealImg+2120 &>RevealImg+2120 }
+  repeat 2 { 0x4E &<RevealImg+2160 &>RevealImg+2160 }
+  repeat 2 { 0x4E &<RevealImg+2200 &>RevealImg+2200 }
+  repeat 2 { 0x4E &<RevealImg+2240 &>RevealImg+2240 }
+  repeat 2 { 0x4E &<RevealImg+2280 &>RevealImg+2280 }
+  repeat 2 { 0x4E &<RevealImg+2320 &>RevealImg+2320 }
+  repeat 2 { 0x4E &<RevealImg+2360 &>RevealImg+2360 }
+  repeat 2 { 0x4E &<RevealImg+2400 &>RevealImg+2400 }
+  repeat 2 { 0x4E &<RevealImg+2440 &>RevealImg+2440 }
+  repeat 2 { 0x4E &<RevealImg+2480 &>RevealImg+2480 }
+  repeat 2 { 0x4E &<RevealImg+2520 &>RevealImg+2520 }
+  repeat 2 { 0x4E &<RevealImg+2560 &>RevealImg+2560 }
+  repeat 2 { 0x4E &<RevealImg+2600 &>RevealImg+2600 }
+  repeat 2 { 0x4E &<RevealImg+2640 &>RevealImg+2640 }
+  repeat 2 { 0x4E &<RevealImg+2680 &>RevealImg+2680 }
+  repeat 2 { 0x4E &<RevealImg+2720 &>RevealImg+2720 }
+  repeat 2 { 0x4E &<RevealImg+2760 &>RevealImg+2760 }
+  repeat 2 { 0x4E &<RevealImg+2800 &>RevealImg+2800 }
+  repeat 2 { 0x4E &<RevealImg+2840 &>RevealImg+2840 }
+  repeat 2 { 0x4E &<RevealImg+2880 &>RevealImg+2880 }
+  repeat 2 { 0x4E &<RevealImg+2920 &>RevealImg+2920 }
+  repeat 2 { 0x4E &<RevealImg+2960 &>RevealImg+2960 }
+  repeat 2 { 0x4E &<RevealImg+3000 &>RevealImg+3000 }
+  repeat 2 { 0x4E &<RevealImg+3040 &>RevealImg+3040 }
+  repeat 2 { 0x4E &<RevealImg+3080 &>RevealImg+3080 }
+  repeat 2 { 0x4E &<RevealImg+3120 &>RevealImg+3120 }
+  repeat 2 { 0x4E &<RevealImg+3160 &>RevealImg+3160 }
+  repeat 2 { 0x4E &<RevealImg+3200 &>RevealImg+3200 }
+  repeat 2 { 0x4E &<RevealImg+3240 &>RevealImg+3240 }
+  repeat 2 { 0x4E &<RevealImg+3280 &>RevealImg+3280 }
+  repeat 2 { 0x4E &<RevealImg+3320 &>RevealImg+3320 }
+  repeat 2 { 0x4E &<RevealImg+3360 &>RevealImg+3360 }
+  repeat 2 { 0x4E &<RevealImg+3400 &>RevealImg+3400 }
+  repeat 2 { 0x4E &<RevealImg+3440 &>RevealImg+3440 }
+  repeat 2 { 0x4E &<RevealImg+3480 &>RevealImg+3480 }
+  repeat 2 { 0x4E &<RevealImg+3520 &>RevealImg+3520 }
+  repeat 2 { 0x4E &<RevealImg+3560 &>RevealImg+3560 }
+  repeat 2 { 0x4E &<RevealImg+3600 &>RevealImg+3600 }
+  repeat 2 { 0x4E &<RevealImg+3640 &>RevealImg+3640 }
+  repeat 2 { 0x4E &<RevealImg+3680 &>RevealImg+3680 }
+  repeat 2 { 0x4E &<RevealImg+3720 &>RevealImg+3720 }
+  repeat 2 { 0x4E &<RevealImg+3760 &>RevealImg+3760 }
+  repeat 2 { 0x4E &<RevealImg+3800 &>RevealImg+3800 }
+  0x41 &<dl_reveal &>dl_reveal
+}
+
+data dl_face {
+  align 1024
+  0x70 0x70 0x70
+  repeat 2 { 0x4E &<FaceImg &>FaceImg }
+  repeat 2 { 0x4E &<FaceImg+40 &>FaceImg+40 }
+  repeat 2 { 0x4E &<FaceImg+80 &>FaceImg+80 }
+  repeat 2 { 0x4E &<FaceImg+120 &>FaceImg+120 }
+  repeat 2 { 0x4E &<FaceImg+160 &>FaceImg+160 }
+  repeat 2 { 0x4E &<FaceImg+200 &>FaceImg+200 }
+  repeat 2 { 0x4E &<FaceImg+240 &>FaceImg+240 }
+  repeat 2 { 0x4E &<FaceImg+280 &>FaceImg+280 }
+  repeat 2 { 0x4E &<FaceImg+320 &>FaceImg+320 }
+  repeat 2 { 0x4E &<FaceImg+360 &>FaceImg+360 }
+  0xCE &<FaceImg+400 &>FaceImg+400	// DLI: start face_kernel
+  0x4E &<FaceImg+400 &>FaceImg+400
+  repeat 2 { 0x4E &<FaceImg+440 &>FaceImg+440 }
+  repeat 2 { 0x4E &<FaceImg+480 &>FaceImg+480 }
+  repeat 2 { 0x4E &<FaceImg+520 &>FaceImg+520 }
+  repeat 2 { 0x4E &<FaceImg+560 &>FaceImg+560 }
+  repeat 2 { 0x4E &<FaceImg+600 &>FaceImg+600 }
+  repeat 2 { 0x4E &<FaceImg+640 &>FaceImg+640 }
+  repeat 2 { 0x4E &<FaceImg+680 &>FaceImg+680 }
+  repeat 2 { 0x4E &<FaceImg+720 &>FaceImg+720 }
+  repeat 2 { 0x4E &<FaceImg+760 &>FaceImg+760 }
+  repeat 2 { 0x4E &<FaceImg+800 &>FaceImg+800 }
+  repeat 2 { 0x4E &<FaceImg+840 &>FaceImg+840 }
+  repeat 2 { 0x4E &<FaceImg+880 &>FaceImg+880 }
+  repeat 2 { 0x4E &<FaceImg+920 &>FaceImg+920 }
+  repeat 2 { 0x4E &<FaceImg+960 &>FaceImg+960 }
+  repeat 2 { 0x4E &<FaceImg+1000 &>FaceImg+1000 }
+  repeat 2 { 0x4E &<FaceImg+1040 &>FaceImg+1040 }
+  repeat 2 { 0x4E &<FaceImg+1080 &>FaceImg+1080 }
+  repeat 2 { 0x4E &<FaceImg+1120 &>FaceImg+1120 }
+  repeat 2 { 0x4E &<FaceImg+1160 &>FaceImg+1160 }
+  repeat 2 { 0x4E &<FaceImg+1200 &>FaceImg+1200 }
+  repeat 2 { 0x4E &<FaceImg+1240 &>FaceImg+1240 }
+  repeat 2 { 0x4E &<FaceImg+1280 &>FaceImg+1280 }
+  repeat 2 { 0x4E &<FaceImg+1320 &>FaceImg+1320 }
+  repeat 2 { 0x4E &<FaceImg+1360 &>FaceImg+1360 }
+  repeat 2 { 0x4E &<FaceImg+1400 &>FaceImg+1400 }
+  repeat 2 { 0x4E &<FaceImg+1440 &>FaceImg+1440 }
+  repeat 2 { 0x4E &<FaceImg+1480 &>FaceImg+1480 }
+  repeat 2 { 0x4E &<FaceImg+1520 &>FaceImg+1520 }
+  repeat 2 { 0x4E &<FaceImg+1560 &>FaceImg+1560 }
+  repeat 2 { 0x4E &<FaceImg+1600 &>FaceImg+1600 }
+  repeat 2 { 0x4E &<FaceImg+1640 &>FaceImg+1640 }
+  repeat 2 { 0x4E &<FaceImg+1680 &>FaceImg+1680 }
+  repeat 2 { 0x4E &<FaceImg+1720 &>FaceImg+1720 }
+  repeat 2 { 0x4E &<FaceImg+1760 &>FaceImg+1760 }
+  repeat 2 { 0x4E &<FaceImg+1800 &>FaceImg+1800 }
+  repeat 2 { 0x4E &<FaceImg+1840 &>FaceImg+1840 }
+  repeat 2 { 0x4E &<FaceImg+1880 &>FaceImg+1880 }
+  repeat 2 { 0x4E &<FaceImg+1920 &>FaceImg+1920 }
+  repeat 2 { 0x4E &<FaceImg+1960 &>FaceImg+1960 }
+  repeat 2 { 0x4E &<FaceImg+2000 &>FaceImg+2000 }
+  repeat 2 { 0x4E &<FaceImg+2040 &>FaceImg+2040 }
+  repeat 2 { 0x4E &<FaceImg+2080 &>FaceImg+2080 }
+  repeat 2 { 0x4E &<FaceImg+2120 &>FaceImg+2120 }
+  repeat 2 { 0x4E &<FaceImg+2160 &>FaceImg+2160 }
+  repeat 2 { 0x4E &<FaceImg+2200 &>FaceImg+2200 }
+  repeat 2 { 0x4E &<FaceImg+2240 &>FaceImg+2240 }
+  repeat 2 { 0x4E &<FaceImg+2280 &>FaceImg+2280 }
+  repeat 2 { 0x4E &<FaceImg+2320 &>FaceImg+2320 }
+  repeat 2 { 0x4E &<FaceImg+2360 &>FaceImg+2360 }
+  repeat 2 { 0x4E &<FaceImg+2400 &>FaceImg+2400 }
+  repeat 2 { 0x4E &<FaceImg+2440 &>FaceImg+2440 }
+  repeat 2 { 0x4E &<FaceImg+2480 &>FaceImg+2480 }
+  repeat 2 { 0x4E &<FaceImg+2520 &>FaceImg+2520 }
+  repeat 2 { 0x4E &<FaceImg+2560 &>FaceImg+2560 }
+  repeat 2 { 0x4E &<FaceImg+2600 &>FaceImg+2600 }
+  repeat 2 { 0x4E &<FaceImg+2640 &>FaceImg+2640 }
+  repeat 2 { 0x4E &<FaceImg+2680 &>FaceImg+2680 }
+  repeat 2 { 0x4E &<FaceImg+2720 &>FaceImg+2720 }
+  repeat 2 { 0x4E &<FaceImg+2760 &>FaceImg+2760 }
+  repeat 2 { 0x4E &<FaceImg+2800 &>FaceImg+2800 }
+  repeat 2 { 0x4E &<FaceImg+2840 &>FaceImg+2840 }
+  repeat 2 { 0x4E &<FaceImg+2880 &>FaceImg+2880 }
+  repeat 2 { 0x4E &<FaceImg+2920 &>FaceImg+2920 }
+  repeat 2 { 0x4E &<FaceImg+2960 &>FaceImg+2960 }
+  repeat 2 { 0x4E &<FaceImg+3000 &>FaceImg+3000 }
+  repeat 2 { 0x4E &<FaceImg+3040 &>FaceImg+3040 }
+  repeat 2 { 0x4E &<FaceImg+3080 &>FaceImg+3080 }
+  repeat 2 { 0x4E &<FaceImg+3120 &>FaceImg+3120 }
+  repeat 2 { 0x4E &<FaceImg+3160 &>FaceImg+3160 }
+  repeat 2 { 0x4E &<FaceImg+3200 &>FaceImg+3200 }
+  repeat 2 { 0x4E &<FaceImg+3240 &>FaceImg+3240 }
+  repeat 2 { 0x4E &<FaceImg+3280 &>FaceImg+3280 }
+  repeat 2 { 0x4E &<FaceImg+3320 &>FaceImg+3320 }
+  repeat 2 { 0x4E &<FaceImg+3360 &>FaceImg+3360 }
+  repeat 2 { 0x4E &<FaceImg+3400 &>FaceImg+3400 }
+  repeat 2 { 0x4E &<FaceImg+3440 &>FaceImg+3440 }
+  repeat 2 { 0x4E &<FaceImg+3480 &>FaceImg+3480 }
+  repeat 2 { 0x4E &<FaceImg+3520 &>FaceImg+3520 }
+  repeat 2 { 0x4E &<FaceImg+3560 &>FaceImg+3560 }
+  repeat 2 { 0x4E &<FaceImg+3600 &>FaceImg+3600 }
+  repeat 2 { 0x4E &<FaceImg+3640 &>FaceImg+3640 }
+  repeat 2 { 0x4E &<FaceImg+3680 &>FaceImg+3680 }
+  repeat 2 { 0x4E &<FaceImg+3720 &>FaceImg+3720 }
+  repeat 2 { 0x4E &<FaceImg+3760 &>FaceImg+3760 }
+  repeat 2 { 0x4E &<FaceImg+3800 &>FaceImg+3800 }
+  0x41 &<dl_face &>dl_face
+}
+

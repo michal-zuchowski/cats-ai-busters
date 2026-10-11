@@ -1,0 +1,72 @@
+// Program entry: main and scene script.
+// - main - runs the scene sequence: intro, title, levels; intro_skip: is also the
+//   game-over restart point (lose_life/game_over jump back here)
+
+// ---------------------------------- Scene ------------------------------------
+
+main {
+  init_system
+  build_storm_list
+
+  switch_to_storm			// opening shows racks, but not the cat
+  storm_pan				// 5.76-second right-to-left track with blinking LEDs
+
+  show_zoom_bitmap
+  zoom_to_terminal			// monitor fills the frame before text appears
+  reveal_line0
+  x=40 wait_frames
+  reveal_line1
+  x=40 wait_frames
+  reveal_line2
+  x=40 wait_frames
+  reveal_line3
+  x=40 wait_frames
+  reveal_line4
+  x=40 wait_frames
+  reveal_line5
+  x=40 wait_frames
+  reveal_line6
+  x=30 wait_frames
+
+  blink_prompt
+  show_y_prompt
+  x=60 wait_frames			// let "Y_" sit before pulling back
+
+  show_cat				// add the cat only after the terminal scene
+  build_reveal_list
+  switch_to_reveal			// cut: pull-back reveal of the cat in the dark
+  x=90 wait_frames
+
+  switch_to_face			// cut: close-up cat face
+  x=40 wait_frames
+
+  pupils_stage1				// slit -> dilating...
+  x=25 wait_frames
+  pupils_stage2
+  x=25 wait_frames
+  pupils_stage3				// ...to fully round
+  x=30 wait_frames
+
+  mouth_flag=a=0			// deterministic starting state (closed, matches FaceImg)
+  play_meow				// mouth_tick fires from inside this, in sync with audio
+  x=40 wait_frames
+
+  video_call
+intro_skip:
+  NMIEN=a=0x40
+  s=x=0xFF				// discard nested intro return addresses after a skip
+  AUDC1=a=0
+  cut_to_black
+
+  title_screen
+  lives=a=9				// new game: nine cat lives
+  init_gameplay
+  {
+    x=1
+    wait_frames
+    dbg_level
+    a=level_finished
+    a?0
+    == { frame_any } else { next_level }
+  } always				// gameplay loop; idles forever after the last level
+}

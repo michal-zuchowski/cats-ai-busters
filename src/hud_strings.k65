@@ -1,0 +1,47 @@
+// Level 01 HUD strings (ascii-32 encoding, same as the terminal lines).
+// - MsgHud/MsgLevel - 'ROOM n/3' and 'LEVEL 01' labels on the bottom HUD row
+// - MsgCamOff/MsgRecordHud/MsgFireHud/MsgHiddenHud/MsgAlertHud - status labels
+// - MsgStop/MsgAlert/MsgGameOver/MsgRoute - row 0/1 messages (stop, alert, game over, route hints)
+
+// --------------------------- Level 01 HUD strings ---------------------------
+// Same ascii-32 encoding as Line0..Line6, reused for the gameplay HUD rows.
+data MsgHud { // 'ROOM 1/3' ... 'LEVEL 01'
+  50 47 47 45 0 17 15 19
+}
+data MsgLevel { // 'LEVEL 01'
+  44 37 54 37 44 0 16 17
+}
+data MsgCamOff { // 'CAM OFF'
+  35 33 45 0 47 38 38
+}
+data MsgRecordHud { // 'RECORD '
+  50 37 35 47 50 36 0
+}
+data MsgFireHud { // 'FIRE!  '
+  38 41 50 37 1 0 0
+}
+data MsgHiddenHud { // 'HIDDEN '
+  40 41 36 36 37 46 0
+}
+data MsgAlertHud { // 'ALERT  '
+  33 44 37 50 52 0 0
+}
+data MsgStop { // 25 bytes: 'PLAY RECORD. STAY UNSEEN.'
+  48 44 33 57 0 50 37 35 47 50 36 14 0 51 52 33
+  57 0 53 46 51 37 37 46 14
+}
+
+data MsgAlert { // 19 bytes: 'UNRECOGNIZED DEVICE'
+  53 46 50 37 35 47 39 46 41 58 37 36 0 36 37 54
+  41 35 37
+}
+
+data MsgGameOver { // 9 bytes: 'GAME OVER'
+  39 33 45 37 0 47 54 37 50
+}
+
+data MsgRoute { // 22 bytes: 'ROUTE: TEST / ISOLATED'
+  50 47 53 52 37 26 0 52 37 51 52 0 15 0 41 51
+  47 44 33 52 37 36
+}
+

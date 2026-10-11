@@ -1,0 +1,136 @@
+// Level 01 rooms: art streaming, entering rooms, ending, LED blinking.
+// - load_room_chunk/load_room_art/paint_room_art - stream a room's art from disk
+// - enter_room - switch to a room and set up cameras
+// - level_ending - level 01 completion sequence
+// - blink_leds - blink server LEDs in the room art
+
+func load_room_chunk {			// a = chunk index; streams it to disk_dest (ChunkTable, 5 bytes/entry)
+  tmp=a
+  a<< a<<
+  c- a+tmp
+  x=a
+  a=ChunkTable,x
+  disk_sector=a
+  x++
+  a=ChunkTable,x
+  disk_sector+1=a
+  x++
+  a=ChunkTable,x
+  disk_count=a
+  x++
+  a=ChunkTable,x
+  disk_count+1=a
+  call disk_read
+}
+
+func load_room_art {			// a = chunk index: streams the 960-byte art (+ metadata) into
+					// RoomArtBuf (a3e.3), then paints it onto TermScreen
+  cnt=a
+  disk_dest=a=&<RoomArtBuf
+  disk_dest+1=a=&>RoomArtBuf
+  a=cnt
+  call load_room_chunk
+  call paint_room_art
+}
+
+func paint_room_art {
+  art_ptr=a=&<RoomArtBuf
+  art_ptr+1=a=&>RoomArtBuf
+  a=art_ptr
+  art_base=a
+  c- a+0x70
+  floor_ptr=a
+  a=art_ptr+1
+  art_base+1=a
+  a+0x03
+  floor_ptr+1=a
+  zoom_ptr=a=&<TermScreen
+  zoom_ptr+1=a=&>TermScreen
+  x=3
+  {
+    y=0
+    {
+      a=(art_ptr),y
+      (zoom_ptr),y=a
+      y++
+      y?0
+    } !=
+    art_ptr+1++
+    zoom_ptr+1++
+    x--
+    x?0
+  } !=
+  y=0
+  {
+    a=(art_ptr),y
+    (zoom_ptr),y=a
+    y++
+    y?192
+  } !=
+}
+
+func enter_room {
+  a=entry_col
+  player_x=a
+  set_col
+  switch_timer=a=0
+  relay_active=a=0
+  relay_progress=a=0
+  walk_timer=a=0
+  idle_timer=a=0
+  a=cur_room
+  load_room_art
+  load_cams
+  call draw_hud_static
+  clear_row1
+  draw_room_header
+  msg_src=a=&<MsgStop
+  msg_src+1=a=&>MsgStop
+  msg_len=a=25
+  draw_row0_msg
+  redraw_zone
+  draw_player
+}
+
+func level_ending {
+  level_finished=a=1
+  clear_row0
+  clear_row1
+  x=cur_level
+  a=TxtOff,x
+  msg_src=a
+  msg_src+1=a=&>Txt
+  msg_len=a=36
+  draw_row0_msg
+  sfx_success
+  x=75
+  wait_frames
+  x=75
+  wait_frames
+  COLOR0=a=0
+  COLOR1=a=0
+  COLOR2=a=0
+  COLOR4=a=0
+  PCOLR0=a=0
+  PCOLR1=a=0
+  PCOLR2=a=0
+  PCOLR3=a=0
+  AUDC1=a=0
+  AUDC2=a=0
+  AUDC3=a=0
+  AUDC4=a=0
+}
+
+func blink_leds {			// toggle the LED pixel in the SRV_B/SRV_D glyphs (tiles 73/75)
+  a=RTCLOK
+  a&0x20					// slow blink, ~0.6 s
+  a>> a>> a>>
+  a|0xAA
+  TermFont+586=a			// 73*8+2: "2232" / "2222"
+  a=RTCLOK
+  a&0x08					// fast activity flicker
+  a<<
+  a|0xAA
+  TermFont+604=a			// 75*8+4: "2322" / "2222"
+}
+

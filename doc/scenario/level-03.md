@@ -1,3 +1,5 @@
+[← back to doc/README.md](../README.md)
+
 # Level 03 — The Cleaning Protocol (concept)
 
 The roof uplink from [Level 02](level-02.md) reveals a route back down to
@@ -73,4 +75,4 @@ Exact platform positions, timing and vacuum art remain open for playtesting.
   rear robot that could trap the cat on an unmoving roof has been removed.
 Lamp glyphs: patrol 91-93, struck 124/125 base, chase 1/2/6, dock bay/reader strip 12, dock/reader head reuses plinth 88.
 
-Check commands (no compiler): `python3 tests/test_l03_assets.py`, `python3 tests/test_l03_routes.py`, and `python3 tests/test_l03_runtime.py --asset-overlay` (R4 joystick/FIRE route on the user's existing XEX with only the R4 room sector overlaid in memory; the new HUD/reader/root-guard code is not compiled there). Without `--asset-overlay` the runtime test requires a fresh build (`R4Goal` symbol) and also checks the captions, reader and roof guard.
+Check commands (no compiler): `go test ./tests -run L03Assets`, `go test ./tests -run L03`, and `L03_ASSET_OVERLAY=1 go test ./tests -run L03Runtime` (R4 joystick/FIRE route on the user's existing XEX with only the R4 room sector overlaid in memory; the new HUD/reader/root-guard code is not compiled there). Without `L03_ASSET_OVERLAY=1` the runtime test requires a fresh build (`R4Goal` symbol) and also checks the captions, reader and roof guard.

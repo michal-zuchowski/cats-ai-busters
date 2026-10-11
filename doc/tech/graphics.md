@@ -1,3 +1,5 @@
+[← back to doc/README.md](../README.md)
+
 # Graphics decisions
 
 - **Intro terminal:** ANTIC 4 character mode (40 columns, 24 rows) with a compact 3×5 font for white text on a dark-green background. ANTIC 2 mixes the text and background hues, so it cannot reproduce this color scheme. Enlarge the terminal bitmap once, push in through three growing monitor frames, then reveal the lines one at a time.
@@ -20,10 +22,10 @@ tried first and was too coarse for a readable cat. The extra bitmap fits
 because the project links with `-hiaddr 0x7FFF`
 (bank `$2000–$7FFF`; buffers stay at `$8000+`).
 
-**Implemented mouth sync:** `play_meow` and `mouth_tick` are both in `main.k65`; `sample.k65` holds the PCM data. Playback calls `mouth_tick` once per 256-sample page boundary — 12 times across the ~0.59s sample — toggling the mouth directly inside the sample loop without changing its per-sample `WSYNC` timing. During the close-up the CPU is also owned by `face_kernel` for 168 scanlines per frame, so the kernel plays every third line's sample itself; both advance the shared `meow_ptr` and write through `audc_ptr` (AUDC1 while playing, a dummy byte otherwise). The main loop detects page changes by comparing `meow_ptr+1` with `meow_page`, and 64 bytes of silence after the PCM absorb a kernel overrun. Keeping both functions together avoids a forward reference across separately compiled K65 files.
+**Implemented mouth sync:** `play_meow` and `mouth_tick` are both in `src/intro_scenes.k65`; `src/meow_sample.k65` holds the PCM data. Playback calls `mouth_tick` once per 256-sample page boundary — 12 times across the ~0.59s sample — toggling the mouth directly inside the sample loop without changing its per-sample `WSYNC` timing. During the close-up the CPU is also owned by `face_kernel` for 168 scanlines per frame, so the kernel plays every third line's sample itself; both advance the shared `meow_ptr` and write through `audc_ptr` (AUDC1 while playing, a dummy byte otherwise). The main loop detects page changes by comparing `meow_ptr+1` with `meow_page`, and 64 bytes of silence after the PCM absorb a kernel overrun. Keeping both functions together avoids a forward reference across separately compiled K65 files.
 
 **GR.15 bitmap layout:** ANTIC E draws one physical scanline per display-list
-instruction. `python3 tools/make_intro_art.py` generates the 256×96 panorama
+instruction. `go run ./tools/cmd/make-intro-art` generates the 256×96 panorama
 (`assets/room.pic`, 64 bytes per row), 160×96 close-up
 (`assets/face.pic`, 40 bytes per row), and 12×32-byte reveal overlay
 (`assets/cat-strip.pic`). Each image row is fetched twice via LMS for 192

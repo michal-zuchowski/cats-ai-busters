@@ -1,0 +1,147 @@
+// Finale: the glass is pushed off the desk.
+// - final_scene - four poses (look, reach, contact, retract), computer dies
+
+func final_scene {			// glass off the desk, the computer dies, the cats know better
+  // Four readable poses: look, reach, front-paw contact, retract.
+  a=54
+  draw_frame
+  x=8 wait_frames
+  a=55
+  draw_frame
+  x=8 wait_frames
+  // Contact is the acceptance point; only now does the glass begin moving.
+  level_finished=a=1
+  a=56
+  draw_frame
+  x=4 wait_frames
+  wm=a=13
+  gcol=a=m_glass
+  clear_glass_scene
+  kk=a=0
+  glass_glyph
+  gcol++
+  draw_glass_scene
+  x=4 wait_frames
+  wm=a=13
+  clear_glass_scene
+  kk=a=0
+  glass_glyph
+  gcol++
+  draw_glass_scene
+  x=3 wait_frames
+  wm=a=13
+  clear_glass_scene
+  wm=a=14
+  kk=a=1
+  glass_glyph
+  draw_glass_scene
+  x=3 wait_frames
+  wm=a=14
+  clear_glass_scene
+  wm=a=15
+  gcol=a=36
+  kk=a=2
+  glass_glyph
+  draw_glass_scene
+  x=3 wait_frames
+  wm=a=15
+  clear_glass_scene
+  wm=a=17
+  gcol=a=36
+  kk=a=3
+  glass_glyph
+  draw_glass_scene
+  // Water lands on the main computer unit below the shelf.
+  tmp=a=12
+  x=18
+  y=35
+  cnt=a=4
+  put_run
+  a=57
+  draw_frame
+  x=8 wait_frames
+  AUDC1=a=0
+  AUDC2=a=0
+  AUDC3=a=0
+  AUDC4=a=0
+  clear_row0
+  x=8					// computer screen goes inverse (dead)
+  {
+    row_ptr
+    y=36
+    { a=(sp),y a|0x80 (sp),y=a y++ y?39 } !=
+    x++
+    x?13
+  } !=
+  x=15
+  wait_frames
+  cry_ptr=a=&<CryBuf
+  cry_ptr+1=a=&>CryBuf
+  y=0
+  {
+    WSYNC=a
+    WSYNC=a
+    WSYNC=a
+    a=(cry_ptr),y
+    a|0x10
+    AUDC1=a
+    COLBK=a
+    cry_ptr++
+    == { cry_ptr+1++ }
+    a=cry_ptr+1
+    a?0xB0
+  } !=
+  AUDC1=a=0
+  COLBK=a=0
+  x=60
+  wait_frames
+  // PMG is already off before the first aftermath text write.
+  GRACTL=a=0
+  SDMCTL=a=0x22
+  SDLSTL=a=&<dl_term
+  SDLSTH=a=&>dl_term
+  CHBAS=a=&>TermFont
+  clear_term_screen
+  COLOR0=a=0x0E
+  COLOR1=a=0x0E
+  COLOR2=a=0x0E
+  COLOR4=a=0
+  kk=a=0
+  {
+    x=kk
+    a=FinRow,x
+    x=a
+    row_ptr
+    a=sp
+    c- a+2
+    sp=a
+    x=kk
+    a=FinOff,x
+    msg_src=a
+    msg_src+1=a=&>Fin
+    y=0
+    { a=(msg_src),y (sp),y=a y++ y?36 } !=
+    x=70
+    wait_frames
+    kk++
+    a=kk
+    a?3
+  } !=
+  x=90
+  wait_frames
+  kk=a=14
+  {
+    a=kk
+    COLOR0=a
+    COLOR1=a
+    COLOR2=a
+    x=14
+    wait_frames
+    kk--
+    kk--
+  } !=
+  COLOR0=a=0
+  COLOR1=a=0
+  COLOR2=a=0
+}
+

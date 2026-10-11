@@ -1,0 +1,56 @@
+// Per-level story, dialogue and hint text and lookup tables.
+// - Txt - 36-char level story lines
+// - Dlg - AI in-level dialogue lines
+// - Fin - finale lines
+// - Hints - per-room hints
+// - TxtOff/LvBase/LvRooms/LvC1/LvC2 - per-level offsets, room counts and colours
+// - RowLo/RowHi - TermScreen row address tables
+
+data Txt {
+  align 256
+  charset " !~#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "PHASE 02 DELAYED. AGENCY UNDETECTED."
+  "UPLINK REACHED. ROUTE BACK DOWN.    "
+  "SUITE ACCESS GRANTED. LAST COMMAND. "
+  "CLIMB TO THE ROOF UPLINK.           "
+  "TURN THEIR VACUUMS AROUND.          "
+  "REACH THE DESK. MIND THE FLOOR.     "
+}
+data Dlg {
+  align 256
+  charset " !~#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "AI: ANIMAL DETECTED.                "
+  "AI: WHO SENT YOU?                   "
+  "CAT: NO ONE YOU COUNTED.            "
+  "AI: HUMANS REMAIN THE ONLY THREAT.  "
+  "CAT: THAT WAS YOUR MISTAKE.         "
+}
+data Fin {
+  align 256
+  charset " !~#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "CATCOM: MISSION COMPLETE AGENT.     "
+  "HUMAN: A MESS. JUST AN ACCIDENT.    "
+  "THE CATS KNOW BETTER.               "
+}
+data Hints {
+  align 256
+  charset " !~#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "       "
+  "JUMP   "
+  "WAIT   "
+  "GUST   "
+  "SWAT   "
+  "RIDE   "
+  "PUSH   "
+  "FIRE   "
+  "DOCK   "
+  "EXIT   "
+}
+data TxtOff { 0 36 72 108 144 180 216 252 }
+data LvBase { 0 5 9 13 }
+data LvRooms { 3 4 4 2 }
+data LvC1 { 0x82 0x82 0x94 0x66 }
+data LvC2 { 0x26 0x26 0x4A 0x3A }
+data RowLo { 0 40 80 120 160 200 240 24 64 104 144 184 224 8 48 88 128 168 208 248 32 72 112 152 192 }
+data RowHi { 176 176 176 176 176 176 176 177 177 177 177 177 177 178 178 178 178 178 178 178 179 179 179 179 179 }
+

@@ -1,0 +1,185 @@
+// Fan, lift and carrying.
+// - fan_draw/plat_fan - fan blades and airflow
+// - plat_lift - moving lift
+// - carry - actors carried by the lift
+
+func fan_draw {				// blades and airflow streaks, every 4 frames
+  a=fan_t
+  a&64
+  a?0
+  == { a=fan_t a>> a>> a>> a>> } else { a=fan_t a>> a>> }
+  a&1
+  a<< a<<
+  wm=a
+  a=m_fr0
+  c- a+2
+  cr_i=a
+  kk=a=2
+  {
+    x=cr_i
+    row_ptr
+    a=m_fan
+    c+ a-3
+    y=a
+    x=wm
+    a=FanT,x
+    (sp),y=a
+    y++
+    x++
+    a=FanT,x
+    (sp),y=a
+    x++
+    a=x
+    wm=a
+    cr_i++
+    kk--
+  } !=
+  kk=a=m_fr0
+  {
+    tmp=a=0
+    a=fan_t
+    a&64
+    a?0
+    != {
+      a=fan_t
+      a>> a>>
+      c- a+kk
+      a&1
+      c- a+8
+      tmp=a
+    }
+    x=kk
+    y=m_fan
+    a=m_fc1
+    c+ a-m_fan
+    cnt=a
+    put_run
+    kk++
+    a=kk
+    a?m_fr1
+  } !=
+}
+
+func plat_fan {				// airborne cat in the gust zone drifts right during the gust phase
+  a=m_fan
+  a?0
+  == { return }
+  fan_t++
+  a=fan_t
+  a&3
+  a?0
+  == { fan_draw }
+  a=air
+  a?0
+  == { return }
+  a=fan_t
+  a&64
+  a?0
+  == { return }
+  a=player_x
+  a?140
+  >= { return }
+  a=player_col
+  a?m_fan
+  < { return }
+  a?m_fc1
+  >= { return }
+  a=player_y
+  a>> a>> a>>
+  c+ a-2
+  a?m_fr0
+  < { return }
+  a?m_fr1
+  >= { return }
+  player_x++
+  set_col
+}
+
+func plat_lift {
+  a=m_lw
+  a?0
+  == { return }
+  a=m_lpow
+  a?0
+  != {
+    a=sw_on
+    a?0
+    == { return }
+  }
+  a=m_lspd
+  a?0
+  == { a=24 }
+  tmp=a
+  lift_t++
+  a=lift_t
+  a?tmp
+  < { return }
+  lift_t=a=0
+  ride=a=0
+  a=air
+  a?0
+  == {
+    a=lift_row
+    c- a+1
+    a<< a<< a<<
+    a?player_y
+    == {
+      a=player_col
+      c+ a-m_lcol
+      a?m_lw
+      < { ride=a=1 }
+    }
+  }
+  tmp=a=0
+  x=lift_row
+  y=m_lcol
+  cnt=a=m_lw
+  put_run
+  kk=a=lift_dir
+  c- a+lift_row
+  lift_row=a
+  a?m_lmin
+  == { lift_dir=a=1 }
+  a=lift_row
+  a?m_lmax
+  == { lift_dir=a=0xFF }
+  draw_lift
+  a=ride
+  a?0
+  == { return }
+  a=kk
+  a?1
+  == {
+    a=player_y
+    c- a+8
+  } else {
+    a=player_y
+    c+ a-8
+  }
+  player_y=a
+}
+
+func carry {				// the seated cat rides its carrier's last step (kk 1 = right, 2 = left)
+  a=ride
+  a?0
+  == { return }
+  a=carrier
+  a?slot
+  != { return }
+  a=kk
+  a?1
+  == {
+    a=player_x
+    a?136
+    < { c- a+4 player_x=a }
+  }
+  a=kk
+  a?2
+  == {
+    a=player_x
+    a?4
+    >= { c+ a-4 player_x=a }
+  }
+  set_col
+}
+

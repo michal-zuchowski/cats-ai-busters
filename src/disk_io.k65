@@ -1,0 +1,229 @@
+// SIO disk access, checksums, asset loading, music start/stop.
+// - disk_read - read sectors through SIOV (no DOS)
+// - disk_checksum/disk_selftest - chunk verification
+// - load_level_assets - CamCfg/ConeStep loads per level
+// - stop_music/music_failure/load_checked_chunk/start_music/level_music - music chunks
+// - init_audio - POKEY and music VBI setup
+
+// Reads disk_count sectors starting at disk_sector into disk_dest via SIOV
+// (params in zero page; see the disk_* vars above). SIO drives POKEY ch3/ch4
+// as its baud clock and needs a clean AUDCTL, so channels 3/4 are silenced
+// and AUDCTL is zeroed for the transfer; callers get AUDCTL back at 0x50
+// (ch1 at 1.79MHz, ch1+2 joined for the 16-bit lead -- see init_audio).
+// a3e.4 will keep the lead itself audible during the read.
+func disk_read {
+  disk_busy=a=1				// tick_music (a3e.4) mutes ch3/ch4 while this is set
+  disk_failed=a=0
+  AUDC3=a=0
+  AUDC4=a=0
+  AUDCTL=a=0
+
+  a=disk_dest DBUFLO=a
+  a=disk_dest+1 DBUFHI=a
+  a=disk_sector DAUX1=a
+  a=disk_sector+1 DAUX2=a
+
+  {
+    DDEVIC=a=0x31			// disk drive 1
+    DUNIT=a=1
+    DCOMND=a=0x52			// 'R' read sector
+    DSTATS=a=0x40			// peripheral -> memory
+    DTIMLO=a=0x0F
+    DBYTLO=a=128
+    DBYTHI=a=0
+    call SIOV
+    y?1					// SIO returns Y=1 on success
+    != { disk_failed=a=1 }
+
+    a=DBUFLO
+    c- a+128
+    DBUFLO=a
+    c+? { DBUFHI++ }
+
+    DAUX1++
+    z+? { DAUX2++ }
+
+    a=disk_count
+    z+? { disk_count+1-- }
+    disk_count--
+    a=disk_count
+    a|disk_count+1
+  } !=
+
+  AUDCTL=a=0x50
+  disk_busy=a=0
+}
+
+func disk_checksum {			// disk_ptr = buffer; x = number of 128-byte sectors
+  disk_chk=a=0
+  {
+    y=0
+    {
+      a=(disk_ptr),y
+      c- a+disk_chk
+      disk_chk=a
+      y++
+      y?128
+    } !=
+    a=disk_ptr
+    c- a+128
+    disk_ptr=a
+    c+? { disk_ptr+1++ }
+    x--
+    x?0
+  } !=
+}
+
+// Boot-time smoke test: loads ChunkTable's chunk 0 (room 0's disk-streamed
+// art, a3e.3) into the unused intro ZoomBuf scratch, checksums it, and
+// flashes "DISK OK"/"DISKERR" on the term screen for 90 frames before
+// gameplay starts. Never touches any resident gameplay state.
+func disk_selftest {
+  disk_sector=a=ChunkTable
+  disk_sector+1=a=ChunkTable+1
+  disk_count=a=ChunkTable+2
+  disk_count+1=a=ChunkTable+3
+  disk_dest=a=&<ZoomBuf
+  disk_dest+1=a=&>ZoomBuf
+  call disk_read
+
+  disk_ptr=a=&<ZoomBuf
+  disk_ptr+1=a=&>ZoomBuf
+  x=ChunkTable+2
+  disk_checksum
+
+  msg_src=a=&<MsgDiskErr
+  msg_src+1=a=&>MsgDiskErr
+  a=disk_chk
+  c+ a-ChunkTable+4
+  == {
+    msg_src=a=&<MsgDiskOk
+    msg_src+1=a=&>MsgDiskOk
+  }
+  clear_term_screen
+  hud_label
+  x=90
+  wait_frames
+}
+
+func load_level_assets {		// CamCfg/ConeStep (a3e.3): shared by all 3 rooms, loaded
+					// once per level rather than reloaded on every room entry
+  disk_sector=a=ChunkTable+15
+  disk_sector+1=a=ChunkTable+16
+  disk_count=a=ChunkTable+17
+  disk_count+1=a=ChunkTable+18
+  disk_dest=a=&<CamCfg
+  disk_dest+1=a=&>CamCfg
+  call disk_read
+
+  disk_sector=a=ChunkTable+20
+  disk_sector+1=a=ChunkTable+21
+  disk_count=a=ChunkTable+22
+  disk_count+1=a=ChunkTable+23
+  disk_dest=a=&<ConeStep
+  disk_dest+1=a=&>ConeStep
+  call disk_read
+
+  disk_dest=a=&<RevealImg
+  disk_dest+1=a=&>RevealImg
+  a=16
+  load_room_chunk
+}
+
+func stop_music {
+  music_ready=a=0
+  sfx_timer=a
+  AUDC1=a
+  AUDC2=a
+  AUDC3=a
+  AUDC4=a
+}
+
+func music_failure {
+  stop_music
+  switch_to_term
+  GRACTL=a=0
+  clear_term_screen
+  SDMCTL=a=0x22
+  msg_src=a=&<MsgDiskErr
+  msg_src+1=a=&>MsgDiskErr
+  msg_len=a=7
+  clear_row0
+  draw_row0_msg
+  { x=1 wait_frames } always
+}
+
+func load_checked_chunk {		// a = chunk index; returns the verified checksum in A
+  x=a
+  tmp=a
+  a<< a<<
+  c- a+tmp
+  cnt=a
+  a=x
+  load_room_chunk
+  a=disk_failed
+  a?0
+  != { music_failure }
+  disk_ptr=a=disk_dest
+  disk_ptr+1=a=disk_dest+1
+  x=cnt
+  a=ChunkTable+2,x
+  x=a
+  disk_checksum
+  x=cnt
+  a=disk_chk
+  a?ChunkTable+4,x
+  != { music_failure }
+}
+
+func start_music {			// a = title chunk 17 or level chunk 18..21
+  music_chunk=a
+  stop_music
+  disk_dest=a=&<Music
+  disk_dest+1=a=&>Music
+  a=music_chunk
+  load_checked_chunk
+  a=Music+432
+  a?0
+  == { music_failure }
+  a?16
+  >= { music_failure }
+  a=Music+433
+  a?16
+  >= { music_failure }
+  a=Music+434
+  a?16
+  >= { music_failure }
+  mus_timer=a=1
+  mus_step=a=0
+  mus_bar=a
+  lead_vol=a
+  bass_vol=a
+  bass_freq=a
+  drum_type=a
+  drum_t=a
+  music_ready=a=1
+}
+
+func level_music {
+  a=cur_level
+  c- a+18
+  start_music
+}
+
+func init_audio {
+  stop_music
+  AUDCTL=a=0x50				// ch1 at 1.79 MHz, ch1+ch2 joined (16-bit lead)
+  disk_busy=a=0
+  NMIEN=a=0x80				// no VBI while the vector is half written
+  a=VVBLKI+1
+  a?&>music_vbi_imm
+  != {				// skip on re-init (debug level switch): vector already ours
+    a=VVBLKI old_vviblki=a	// save the OS's stage-1 handler, then chain to it so
+    a=VVBLKI+1 old_vviblki+1=a	// RTCLOK/stage-2 dispatch keep working (a3e.4)
+  }
+  VVBLKI=a=&<music_vbi_imm
+  VVBLKI+1=a=&>music_vbi_imm
+  NMIEN=a=0xC0
+}
+

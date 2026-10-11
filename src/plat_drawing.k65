@@ -1,0 +1,179 @@
+// Platform level actor and object drawing.
+// - spin_brushes - counter-rotating vacuum brushes
+// - draw_act/erase_act - actors (vacuums, etc.)
+// - draw_lift, draw_gate, draw_reader - lift, gate and card reader
+// - glass_glyph/draw_glass/clear_glass_scene/draw_glass_scene - glass on the desk
+
+func spin_brushes {			// two counter-rotating side brushes under the chassis
+  a=RTCLOK
+  a>> a>>
+  a&3
+  tmp=a
+  a<<
+  c- a+tmp
+  x=a
+  y=0
+  {
+    a=BrushSpin,x
+    TermFont+765,y=a			// BASE_L rows 5..7
+    a=BrushSpin+12,x
+    TermFont+1005,y=a			// BASE_R rows 5..7
+    x++
+    y++
+    y?3
+  } !=
+}
+
+func draw_act {				// slot: 3x2 tiles; red while swatted or docked-blinking, amber when chasing
+  wm=a=0
+  x=slot
+  a=act_wob,x
+  a?0
+  != { wm=a=0x80 }
+  a=dk
+  a?0
+  != {
+    a=slot
+    a?0
+    == {
+      a=RTCLOK
+      a&8
+      a?0
+      == { wm=a=0x80 }
+    }
+  }
+  tmp=a=0
+  a=slot
+  a?0
+  != {
+    a=bw
+    a?0
+    != { tmp=a=6 }
+  }
+  a=act_col,x
+  y=a
+  x=m_arow
+  row_ptr
+  x=tmp
+  cnt=a=3
+  { a=ActT,x a|wm (sp),y=a y++ x++ cnt-- } !=
+  x=slot
+  a=act_col,x
+  y=a
+  a=m_arow
+  c- a+1
+  x=a
+  row_ptr
+  a=tmp
+  c- a+3
+  x=a
+  cnt=a=3
+  { a=ActT,x a|wm (sp),y=a y++ x++ cnt-- } !=
+}
+
+func erase_act {			// slot: restore the art under it
+  tmp=a=0
+  x=slot
+  a=act_col,x
+  y=a
+  x=m_arow
+  cnt=a=3
+  put_run
+  x=slot
+  a=act_col,x
+  y=a
+  a=m_arow
+  c- a+1
+  x=a
+  cnt=a=3
+  put_run
+}
+
+func draw_lift {
+  tmp=a=94
+  a=m_lpow
+  a?0
+  != {
+    a=sw_on
+    a?0
+    == { tmp=a=0xDE }			// unpowered: inverse
+  }
+  x=lift_row
+  y=m_lcol
+  cnt=a=m_lw
+  put_run
+}
+
+func glass_glyph {			// kk = 0..3; update only resident glyph 126
+  a=kk
+  a<< a<< a<<
+  x=a
+  y=0
+  {
+    a=GlassPoses,x
+    TermFont+1008,y=a
+    x++
+    y++
+    y?8
+  } !=
+}
+
+func draw_glass {			// gcol = glass column, on the cat's body row
+  kk=a=0
+  glass_glyph
+  tmp=a=126
+  x=13
+  y=gcol
+  cnt=a=1
+  put_run
+}
+
+func clear_glass_scene {		// wm = row, gcol = column
+  tmp=a=0
+  x=wm
+  y=gcol
+  cnt=a=1
+  put_run
+}
+
+func draw_glass_scene {		// wm = row, gcol = column; the moving glass stays visible
+  tmp=a=126
+  x=wm
+  y=gcol
+  cnt=a=1
+  put_run
+}
+
+func draw_gate {			// tmp = 81 locked wall, 0 = restore the exit hatch (col 39, 3 rows above the exit)
+  a=m_exit
+  a>> a>> a>>
+  c+ a-4
+  x=a
+  wm=a=3
+  {
+    y=39
+    cnt=a=1
+    put_run
+    x++
+    wm--
+  } !=
+}
+
+func draw_reader {
+  a=cur_level
+  a?2
+  != { return }
+  a=e_mode
+  a&2
+  a?0
+  == { return }
+  tmp=a=83
+  a=gate
+  a?0
+  != { tmp=a=84 }
+  x=20
+  y=m_z0
+  cnt=a=3
+  put_run
+}
+

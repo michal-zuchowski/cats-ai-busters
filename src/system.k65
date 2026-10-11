@@ -1,0 +1,74 @@
+// Basic system helpers.
+// - input_pressed - true when fire/key is pressed
+// - check_intro_skip - lets the player skip the intro
+// - wait_frames - waits n jiffies via RTCLOK
+// - init_system - one-time hardware setup (OS shadow registers, NMI/VBI, colours)
+
+// ------------------------------ Timing helper -------------------------------
+
+func input_pressed {
+  a=TRIG0
+  a&1
+  a?0
+  == { a=1 return }
+  a=SKSTAT
+  a&12
+  a?12
+  != { a=1 return }
+  a=CONSOL
+  a&7
+  a?7
+  != { a=1 return }
+  a=CH
+  a?0xFF
+  != { a=1 return }
+  a=0
+}
+
+func check_intro_skip {
+  a=cur_room
+  a?0xFF
+  == {
+    input_pressed
+    a?0
+    != { goto intro_skip }
+  }
+}
+
+func wait_frames {			// x = number of VBIs (~frames) to wait; only touches A/X
+  {
+    a=RTCLOK				// snapshot the current jiffy tick
+    { a?RTCLOK } ==			// spin until RTCLOK actually changes (one real tick)
+    check_intro_skip
+    x--
+    x?0
+  } !=
+}
+
+func init_system {
+  a=PORTB a|2 PORTB=a		// BASIC ROM off; RAM at $A000-$BFFF holds intro buffers
+  music_ready=a=0
+  title_phase=a
+  cur_room=a=0xFF			// wait_frames checks skip keys only during the intro
+  CH=a=0xFF				// discard a key used to launch the XEX
+  NMIEN=a=0x40				// enable OS deferred VBI only (no DLI)
+  SDMCTL=a=0x22				// normal playfield DMA, no PMG needed here
+  SDLSTL=a=&<dl_term
+  SDLSTH=a=&>dl_term
+  CHBAS=a=&>TermFont
+  COLOR0=a=0x0E				// white characters
+  COLOR1=a=0x0E
+  COLOR2=a=0x0E
+  COLOR4=a=0xB4				// dark green CRT background
+  // main immediately calls switch_to_storm for the opening shot, which
+  // overwrites SDLSTL/H and COLOR0-4 below before the first VBI can latch
+  // this dl_term/text palette, so no dl_term flash is visible at boot.
+}
+
+inline reveal_palette {
+  COLOR4=a=0x00				// black room
+  COLOR0=a=0x72				// dark blue silhouettes
+  COLOR1=a=0xB6				// sea-green rack frames and screen text
+  COLOR2=a=0x1A				// amber LEDs and eyes
+}
+

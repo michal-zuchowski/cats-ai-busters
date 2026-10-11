@@ -1,0 +1,179 @@
+// Paw swat, contact tests and glass push.
+// - swat - start a paw swing
+// - PawX/PawY/PawK/PawE/PixelMask - swing geometry tables
+// - paw_contact/paw_both - paw contact tests
+// - glass_ready/plat_push - push the glass off the desk
+
+func swat {				// begin a swing; contact is checked later, not on FIRE
+  paw_t=a=10
+  paw_kind=a=0
+  paw_hit=a
+  on_vacuum
+  a?0
+  != { paw_kind=a=2 }			// seated: hind-leg shove
+}
+
+data PawX { 15 14 13 0 0 0 1 }		// forepaw x3, standing hind x2 (unused), seated hind x2
+data PawY { 18 19 19 19 20 23 23 }
+data PawK { 0 3 5 }			// first / end paw tip index per swing kind
+data PawE { 3 5 7 }
+data PixelMask { 192 48 12 3 }
+
+func paw_contact {			// slot: only the downstroke; test paw-tip pixels against the drawn glyph
+  a=paw_t
+  a?4
+  < { return }
+  a?8
+  >= { return }
+  a=paw_hit
+  a?0
+  != { return }
+  a=m_arow
+  a?0
+  == { return }
+  a=air
+  a?0
+  != { return }
+  a=jprep
+  a?0
+  != { return }
+  a=slot
+  a?0
+  != {
+    a=e_bspd
+    a?0
+    == { return }
+  }
+  a=ride
+  a?0
+  != {
+    a=carrier
+    a?slot
+    == { return }			// never kick the vacuum we are sitting on
+  }
+  x=paw_kind
+  a=PawK,x
+  kk=a
+  {
+    x=slot
+    a=act_col,x
+    a<< a<<
+    tmp=a
+    x=kk
+    a=PawX,x
+    x=facing
+    x?0
+    != { a^0xFF c- a+16 }
+    c- a+player_x
+    c+ a-tmp
+    a?12
+    >= { goto paw_pixel_next }
+    paw_x=a
+    a=m_arow
+    a<< a<< a<<
+    c- a+24
+    tmp=a
+    x=kk
+    a=PawY,x
+    c- a+player_y
+    c+ a-tmp
+    a?16
+    >= { goto paw_pixel_next }
+    paw_y=a
+    a&8
+    a?0
+    == { a=0 } else { a=3 }
+    tmp=a
+    a=slot
+    a?0
+    != {
+      a=bw
+      a?0
+      != { a=tmp c- a+6 tmp=a }
+    }
+    a=paw_x
+    a>> a>>
+    c- a+tmp
+    x=a
+    a=ActT,x
+    a<< a<< a<<
+    sp=a
+    a=ActT,x
+    a>> a>> a>> a>> a>>
+    c- a+&>TermFont
+    sp+1=a
+    a=paw_x
+    a&3
+    x=a
+    a=paw_y
+    a&7
+    y=a
+    a=(sp),y
+    a&PixelMask,x
+    a?0
+    != {
+      paw_hit=a=1
+      a=facing
+      x=paw_kind
+      x?0
+      != { a^1 }
+      x=slot
+      act_dir,x=a
+      a=40
+      act_wob,x=a
+      bk=a=0
+      draw_act
+      sfx_switch
+      return
+    }
+paw_pixel_next:
+    kk++
+    x=paw_kind
+    a=PawE,x
+    a?kk
+    == { return }
+  } always				// pixel loop exceeds the 6502 relative-branch range
+}
+
+func paw_both {				// each actor has its own immunity, direction and timer
+  a=cur_level
+  a?2
+  != { return }
+  slot=a=0
+  paw_contact
+  slot=a=21
+  paw_contact
+  slot=a=0
+}
+
+func glass_ready {			// a = 1 only for a grounded, right-facing desk contact
+  a=dlg_done
+  a?0 == { a=0 return }
+  a=m_glass
+  a?0 == { a=0 return }
+  a=player_y
+  a?m_desk != { a=0 return }
+  a=air
+  a?0 != { a=0 return }
+  a=jprep
+  a?0 != { a=0 return }
+  a=lnd
+  a?0 != { a=0 return }
+  a=paw_t
+  a?0 != { a=0 return }
+  a=facing
+  a?0 != { a=0 return }
+  a=m_glass
+  a<< a<<
+  c+ a-player_x
+  a?12 < { a=0 return }
+  a?16 >= { a=0 return }
+  a=1
+}
+
+func plat_push {			// level 04: shove the glass off the desk
+  glass_ready
+  a?0 == { return }
+  call final_scene
+}
+

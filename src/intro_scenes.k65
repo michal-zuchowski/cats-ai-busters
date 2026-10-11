@@ -1,0 +1,512 @@
+// Intro scenes after the pan: terminal text, cuts, close-up cat, video call.
+// - reveal_line0..6 - copy terminal lines into TermScreen sequentially
+// - blink_prompt/show_y_prompt - blinking cursor and the 'Y_' prompt
+// - switch_to_storm/reveal/face/term, clear_term_screen - display mode switches
+// - zoom_bar/zoom_frame/zoom_to_terminal - zoom into the terminal
+// - pupils_stage1..3 - slit-to-round pupil dilation on FaceImg
+// - mouth_tick/play_meow/call_mouth - PCM meow with mouth sync
+// - video_call, cut_to_black - boss cat call and the end of the intro
+
+// --------------------------- Terminal line reveal ---------------------------
+// Each line is copied byte-by-byte from its data table into the visible
+// TermScreen row; lines appear sequentially per intro.md.
+
+func reveal_line0 {
+  y=0
+  {
+    a=Line0,y
+    TermScreen,y=a
+    y++
+    y?36
+  } !=
+}
+
+func reveal_line1 {
+  y=0
+  {
+    a=Line1,y
+    TermScreen+40,y=a
+    y++
+    y?21
+  } !=
+}
+
+func reveal_line2 {
+  y=0
+  {
+    a=Line2,y
+    TermScreen+80,y=a
+    y++
+    y?25
+  } !=
+}
+
+func reveal_line3 {
+  y=0
+  {
+    a=Line3,y
+    TermScreen+120,y=a
+    y++
+    y?29
+  } !=
+}
+
+func reveal_line4 {
+  y=0
+  {
+    a=Line4,y
+    TermScreen+160,y=a
+    y++
+    y?32
+  } !=
+}
+
+func reveal_line5 {
+  y=0
+  {
+    a=Line5,y
+    TermScreen+200,y=a
+    y++
+    y?26
+  } !=
+}
+
+func reveal_line6 {
+  y=0
+  {
+    a=Line6,y
+    TermScreen+240,y=a
+    y++
+    y?27
+  } !=
+}
+
+// --------------------------- Blinking cursor / Y_ ---------------------------
+// "pause before Y_": the cursor blinks alone on row 7 first, then "Y" appears
+// and the cursor keeps blinking beside it (per intro.md).
+
+func blink_prompt {
+  y=6					// 6 half-cycles: 3 full blinks before "Y" appears
+  {
+    a=TermScreen+280
+    a?0
+    == {
+      TermScreen+280=a=63	// '_' cursor visible
+    } else {
+      TermScreen+280=a=0	// blank
+    }
+    x=18 wait_frames
+    y--
+    y?0
+  } !=
+}
+
+func show_y_prompt {
+  TermScreen+280=a=57		// 'Y'
+  y=4					// keep blinking the cursor a bit longer beside "Y"
+  {
+    a=TermScreen+281
+    a?0
+    == {
+      TermScreen+281=a=63
+    } else {
+      TermScreen+281=a=0
+    }
+    x=18 wait_frames
+    y--
+    y?0
+  } !=
+  TermScreen+281=a=63		// leave the cursor visible for the cut
+}
+
+// ----------------------------- Scene switches -------------------------------
+
+func switch_to_storm {
+  SDLSTL=a=&<dl_storm
+  SDLSTH=a=&>dl_storm
+  reveal_palette
+}
+
+// Rows 12-95 of the close-up: every scanline starts with the cat's gray fur
+// and cream muzzle in COLPF1/COLPF2, then switches to the data center's
+// green/amber between x=84 and x=99 so the racks keep the colors of the opening track.
+// The kernel owns the CPU for 168 scanlines, so it also plays every third
+// line's meow sample through audc_ptr (a dummy byte when the meow is idle).
+naked face_kernel {
+  a!!
+  a=x
+  a!!
+  a=y
+  a!!
+  { a=VCOUNT a?28 } !=		// scanline 56: first line of row 12
+  WSYNC=a
+  face_groups=a=56			// 56 x 3 scanlines
+  {
+    a=0x08 COLPF1=a			// gray fur
+    a=0x2C COLPF2=a			// cream muzzle
+    x=0x1A y=0
+    a=(meow_ptr),y
+    a|0x10
+    (audc_ptr),y=a
+    y=0xB6
+    *2
+    COLPF1=y COLPF2=x
+    WSYNC=a
+
+    a=0x08 COLPF1=a
+    a=0x2C COLPF2=a
+    x=0x1A y=0xB6
+    a=meow_ptr c- a+1 meow_ptr=a	// constant time: no jitter on page crossings
+    a=meow_ptr+1 a+0 meow_ptr+1=a
+    *2
+    COLPF1=y COLPF2=x
+    WSYNC=a
+
+    a=0x08 COLPF1=a
+    a=0x2C COLPF2=a
+    x=0x1A y=0xB6
+    *15
+    face_groups--
+    COLPF1=y COLPF2=x
+    WSYNC=a
+  } !=
+  a??
+  y=a
+  a??
+  x=a
+  a??
+  return_i
+}
+
+func switch_to_reveal {
+  SDLSTL=a=&<dl_reveal
+  SDLSTH=a=&>dl_reveal
+  VDSLST=a=&<reveal_dli
+  VDSLST+1=a=&>reveal_dli
+  reveal_palette
+  NMIEN=a=0xC0
+}
+
+func switch_to_face {
+  VDSLST=a=&<face_kernel
+  VDSLST+1=a=&>face_kernel
+  audc_ptr=a=&<meow_sink
+  audc_ptr+1=a=&>meow_sink
+  SDLSTL=a=&<dl_face
+  SDLSTH=a=&>dl_face
+  reveal_palette			// the data center keeps the colors of the track
+  NMIEN=a=0xC0
+}
+
+func switch_to_term {
+  NMIEN=a=0x40				// stop the face DLI before displaying the terminal/HUD list
+  SDLSTL=a=&<dl_term
+  SDLSTH=a=&>dl_term
+  COLOR0=a=0x0E				// white text independent of background
+  COLOR1=a=0x0E
+  COLOR2=a=0x0E
+  COLOR4=a=0xB4				// dark green CRT background
+}
+
+func clear_term_screen {
+  y=0
+  a=0
+  {
+    TermScreen,y=a
+    TermScreen+256,y=a
+    TermScreen+512,y=a
+    y++
+    y?0
+  } !=
+  y=0
+  {
+    TermScreen+768,y=a
+    y++
+    y?232
+  } !=
+}
+
+func zoom_bar {
+  y=zoom_left
+  {
+    (zoom_ptr),y=a=13
+    y++
+    y?zoom_right
+  } !=
+}
+
+func zoom_frame {
+  clear_term_screen
+  zoom_bar
+  x=zoom_rows
+  {
+    y=zoom_left
+    (zoom_ptr),y=a=59
+    y=zoom_right
+    (zoom_ptr),y=a=61
+    a=zoom_ptr
+    c- a+40
+    zoom_ptr=a
+    c+? { zoom_ptr+1++ }
+    x--
+    x?0
+  } !=
+  a=zoom_ptr
+  c+ a-40
+  zoom_ptr=a
+  c-? { zoom_ptr+1-- }
+  zoom_bar
+  y=zoom_left
+  (zoom_ptr),y=a=59
+  y=zoom_right
+  (zoom_ptr),y=a=61
+}
+
+func zoom_to_terminal {
+  switch_to_term
+  zoom_ptr=a=&<TermScreen+40
+  zoom_ptr+1=a=&>TermScreen+40
+  zoom_left=a=27
+  zoom_right=a=39
+  zoom_rows=a=14
+  zoom_frame
+  x=10 wait_frames
+
+  zoom_ptr=a=&<TermScreen
+  zoom_ptr+1=a=&>TermScreen
+  zoom_left=a=13
+  zoom_right=a=35
+  zoom_rows=a=19
+  zoom_frame
+  x=10 wait_frames
+
+  zoom_ptr=a=&<TermScreen
+  zoom_ptr+1=a=&>TermScreen
+  zoom_left=a=1
+  zoom_right=a=38
+  zoom_rows=a=24
+  zoom_frame
+  x=10 wait_frames
+  clear_term_screen
+}
+
+// --------------------- Pupil dilation (slit -> round) -----------------------
+// Widen the dark slit through the blue iris, without copying the whole image.
+
+func pupils_stage1 {
+  FaceImg+2095=a=0
+  FaceImg+2093=a=0
+  FaceImg+2089=a=0
+  FaceImg+2087=a=0
+}
+
+func pupils_stage2 {
+  FaceImg+2055=a=0
+  FaceImg+2053=a=0
+  FaceImg+2049=a=0
+  FaceImg+2047=a=0
+  FaceImg+2135=a=0
+  FaceImg+2133=a=0
+  FaceImg+2129=a=0
+  FaceImg+2127=a=0
+}
+
+func pupils_stage3 {
+  FaceImg+1975=a=0
+  FaceImg+1973=a=0
+  FaceImg+1969=a=0
+  FaceImg+1967=a=0
+  FaceImg+2015=a=0
+  FaceImg+2013=a=0
+  FaceImg+2009=a=0
+  FaceImg+2007=a=0
+  FaceImg+2175=a=0
+  FaceImg+2173=a=0
+  FaceImg+2169=a=0
+  FaceImg+2167=a=0
+  FaceImg+2215=a=0
+  FaceImg+2213=a=0
+  FaceImg+2209=a=0
+  FaceImg+2207=a=0
+}
+
+// ------------------------------ Mouth sync ----------------------------------
+// Called from play_meow's sample loop (once per 256-sample
+// page, i.e. 12 times across playback) so the mouth animates during the meow.
+
+inline mouth_open {
+  FaceImg+2732=a=0
+  FaceImg+2731=a=0
+  FaceImg+2772=a=0
+  FaceImg+2771=a=0
+  FaceImg+2812=a=0
+  FaceImg+2811=a=0
+  FaceImg+2852=a=0
+  FaceImg+2851=a=0
+}
+
+inline mouth_close {
+  FaceImg+2732=a=175
+  FaceImg+2731=a=232
+  FaceImg+2772=a=175
+  FaceImg+2771=a=232
+  FaceImg+2812=a=171
+  FaceImg+2811=a=168
+  FaceImg+2852=a=170
+  FaceImg+2851=a=168
+}
+
+func mouth_tick {
+  a=mouth_flag
+  a^1
+  mouth_flag=a
+  a?0
+  == {
+    mouth_close
+  } else {
+    mouth_open
+  }
+}
+
+func play_meow {
+  x=1 wait_frames			// set up in vblank, outside face_kernel
+  meow_ptr=a=&<Meow
+  meow_ptr+1=a=&>Meow
+  meow_page=a
+  audc_ptr=a=&<AUDC1
+  audc_ptr+1=a=&>AUDC1
+  {
+    WSYNC=a
+    WSYNC=a
+    WSYNC=a
+    y=0
+    a=(meow_ptr),y
+    a|0x10
+    AUDC1=a
+    meow_ptr++
+    == { meow_ptr+1++ }
+    a=meow_ptr+1
+    a?meow_page != {		// a new 256-sample page (main or kernel crossed it)
+      meow_page=a
+      check_intro_skip
+      mouth_tick			// 12 toggles, one per sample page
+      a=meow_page
+      a?&>Meow+3072 == break
+    }
+  } always
+  audc_ptr=a=&<meow_sink
+  audc_ptr+1=a=&>meow_sink
+  AUDC1=a=0
+}
+
+func call_mouth {			// x=0 closed, x=6 open
+  a=CallMouth,x CallImg+1896=a
+  a=CallMouth+1,x CallImg+1897=a
+  a=CallMouth+2,x CallImg+1936=a
+  a=CallMouth+3,x CallImg+1937=a
+  a=CallMouth+4,x CallImg+1976=a
+  a=CallMouth+5,x CallImg+1977=a
+}
+
+func video_call {
+  clear_term_screen
+  switch_to_term
+  y=0
+  {
+    a=CallText,y
+    TermScreen,y=a
+    y++
+    y?18
+  } !=
+  y=0
+  {
+    a=CallText+18,y
+    TermScreen+80,y=a
+    y++
+    y?27
+  } !=
+  x=50 wait_frames			// ~4 s total so the connect text can be read
+  TermScreen+107=a=14
+  x=30 wait_frames
+  TermScreen+108=a=14
+  x=30 wait_frames
+  TermScreen+109=a=14
+  x=90 wait_frames
+
+  clear_term_screen
+  SDLSTL=a=&<dl_call
+  SDLSTH=a=&>dl_call
+  COLOR0=a=0x0E			// white Persian cat and subtitles
+  COLOR1=a=0x06			// Blofeld's suit and armchair
+  COLOR2=a=0x2A			// skin, copper eyes, diamond collar
+  COLOR4=a=0x00
+  x=35 wait_frames
+  call_src=a=&<CallText+45
+  call_src+1=a=&>CallText+45
+  call_lines_left=a=6
+  {
+    y=0
+    a=(call_src),y
+    call_count=a
+    a=call_src
+    c- a+1
+    call_src=a
+    c+? { call_src+1++ }
+    y=0
+    a=0
+    {
+      TermScreen+840,y=a
+      y++
+      y?40
+    } !=
+    y=0
+    {
+      a=(call_src),y
+      TermScreen+840,y=a
+      y++
+      y?call_count
+    } !=
+    a=call_src
+    c- a+call_count
+    call_src=a
+    c+? { call_src+1++ }
+    a=call_lines_left
+    a&1
+    a?0 != {
+      call_tile=a=4			// boss lines: four mouth flaps with a purr blip
+      {
+        x=6 call_mouth
+        AUDF4=a=0x60
+        AUDC4=a=0xA3
+        x=6 wait_frames
+        x=0 call_mouth
+        AUDC4=a=0
+        x=6 wait_frames
+        call_tile--
+        a=call_tile
+        a?0
+      } !=
+      x=152 wait_frames
+    } else {
+      x=200 wait_frames
+    }
+    call_lines_left--
+    a=call_lines_left
+    a?0
+  } !=
+  x=65 wait_frames
+}
+
+// ------------------------------- Cut to black --------------------------------
+
+func cut_to_black {
+  COLOR0=a=0
+  COLOR1=a=0
+  COLOR2=a=0
+  COLOR3=a=0
+  COLOR4=a=0
+  AUDC2=a=0
+  AUDC3=a=0
+  AUDC4=a=0
+}
+

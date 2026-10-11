@@ -1,0 +1,208 @@
+// Platform level room setup and transitions.
+// - act_init - actors, dock, gate and chase state reset
+// - plat_reset/respawn - room reset and respawn (respawn costs a life)
+// - plat_dyn_init - per-room dynamic object init
+// - enter_plat_room - load and draw a platform room
+// - plat_exit_allowed/plat_exit - room exits
+
+func act_init {				// both actors, dock, gate and chase state back to their start
+  act_col=a=m_acol
+  bcol=a=m_bcol
+  a=0
+  act_dir=a
+  act_t=a
+  act_wob=a
+  ride=a
+  carrier=a
+  slot=a
+  dk=a
+  gate=a
+  bdir=a
+  bt=a
+  bwob=a
+  bw=a
+  bk=a
+  a=m_arow
+  a?0
+  == { return }
+  draw_reader
+  draw_act
+  a=e_bspd
+  a?0
+  != { slot=a=21 draw_act slot=a=0 }
+  a=e_mode
+  a&3
+  a?0
+  != { tmp=a=81 draw_gate }
+}
+
+func plat_reset {			// retry after a catch, laser or fall: erase both actors, start over
+  a=m_arow
+  a?0
+  == { return }
+  slot=a=0
+  erase_act
+  a=e_bspd
+  a?0
+  != { slot=a=21 erase_act }
+  a=e_mode
+  a&3
+  a?0
+  != { tmp=a=0 draw_gate }
+  act_init
+}
+
+func respawn {			// every caller is a death/retry: costs one life
+  lose_life
+  a=m_sx
+  player_x=a
+  a=m_sy
+  player_y=a
+  air=a=0
+  vy=a=0
+  jprep=a
+  lnd=a
+  paw_t=a
+  paw_kind=a
+  paw_hit=a
+  set_col
+  call crumble_reset
+  sfx_alert
+  a=cur_level
+  a?2
+  == { plat_reset }
+}
+
+func plat_dyn_init {
+  sw_on=a=0
+  fan_t=a
+  x=0
+  { cr_t,x=a x++ x?8 } !=
+  lift_row=a=m_lrow
+  lift_dir=a=0xFF
+  lift_t=a=0
+  a=m_lw
+  a?0
+  != { draw_lift }
+  e_mode=a=0
+  e_bspd=a
+  a=cur_level
+  a?2
+  == {
+    e_mode=a=m_mode
+    e_bspd=a=m_bspd
+  }
+  act_init
+  gcol=a=m_glass
+  a?0
+  != { draw_glass }
+  x=cur_level
+  a=LvC2,x
+  COLOR2=a
+}
+
+func enter_plat_room {			// cur_room/entry_col set
+  x=cur_level
+  a=LvBase,x
+  c- a+cur_room
+  load_room_art
+  y=0
+  { a=RoomArtBuf+960,y m_sx,y=a y++ y?32 } !=
+  a=entry_col
+  player_x=a
+  a=m_sy
+  player_y=a
+  air=a=0
+  vy=a=0
+  jprep=a
+  lnd=a
+  paw_t=a
+  paw_kind=a
+  paw_hit=a
+  walk_timer=a=0
+  idle_timer=a=0
+  set_col
+  plat_dyn_init
+  call draw_hud_static
+  x=cur_level
+  a=LvRooms,x
+  c- a+16
+  TermScreen+968=a
+  a=cur_level
+  c- a+17
+  TermScreen+999=a
+  clear_row0
+  clear_row1
+  a=cur_level
+  c- a+2
+  x=a
+  a=TxtOff,x
+  msg_src=a
+  msg_src+1=a=&>Txt
+  msg_len=a=36
+  draw_row0_msg
+  a=m_glass
+  a?0
+  != {					// confrontation room: preload the death cry
+    disk_dest=a=&<CryBuf
+    disk_dest+1=a=&>CryBuf
+    a=15
+    load_room_chunk
+  }
+  draw_player
+}
+
+func plat_exit_allowed {
+  a=cur_level
+  a?2
+  == {
+    a=e_mode
+    a&3
+    a?0
+    != {
+      a=gate
+      a?0
+      == { return }			// charger/reader: stay locked until the objective is achieved
+    }
+  }
+  a=m_exit
+  a?0
+  == { a=1 return }
+  a=m_swy
+  a?0
+  != {
+    a=sw_on
+    a?0
+    == { return }
+  }
+  a=air
+  a?0
+  != { a=0 return }
+  a=player_y
+  a?m_exit
+  == { a=1 return }
+  a=0
+}
+
+func plat_exit {			// right edge of the room, at the marked exit platform
+  plat_exit_allowed
+  a?0
+  == { return }
+  x=cur_level
+  a=LvRooms,x
+  c+ a-1
+  a?cur_room
+  == {
+    a=cur_level
+    a?3
+    == { return }			// the last room of level 04 is a dead end
+    player_x=a=144
+    draw_player
+    call level_ending
+    return
+  }
+  cur_room++
+  entry_col=a=0
+  enter_plat_room
+}
+

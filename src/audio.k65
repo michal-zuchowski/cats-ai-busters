@@ -1,0 +1,126 @@
+// Sound effects and music sequencer (POKEY).
+// - sfx_switch/sfx_alert/sfx_success - one-shot effects on channel 4
+// - tick_audio - per-frame effect decay
+// - music_step/tick_music - music sequencer (lead, bass, drums) from assets/music.bin
+
+func sfx_switch { AUDF4=a=80 AUDC4=a=0xA8 sfx_timer=a=8 }
+func sfx_alert { AUDF4=a=40 AUDC4=a=0xAF sfx_timer=a=20 }
+func sfx_success { AUDF4=a=100 AUDC4=a=0xA6 sfx_timer=a=40 }
+
+func tick_audio {
+  a=sfx_timer
+  a?0
+  != {
+    sfx_timer--
+    a=sfx_timer
+    a?0
+    == {
+      a=disk_busy			// ch4 is disk_read's during a load; don't re-arm it
+      a?0
+      == { AUDC4=a=0 }
+    }
+  }
+  a=music_ready
+  a?0
+  != { call tick_music }
+}
+
+// Track layout: tools/cmd/make-music. ch1+2 = 16-bit 1.79 MHz lead,
+// ch3 octave bass, ch4 drums yielding to SFX and disk I/O.
+
+func music_step {
+  mus_timer=a=Music+432
+  x=mus_step
+  a=Music,x				// lead: 0 nothing new, 1 cut, k >= 2 note k
+  a?2
+  >= {
+    y=a
+    a=Music+334,y			// note k: AUDF1/AUDF2 at 336/352 + k - 2
+    AUDF1=a
+    a=Music+350,y
+    AUDF2=a
+    lead_vol=a=Music+433
+  }
+  a=Music,x
+  a?1
+  == { lead_vol=a=0 }
+  a=mus_step
+  a>> a>> a>> a>>
+  mus_bar=a
+  y=a
+  a=mus_step
+  a&15
+  x=a
+  a=mus_bar				// every 4th bar plays the drum fill
+  a&3
+  a?3
+  == { a=x c- a+16 x=a }
+  a=Music+272,x				// drum hit
+  a?0
+  != { drum_type=a drum_t=a=0 }
+  a=mus_step
+  a&15
+  x=a
+  a=Music+256,x				// bass: 1 root, 2 octave up
+  a?1
+  == { a=Music+304,y bass_freq=a bass_vol=a=Music+434 }
+  a=Music+256,x
+  a?2
+  == { a=Music+320,y bass_freq=a bass_vol=a=Music+434 }
+  mus_step++				// wraps at 256 = 16 bars
+}
+
+func tick_music {
+  mus_timer--
+  a=mus_timer
+  a?0
+  == { music_step }
+  a=lead_vol				// pluck decay; attack volume is track-specific
+  a?0
+  != {
+    a=RTCLOK
+    a&1
+    == { lead_vol-- }
+  }
+  a=lead_vol
+  a|0xA0
+  AUDC2=a				// the joined pair's volume lives in AUDC2; SIO never
+					// touches ch1/2, so the lead keeps sounding through a
+					// disk_read unattended (a3e.4).
+  a=disk_busy				// ch3/ch4 are disk_read's baud clock during a load:
+  a?0				// bass/drums stay muted (as disk_read already left them)
+  != { return }			// until the load clears, then resume from queued state
+  a=bass_freq
+  AUDF3=a
+  a=bass_vol
+  a?0
+  != { bass_vol-- }
+  a|0xA0
+  AUDC3=a
+  a=sfx_timer				// sound effects own ch4
+  a?0
+  != { return }
+  a=drum_type				// row = type * 8 + frame
+  a<< a<< a<<
+  c- a+drum_t
+  x=a
+  a=Music+368,x
+  AUDF4=a
+  a=Music+400,x
+  AUDC4=a
+  a=drum_t
+  a?7
+  != { drum_t++ }
+}
+
+naked music_vbi_imm {			// hooked into VVBLKI (immediate stage): unlike VVBLKD,
+					// this still runs while SIO sets CRITIC and skips stage 2,
+					// so the lead (ch1+2) keeps ticking through a disk_read.
+					// Chains to the saved OS vector -- NOT XITVBV -- so RTCLOK
+					// and the OS's own stage-2 dispatch still happen.
+  a=level_finished
+  a?0
+  == { tick_audio }
+  goto (old_vviblki)
+}
+

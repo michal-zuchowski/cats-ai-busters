@@ -1,0 +1,173 @@
+// AI face cutscene and in-level dialogue.
+// - ai_mouth - mouth patches streamed after the portrait
+// - ai_tick - animation tick
+// - ai_cutscene - full-screen AI face
+// - plat_dlg - in-level dialogue trigger
+
+func ai_mouth {				// two 6x5-byte patches streamed after the 160x80 portrait
+  x=ai_pose
+  y=0
+  {
+    a=ZoomBuf+3200,x
+    ZoomBuf+2256,y=a
+    a=ZoomBuf+3206,x
+    ZoomBuf+2296,y=a
+    a=ZoomBuf+3212,x
+    ZoomBuf+2336,y=a
+    a=ZoomBuf+3218,x
+    ZoomBuf+2376,y=a
+    a=ZoomBuf+3224,x
+    ZoomBuf+2416,y=a
+    x++
+    y++
+    y?6
+  } !=
+}
+
+func ai_tick {				// returns 1 on a fresh FIRE/key press, 0 otherwise
+  x=1
+  wait_frames
+  ai_frame++
+  a=ai_frame
+  a&16
+  a?0
+  == { COLOR0=a=0x92 } else { COLOR0=a=0x96 }
+  a=ai_frame
+  a&7
+  a?0
+  == {
+    a=ai_line
+    a?2
+    != {
+      a?4
+      != {
+        a=ai_pose
+        a^30
+        ai_pose=a
+        ai_mouth
+        a=ai_pose
+        a?0
+        != { sfx_switch }
+      }
+    }
+  }
+  input_pressed
+  x=a
+  CH=a=0xFF
+  a=x
+  a?0
+  == { fire_prev=a=1 a=0 return }
+  a=fire_prev
+  a?0
+  != { a=1 return }
+  a=0
+}
+
+func ai_cutscene {
+  SDMCTL=a=0
+  DMACTL=a
+  GRACTL=a
+  NMIEN=a=0x40
+  disk_dest=a=&<ZoomBuf
+  disk_dest+1=a=&>ZoomBuf
+  a=25
+  load_checked_chunk
+  clear_term_screen
+  SDLSTL=a=&<dl_ai
+  SDLSTL+1=a=&>dl_ai
+  COLOR0=a=0x96
+  COLOR1=a=0x0E
+  COLOR2=a=0x3A
+  COLOR4=a=0
+  SDMCTL=a=0x22
+  CH=a=0xFF
+  fire_prev=a=0
+  ai_line=a
+ai_next_line:
+  ai_pose=a=0
+  ai_frame=a
+  ai_mouth
+  clear_row0
+  x=ai_line
+  a=DlgOff,x
+  msg_src=a
+  msg_src+1=a=&>Dlg
+  msg_len=a=36
+  draw_row0_msg
+  y=0
+  { a=TermScreen,y TermScreen+840,y=a y++ y?40 } !=
+ai_wait_line:
+  ai_tick
+  a?0
+  != { goto ai_restore }
+  a=ai_frame
+  a?180
+  != { goto ai_wait_line }
+  ai_line++
+  a=ai_line
+  a?5
+  != { goto ai_next_line }
+ai_restore:
+  SDMCTL=a=0
+  DMACTL=a
+  disk_dest=a=&<RoomArtBuf
+  disk_dest+1=a=&>RoomArtBuf
+  x=cur_level
+  a=LvBase,x
+  c- a+cur_room
+  load_checked_chunk
+  paint_room_art
+  disk_dest=a=&<CryBuf
+  disk_dest+1=a=&>CryBuf
+  a=15
+  load_checked_chunk			// portrait temporarily overwrites part of the death cry
+  draw_glass
+  call draw_hud_static
+  x=cur_level
+  a=LvRooms,x
+  c- a+16
+  TermScreen+968=a
+  a=cur_level
+  c- a+17
+  TermScreen+999=a
+  clear_row0
+  clear_row1
+  SDLSTL=a=&<dl_term
+  SDLSTL+1=a=&>dl_term
+  x=cur_level
+  a=LvC1,x
+  COLOR1=a
+  a=LvC2,x
+  COLOR2=a
+  COLOR0=a=0x0A
+  COLOR3=a=0x34
+  COLOR4=a=0
+  init_pmg
+  CH=a=0xFF
+  fire_prev=a=0			// skipping must not also push the glass
+  NMIEN=a=0xC0
+}
+
+func plat_dlg {				// once per L04 visit, on the grounded approach to the core
+  a=cur_level
+  a?3
+  != { return }
+  a=m_dlg
+  a?0
+  == { return }
+  a=dlg_done
+  a?0
+  != { return }
+  a=air
+  a?0
+  != { return }
+  a=player_y
+  a?137
+  >= { return }
+  a=player_col
+  a?20
+  < { return }
+  dlg_done=a=1
+  ai_cutscene
+}
+

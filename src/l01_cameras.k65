@@ -1,0 +1,333 @@
+// Level 01 security cameras and light cones.
+// - cam_sees/load_cams/tick_cam/tick_cams - camera sweep and visibility test
+// - cone_rows_start/cone_rows_next/cone_row/draw_cone/erase_slot - light cone drawing
+// - cam_tiles/redraw_cones - camera tile and cone repainting (plus the zone repaint helper)
+// - tick_switch - camera switch-off timer
+
+// ---- Room 0: corridor. cols 2..14 shelter, 15..24 camera strip, 25..37 open.
+
+
+
+
+
+
+func redraw_zone {
+  x=2
+  { repaint_current x++ x?40 } !=
+}
+
+func cam_sees {				// x = column -> a: 1 if a live camera footprint covers open floor
+  a=x
+  cone_t=a
+  y=a
+  a=(floor_ptr),y
+  a?78
+  == { a=0 return }			// rack shadow is the only cover; the relay
+					// terminal and hatch tiles are watched too
+  y=0
+  {
+    a=sl_cam,y
+    a?0
+    != {
+      a=sl_on,y
+      a?0
+      != {
+        a=cone_t
+        c+ a-sl_c,y
+        < { a^0xFF c- a+1 }		// |x - centre|
+        a?sl_hw,y
+        < { a=1 return }
+        == { a=1 return }
+      }
+    }
+    y++
+    y?2
+  } !=
+  a=0
+}
+
+func load_cams {			// CamCfg row for cur_room -> both slots, sweeps restart
+  a=cur_room
+  a<<
+  a<<
+  a<<
+  a<<
+  y=a
+  x=0
+  {
+    a=CamCfg,y sl_cam,x=a y++
+    a=CamCfg,y sl_min,x=a sl_c,x=a y++
+    a=CamCfg,y sl_max,x=a y++
+    a=CamCfg,y sl_speed,x=a sl_wait,x=a y++
+    a=CamCfg,y sl_pause,x=a y++
+    a=CamCfg,y sl_hw,x=a y++
+    a=CamCfg,y sl_gate,x=a y++
+    a=CamCfg,y sl_hwstep,x=a y++
+    a=0
+    sl_dir,x=a
+    sl_on,x=a
+    x++
+    x?2
+  } !=
+  x=0
+  { a=0xFF oldL,x=a x++ x?34 } !=
+  cone_dirty=a=1
+}
+
+func tick_cam {				// x = slot
+  a=sl_cam,x
+  a?0
+  != {
+    a=sl_gate,x
+    a?0
+    != {
+      a=switch_timer
+      a?0
+      == { a=1 } else { a=0 }
+    } else { a=1 }
+    a?sl_on,x
+    != { sl_on,x=a cone_dirty=a=1 }
+    a=sl_wait,x
+    a?0
+    == {
+      a=sl_speed,x
+      sl_wait,x=a
+      a=sl_dir,x
+      a?0
+      == { a=sl_c,x c- a+1 } else { a=sl_c,x c+ a-1 }
+      sl_c,x=a
+      a?sl_max,x
+      == { a=1 sl_dir,x=a a=sl_pause,x sl_wait,x=a }
+      a=sl_c,x
+      a?sl_min,x
+      == { a=0 sl_dir,x=a a=sl_pause,x sl_wait,x=a }
+      cone_dirty=a=1
+    } else {
+      c+ a-1
+      sl_wait,x=a
+    }
+  }
+}
+
+func tick_cams {			// sweep each camera; redraw cones when anything moved
+  x=0
+  tick_cam
+  x=1
+  tick_cam
+  a=cone_dirty
+  a?0
+  != { cone_dirty=a=0 call redraw_cones }
+}
+
+func cone_rows_start {			// zoom_ptr/art_ptr -> row 5 of screen/room art
+  zoom_ptr=a=&<TermScreen+200
+  zoom_ptr+1=a=&>TermScreen+200
+  a=art_base
+  c- a+200
+  art_ptr=a
+  a=art_base+1
+  a+0
+  art_ptr+1=a
+}
+
+func cone_rows_next {
+  a=zoom_ptr
+  c- a+40
+  zoom_ptr=a
+  a=zoom_ptr+1
+  a+0
+  zoom_ptr+1=a
+  a=art_ptr
+  c- a+40
+  art_ptr=a
+  a=art_ptr+1
+  a+0
+  art_ptr+1=a
+}
+
+func erase_slot {			// cone_base = 0/17: restore that slot's spans from RoomArt
+  cone_rows_start
+  cone_i=a=0
+  {
+    a=cone_base
+    c- a+cone_i
+    x=a
+    a=oldL,x
+    a?0xFF
+    != {
+      y=a
+      a=oldR,x
+      c- a+1
+      cone_end=a
+      {
+        a=(art_ptr),y
+        (zoom_ptr),y=a
+        y++
+        a=y
+        a?cone_end
+      } !=
+      a=0xFF
+      oldL,x=a
+    }
+    cone_rows_next
+    cone_i++
+    a=cone_i
+    a?17
+  } !=
+}
+
+func cone_row {				// one row of the cone: advance the DDA, draw its span
+  a=cone_cxl
+  c- a+cone_sl
+  cone_cxl=a
+  a=cone_cxh
+  a+cone_sh
+  cone_cxh=a
+  a=cone_hwl
+  c- a+cone_hws
+  cone_hwl=a
+  a=cone_hwh
+  a+0
+  cone_hwh=a
+  a=cone_cxh
+  c+ a-cone_hwh
+  < { a=0 }
+  cone_L=a
+  a=cone_cxh
+  c- a+cone_hwh
+  >= { a=159 }
+  a?160
+  >= { a=159 }
+  cone_R=a
+  a=cone_L
+  a>>
+  a>>
+  cone_lc=a
+  a=cone_R
+  a>>
+  a>>
+  cone_rc=a
+  c- a+1
+  cone_end=a
+  a=cone_base
+  c- a+cone_i
+  x=a
+  a=cone_lc
+  oldL,x=a
+  y=a
+  a=cone_rc
+  oldR,x=a
+  {
+    a=(art_ptr),y
+    a?64
+    == {
+      a=y
+      a?cone_lc
+      == {
+        a=cone_L
+        a&3
+        c- a+109
+      } else {
+        a?cone_rc
+        == {
+          a=cone_R
+          a&3
+          c- a+113
+        } else { a=109 }
+      }
+      (zoom_ptr),y=a
+    }
+    y++
+    a=y
+    a?cone_end
+  } !=
+}
+
+func draw_cone {			// x = slot: 17 rows of light from the lens to the floor
+  a=sl_cam,x
+  a?0
+  == { return }
+  a=sl_on,x
+  a?0
+  == { return }
+  a=x
+  a?0
+  == { a=0 } else { a=17 }
+  cone_base=a
+  a=sl_hwstep,x
+  cone_hws=a
+  a=sl_c,x
+  c+ a-sl_cam,x
+  c- a+40
+  y=a
+  a=ConeStep,y
+  cone_sl=a
+  a=ConeStep+80,y
+  cone_sh=a
+  a=sl_cam,x
+  a<<
+  a<<
+  c- a+2
+  cone_cxh=a
+  cone_cxl=a=0x80
+  cone_hwl=a=0
+  cone_hwh=a=1
+  cone_rows_start
+  cone_i=a=0
+  {
+    cone_row
+    cone_rows_next
+    cone_i++
+    a=cone_i
+    a?17
+  } !=
+}
+
+func cam_tiles {			// camera glyph turns with the sweep; lens red while live
+  x=0
+  {
+    a=sl_cam,x
+    a?0
+    != {
+      y=a
+      a=sl_c,x
+      c- a+1
+      a?sl_cam,x
+      < { a=118 } else {
+        a=sl_cam,x
+        c- a+1
+        a?sl_c,x
+        < { a=119 } else { a=68 }
+      }
+      cone_t=a
+      a=sl_on,x
+      a?0
+      != { a=cone_t a|0x80 cone_t=a }
+      a=cone_t
+      TermScreen+160,y=a
+    }
+    x++
+    x?2
+  } !=
+}
+
+func redraw_cones {
+  cone_base=a=0
+  erase_slot
+  cone_base=a=17
+  erase_slot
+  x=0
+  draw_cone
+  x=1
+  draw_cone
+  cam_tiles
+}
+
+
+func tick_switch {			// switch_timer was set-but-never-decremented; without
+  a=switch_timer			// this the segment stayed dark (or watched, after the
+  a?0				// polarity fix above) forever instead of timing out.
+  == { return }
+  switch_timer--
+}
+

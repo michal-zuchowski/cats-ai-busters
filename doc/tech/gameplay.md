@@ -1,3 +1,5 @@
+[← back to doc/README.md](../README.md)
+
 # Level 01 — technical plan and current preview
 
 This is the implementation target for [The Blind Spot](../scenario/level-01.md).
@@ -8,11 +10,11 @@ terminal display list is shown; gameplay installs its own HUD DLI later.
 All three rooms use a dense Druidarium-style ANTIC 4 tile set (steel-blue
 racks with lit server bays, ceiling trays, a rust under-floor grille).
 Pixel colour 3 in inverse tiles is red (PF3): rack LEDs and the watched
-camera floor. `tools/make_level_art.py` produces the maps and tile glyphs;
-`tools/make_intro_art.py` merges the glyphs into `assets/term-font.pic`.
+camera floor. `tools/cmd/make-level-art` produces the maps and tile glyphs;
+`tools/cmd/make-intro-art` merges the glyphs into `assets/term-font.pic`.
 
 The cat is a single-line PMG sprite, 16 × 24 pixels: P0/P1 carry the dark
-rim, stripes and far legs, P2/P3 the ginger fur. `tools/make_cat_sprite.py`
+rim, stripes and far legs, P2/P3 the ginger fur. `tools/cmd/make-cat-sprite`
 writes `assets/cat-sprites.bin` (20 frames × 128 bytes): 8 walk frames, 2
 idle frames with a tail flick, and the mirrored set. The walk is a
 four-beat gait (near hind, near fore, far hind, far fore, a quarter cycle
@@ -21,6 +23,18 @@ gait phase, so planted paws do not slide. `player_col` is derived from the
 cat's middle pixel for the tile-based camera, switch and relay rules. PMG
 memory is `$B800` (players at `$BC00–$BFFF`); the linker uses `$2000–$9FFF`
 and the intro buffers remain at `$A000` (zoom) and `$B000` (screen).
+
+## Lives
+
+- `lives` (`0x06A9`, page 6) starts at 9 (`main`, after `title_screen`; debug keys 1-4 refill it).
+- `lose_life` (`l01_hud`) runs when an L01 alert actually starts (`trigger_alert`, after the
+  `alert_timer` early return) and on every platform `respawn` (all callers are deaths/retries;
+  room entry uses `enter_plat_room`, which does not call it). Room entries keep the count.
+- HUD: `X` + digit at row 24 columns 9-10 (`draw_lives`, called by `draw_hud_static`, so it is
+  refreshed on every room/level entry and by `lose_life`).
+- At 0 lives `game_over` stops music, shows `GAME OVER` on row 0 for ~3 s, then `goto intro_skip`
+  (resets the stack, NMIEN and audio) and re-runs `title_screen` -> `lives=9` -> `init_gameplay`
+  (cur_level 0, level_finished 0, relay_done 0; PMG off on the title, re-enabled by `init_pmg`).
 
 ## Controls and rules
 
@@ -72,7 +86,7 @@ and the intro buffers remain at `$A000` (zoom) and `$B000` (screen).
 
 - The target is a standalone Atari XL/XE `.xex`, initially PAL/50 Hz, using
   K65 and the existing project build. Gameplay starts only after
-  `video_call` and `cut_to_black` in `main.k65`; replace the final idle loop
+  `video_call` and `cut_to_black` in `src/intro_scenes.k65`; replace the final idle loop
   with an explicit handoff once gameplay is implemented.
 - The intro currently uses its own display lists, palettes, face DLI, PCM,
   OS shadows and buffers (`$8000` zoom bitmap, `$9000` terminal screen).
@@ -105,7 +119,7 @@ and reaches the ending on the same 64 KB configuration.
 
 ## Earlier prototype notes (historical; superseded by the preview above)
 
-`main.k65` contains a first pass at three one-row rooms. After resolving
+The `src/*.k65` files contain a first pass at three one-row rooms. After resolving
 K65's crash on bare forward calls (use `call name` when a routine is
 declared later), a linker overflow was removed by sharing room-entry and
 redraw code. With intro skipping added, the project **compiles with 28 bytes
@@ -139,7 +153,7 @@ message remains visible after the initial display and after an alert.
   on 6502) while still exposing all four joystick directions.
 - **Tile rendering is shape-only, not color-coded:** floor/shelter/watched/
   wall/switch/relay/hatch/cat are distinct `TermFont` glyphs (ascii-32
-  encoded, see the comment above `fill_walls` in `main.k65`), not ANTIC 4
+  encoded, see the comment above `fill_walls` in `src/`), not ANTIC 4
   color-quadrant tricks. ANTIC 4's exact color-select semantics were not
   confirmed in `reference/` this session, so this is a deliberate,
   documented deviation from "keep colors readable... visibly distinct" to
@@ -147,7 +161,7 @@ message remains visible after the initial display and after an alert.
   satisfies "do not rely on color alone." A follow-up could add color once
   verified on real hardware/emulator.
 - **Sound**: music is enabled again in `tick_audio`, alongside sound effects
-  and PCM. The looping original spy-funk theme (`tools/make_music.py` →
+  and PCM. The looping original spy-funk theme (`tools/cmd/make-music` →
   `assets/music.bin`, D minor, 4/4, 16 bars with a bridge and a drum fill
   every 4th bar, 16th = 5 frames) belongs only to the title screen.
   Four separate level scores are described below; all are driven from the
@@ -167,8 +181,8 @@ message remains visible after the initial display and after an alert.
 - The visual cone and the collision rule are generated from the same
   per-room column thresholds by construction: `paint_col_roomN` (what is
   drawn) and `roomN_lit` (what can be seen) are written side-by-side in
-  `main.k65` and checked for matching thresholds by
-  `tests/test_gameplay_logic.py`.
+  `src/l01_*.k65` and checked for matching thresholds by
+  `tests/gameplay_logic_test.go`.
 - Not yet verified in the emulator: camera visibility, joystick input,
   timing of the intro handoff and POKEY volume/distortion of the cues.
 
@@ -201,18 +215,37 @@ been exercised in the emulator.
   `draw_player` immediately after every `redraw_zone` call (both call sites,
   in `game_frame`'s normal and alert-recovery branches).
 - **Room 2's detection didn't match what was rendered at the relay terminal
-  and hatch.** `paint_col_room2` always draws columns 33 (relay terminal)
-  and 38 (hatch) as fixed glyphs, never camera-colored, but `room2_lit` fell
-  through to the camera-gated bucket for those same columns, so a lit
-  camera could trigger an alert while the player stood on a tile that never
-  visually showed any danger. Fixed `room2_lit` to explicitly treat columns
-  33 and 38 as always-safe, matching the rendering.
+  and hatch, and the cone was a column wider than the detection.**
+  `paint_col_room2` drew columns 33 (relay terminal) and 38 (hatch) as fixed
+  glyphs, so they were made always-safe to match - which let the cat sit on
+  the terminal under a lit camera. The cone was also one column too wide
+  (`cone_hwh` ended at `hw*4+2`), lighting a column that never alarmed.
+  Fixed the other way round: the only cover is the rack shadow (tile 78),
+  the terminal and hatch glyphs are drawn inverted while watched
+  (`repaint_current`'s `rp_fixed`), and `hwstep` is derived so the widest
+  cone row ends exactly on `hw*4+1`, the detected footprint.
+- **Only the cat's middle column was ever tested.** The cat is two 8-pixel
+  PMG players side by side - 16 colour clocks, four character columns - but
+  `check_detection` passed `player_col` alone to `cam_sees`, so three
+  quarters of the body could stand inside a lit cone without an alert. It
+  now tests the leading column too (`player_x + 13`, forgiving two pixels
+  of tail and whisker overhang). The wider footprint made room 3's camera
+  unplayable, so its sweep was retuned to 27..38 at 9 frames per column
+  with a 140-frame pause; `tests/gameplay_logic_test.go` replays the sweep
+  pixel by pixel and asserts the recording and the hatch are both reachable.
+- **Room 3's hatch was unreachable.** The cat walks a column in 12 frames,
+  the exit camera sweeps one in 7, so the floor can only be crossed while
+  the camera is parked at an end - but its sweep minimum (30) left column 32
+  lit during that pause, sealing the cat inside the shelter forever once the
+  relay was recorded. Moved the sweep minimum to 27; `tests/gameplay_logic_test.go`
+  now replays the sweep and asserts the hatch is reachable after the relay
+  (and that it was not with the original settings).
 - **The HUD objective vanished after the first alert.** The initial
   `hint_timer` never cleared the text at zero, and alert recovery blanked
   the row permanently. Removed the countdown: the objective stays visible
   during play and is restored after an alert.
 
-`tests/test_gameplay_logic.py` was extended to check the *behavior* implied
+`tests/gameplay_logic_test.go` was extended to check the *behavior* implied
 by these fixes, not just the presence of code: it asserts the literal `a=`
 value selected by each branch of the switch logic (not just that the
 branches exist), asserts every `redraw_zone` call site is immediately
@@ -222,7 +255,7 @@ restoration.
 
 ## Disk boot (no DOS)
 
-`tools/make_atr.py` builds `out/cats-ai-busters.atr`, a 90K single-density
+`tools/cmd/make-atr` builds `out/cats-ai-busters.atr`, a 90K single-density
 image (720 × 128-byte sectors) that boots straight into the game without
 any DOS. It parses `out/cats-ai-busters.xex`, pulls out the one segment
 that starts at `-lowAddr` (0x1000 — the resident program), and writes:
@@ -240,23 +273,23 @@ that starts at `-lowAddr` (0x1000 — the resident program), and writes:
   static, the loader just jumps there directly once every sector is in.
 
 `tools/run.sh` builds the XEX, then the ATR, then opens the `.atr` in
-Atari800MacX (no more raw `.xex` launches). `tests/test_atr.py` re-parses
+Atari800MacX (no more raw `.xex` launches). `tests/atr_test.go` re-parses
 the ATR and asserts the header, boot sector fields, and that the sector
 payload matches the XEX segment byte-for-byte.
 
 ### Resident `disk_read` and the chunk table
 
-`tools/make_atr.py` also appends an `EXTRA_CHUNKS` list of files after the
+`tools/cmd/make-atr` also appends an `EXTRA_CHUNKS` list of files after the
 resident payload's sectors, and writes `assets/disk-chunks.bin`: one 5-byte
 entry per chunk (`<HHB>` = start sector, sector count, checksum — the sum
-of the chunk's padded on-disk bytes mod 256). `main.k65` includes this as
+of the chunk's padded on-disk bytes mod 256). `src/bitmaps.k65` includes this as
 `data ChunkTable { binary "assets/disk-chunks.bin" }`, so, like the other
 generated `assets/*.bin` files (`cat-sprites.bin`, `level-cams.bin`, ...),
 it's committed to git rather than built on the fly — a missing or stale
 `assets/disk-chunks.bin` makes the K65 compiler abort silently on that
-`data` line (see the gotcha below). Re-run `python3 tools/make_atr.py`
+`data` line (see the gotcha below). Re-run `go run ./tools/cmd/make-atr`
 and commit the result whenever `EXTRA_CHUNKS` changes. `tools/run.sh`
-builds the XEX, then re-runs `make_atr.py` (refreshing the chunk table
+builds the XEX, then re-runs `make-atr` (refreshing the chunk table
 and building the ATR from the new XEX in one pass) before launching the
 emulator.
 
@@ -274,7 +307,7 @@ from fighting SIO for `AUDF3`/`AUDC3`/`AUDF4`/`AUDC4`.
 `func disk_selftest` reads chunk 0 of `ChunkTable` (room 0's art, since
 a3e.3) into the intro's unused `ZoomBuf` scratch (`$A000`, dead once
 gameplay starts, and the same address `load_room_art` itself streams into
-as `RoomArtBuf`), recomputes the same checksum `make_atr.py` stored for
+as `RoomArtBuf`), recomputes the same checksum `make-atr` stored for
 that chunk, and flashes `MsgDiskOk`/`MsgDiskErr` on the term screen for 90
 frames via `clear_term_screen`/`hud_label`/`wait_frames`. `init_gameplay`
 calls it right after `switch_to_term`, before any HUD/room state is set
@@ -322,7 +355,7 @@ and plays level 1 normally (camera sweep, HUD, movement) with the new
 
 **Gotcha**: an absent/stale `assets/disk-chunks.bin` at K65 compile time
 (e.g. running the compiler directly without first running
-`tools/make_atr.py`) causes a *silent* compiler abort (`Abort trap: 6`,
+`tools/cmd/make-atr`) causes a *silent* compiler abort (`Abort trap: 6`,
 exit 134, no diagnostic) on the `data ChunkTable { binary ... }` line —
 this looks identical to the classic "forward bare-call" abort, so if a
 build aborts silently after adding a new `binary`-included data block,
@@ -336,7 +369,7 @@ sweep timing (`ConeStep`, `assets/cone-step.bin`, 160 bytes) used to be
 resident `data { binary ... }` blocks baked into the XEX. They are now
 five disk chunks (`ChunkTable+0`/`+5`/`+10` = room 0/1/2 art, `+15` =
 CamCfg, `+20` = ConeStep — 5 bytes/entry, so these are compile-time
-constant offsets, not a runtime multiply) built by `tools/make_atr.py`,
+constant offsets, not a runtime multiply) built by `tools/cmd/make-atr`,
 which now supports an optional `(offset, length)` per `EXTRA_CHUNKS`
 entry to slice a byte range out of a source file (used for the three
 960-byte room slices; CamCfg/ConeStep still take a whole file).
@@ -366,7 +399,7 @@ freeing roughly the ~2880 (room art) + 48 (CamCfg) + 160 (ConeStep) bytes
 that moved to disk, minus the small amount of new `load_room_art`/
 `load_level_assets` code and the 20 extra `ChunkTable` bytes now resident
 for the two new chunk entries. Verified: build succeeds (6356 free
-bytes), `tests/test_disk_chunks.py` confirms all five chunks' on-disk
+bytes), `tests/disk_chunks_test.go` confirms all five chunks' on-disk
 bytes and checksums match the corresponding slices of
 `assets/level-rooms.pic`/`level-cams.bin`/`cone-step.bin` byte-for-byte,
 full test suite passes, and the emulator boots straight into level 1
@@ -399,9 +432,9 @@ whether the load happened first.
 
 Verified: build succeeds (6250 free bytes, down slightly from 6356 for
 `prefetch_next_level`'s code and the 6th `ChunkTable` entry's 5 resident
-bytes); `tests/test_disk_chunks.py`'s generic per-entry loop picked up
+bytes); `tests/disk_chunks_test.go`'s generic per-entry loop picked up
 the new chunk automatically and confirms its on-disk bytes/checksum
-match `assets/next-level-placeholder.bin`; `tests/test_gameplay_logic.py`
+match `assets/next-level-placeholder.bin`; `tests/gameplay_logic_test.go`
 gained assertions that `level_ending` calls `prefetch_next_level` between
 `sfx_success` and the color fade-out, and that `prefetch_next_level`
 reads `ChunkTable+25` and checks against `ChunkTable+29`; full test suite
@@ -417,7 +450,7 @@ code parity with `disk_selftest`/`load_room_art`/`load_level_assets`
 
 ## Poziomy platformowe 02–04
 
-- Silnik: `init_plat`, `plat_frame`, `frame_any` (main.k65). Pokoje: 10 chunków 1 KB (`assets/plat-rooms.bin`, 960 B grafiki + 64 B meta), generowane przez `tools/make_plat_levels.py`; chunk 15 = krzyk PCM (`CryBuf` $A600, ładowany przy wejściu do L04 R1).
+- Silnik: `init_plat`, `plat_frame`, `frame_any` (src/plat_*.k65). Pokoje: 10 chunków 1 KB (`assets/plat-rooms.bin`, 960 B grafiki + 64 B meta), generowane przez `tools/cmd/make-plat-levels`; chunk 15 = krzyk PCM (`CryBuf` $A600, ładowany przy wejściu do L04 R1).
 - Mapa pamięci: `RoomArtBuf` $A000, `CamCfg` $A400, `ConeStep` $A480, `CryBuf` $A600, `TermScreen` $B000.
 - Platformy jednokierunkowe (FLOOR), skok vy=-4, grawitacja co 3 klatki; na szczycie vy=0 przez 1 klatkę zamiast 3 (bez zmiany wysokości skoku). Upadek poniżej y=196 = `respawn`.
 - L02 (4 pokoje, bez odkurzaczy), wejście→wyjście: 184→112→96→80→56 (`exit_y`); pokój n+1 startuje na wysokości wyjścia pokoju n, więc wysokość nie jest gubiona. Wyjście wymaga lądowania na oznaczonej platformie po prawej (`exit_y`), a w pokojach ze sterownikiem (`swy`≠0) także `sw_on`; brama (kolumna 39) jest ścianą, dopóki sterownik nie zostanie włączony. 0 zachowuje dotychczasowe wyjścia L03/L04.
@@ -426,10 +459,10 @@ code parity with `disk_selftest`/`load_room_art`/`load_level_assets`
 - Pokój 3 (chłodnia): wentylator (łopatki `FanT`, 2×2 kafle, 2 pozy obracane co 4 klatki; szybciej w podmuchu) i smugi powietrza (glify 8/9) rysowane dokładnie w strefie (`m_fan`..`m_fc1-1`, rzędy `m_fr0`..`m_fr1-1`). Podmuch (`fan_t&64`, okres 128: 64 spokój/64 podmuch) przesuwa o +1 px/klatkę wyłącznie kota w powietrzu w strefie; kolumny 0–9 to osłonięta wnęka. Luka A→B jest do pokonania tylko z wiatrem; dłuższe stałe schody to alternatywa. HUD: WAIT/GUST.
 - Pokój 4 (winda dachowa): winda z podłogi do rzędu 6 (`lspd`=12), przesiadka na półkę sterownika (rząd 10, kol. 26), FIRE otwiera bramę, ponowne wsiadanie, skok na kruchy pomost (rząd 6) i wyjście na dach. Chybione skoki lądują na półce lub podłodze.
 - Metadane rozszerzone do 26 pól (`swy,swc,lpow,fc1,fr0,fr1,lspd` na offsetach 19–25); `enter_plat_room` kopiuje 32 B do `m_sx`. Nowe zmienne: `sw_on` 06E4, `fan_t` 06E5, `cr_*` 06E7–06FF.
-- Weryfikacja źródłowa: `python3 tests/test_level02.py` (model `tools/plat_model.py`, klatka po klatce; nie uruchamia XEX). Podgląd map: `cd tools && python3 show_room.py <0-9>`.
+- Weryfikacja źródłowa: `go test ./tests -run Level02` (model `tools/platmodel`, klatka po klatce; nie uruchamia XEX). Podgląd map: `go run ./tools/cmd/show-room <0-9>`.
 - Od pierwszej dodatniej prędkości pionowej (`vy>=1`) kot sięga przednimi łapami w dół. W pozach opadania i pierwszego kontaktu przód jest opuszczony, zad uniesiony, a tylne łapy pozostają co najmniej 3 piksele ponad przednimi.
 - Mechaniki: wentylator (podmuch), winda, odkurzacz (patrol, drap = ucieczka), hazard na rzędzie 22, dialog, scena końcowa L04.
-- Weryfikacja: `cd tools && python3 solve_levels.py [1|2|3]` (BFS bot na `sim.py`, wolny).
+- Weryfikacja: `go run ./tools/cmd/solve-levels [1|2|3]` (BFS bot na `tools/sim`, wolny).
 - Skok: osiem póz dla obu kierunków. Przysiad przed odbiciem trwa 3 klatki, potem kot unosi przód tułowia i prostuje przednie łapy przed pyskiem (bez zawinięcia nadgarstków z animacji chodu). Lądowanie: 2 klatki kontaktu przednich łap i opuszczenia przodu tułowia, 3 klatki dosiadu tylnych i amortyzacji, 3 klatki prostowania, 2 klatki stania. Łapy pozostają oparte w tym samym miejscu podczas amortyzacji i prostowania. Wysokość i grawitacja bez zmian; podczas przysiadu i lądowania kot zatrzymuje ruch poziomy.
 - FIRE na poziomie 03: na podłożu pacnięcie przednią łapą z góry (3 klatki uniesienia, 4 klatki uderzenia z podgiętymi palcami, 3 klatki cofnięcia), podczas jazdy kopnięcie tylną. `paw_contact` sprawdza wyłącznie cztery klatki uderzenia, najwyżej jedno trafienie na zamach: widoczne piksele końcówki łapy muszą pokryć niezerowy piksel aktualnego glifu odkurzacza. Sam FIRE, odległość w kolumnach ani puste narożniki sylwetki nie wywołują ucieczki. Trafienie odwraca odkurzacz od użytej łapy i rozbraja go na 40 klatek; na czas rozbrojenia czerwienieje. Ruch poziomy jest zatrzymany podczas zamachu.
 - Odkurzacz ma dwie animowane szczotki pod obudową: cztery fazy obrotu co 4 klatki, generowane w `assets/vacuum-brushes.bin`. Obrót trwa także między krokami patrolu; kolizja używa aktualnej grafiki.
@@ -443,13 +476,13 @@ Metadata aliases: m_xmax 06B3, m_dock 06B4, m_z0 06B6, m_z1 06B7, m_bcol 06CA, m
 Wsparcie: `roof_on` = oryginalne 3 kolumny `(player_col-act_col)<3` (bez nawisu); `under` traktuje podstawę robota (95/124/125) jako podłoże tylko gdy kafel w art (RoomArtBuf) to FLOOR, belka dołu (BEAM) nie podpiera.
 Pościg B: `b_touch` sprawdza brzeg siedzącej sylwetki w rzędzie 23 z kopułą B (+2 px gdy kot patrzy w lewo), tylko dla jeźdźca (carrier==0), po zakończeniu lądowania i poza przygotowaniem skoku. `bk` rośnie o 1 na klatkę kontaktu, maleje o 1 bez kontaktu; 48 = złapany (respawn). Kot na samym przednim brzegu dachu (A+2) nie styka się z B (odstęp 3) - alternatywny unik. Kopnięcie siedzące (hit21) odpycha B przez 40 klatek bez zmiany ruchu nośnika; sylwetka rozróżnia pozycję złożoną i wyprost nogi w aktywnej części ataku.
 Laser R2 (`plat_beam`): pas Y 176..183 w z0..z1, wyłączony podczas dokowania. Kolizja wymaga przecięcia pasa przez 24-pikselowe ciało (origin Y 153..183); podłoga Y 184 i pozycja całkowicie ponad pasem są bezpieczne. Dokowanie wymaga ruchu w prawo po trafieniu. `dk` daje 240 klatek wyłączenia lasera, ale pierwsze poprawne dokowanie trwale ustawia `gate` do następnego respawnu. Brama jest widocznie zamknięta przed wykonaniem celu i otwarta po nim; HUD pokazuje EXIT. Wyjście R2 jest na podłodze Y184, bez półki na wysokości głowy i końcowego skoku. Samo podejście do drzwi nie pomija celu; upływ czasu lasera nie zatrzaskuje otwartych drzwi.
-Weryfikacja bez kompilacji: `python3 tests/test_l03_routes.py` używa modelu `tests/l03_model.py` (R1 pacnięcie/skok/nisza, R2 dok/timeout/retry/laser, R3 jazda/pościg/zeskok/retry, R4 czytnik/brama/jazda/dwie przerwy/wyjście na podłodze, bez pościgu). Zasięg modelu: logika L03; nie jest to dowód uruchomienia K65.
+Weryfikacja bez kompilacji: `go test ./tests -run L03` używa modelu `tests/l03model` (R1 pacnięcie/skok/nisza, R2 dok/timeout/retry/laser, R3 jazda/pościg/zeskok/retry, R4 czytnik/brama/jazda/dwie przerwy/wyjście na podłodze, bez pościgu). Zasięg modelu: logika L03; nie jest to dowód uruchomienia K65.
 ### L03 R4 (reader room, one carrier)
 - Metadata: `mode`=2 (reader), `bspd`=0 (no pursuer B), `amax`=10 / `xmax`=19, reader z0=z1=12, `exit_y`=184 (floor-height hatch). A's patrol is 8..10 (`amin`=8, start 8; the old minimum 7 left a connected hit one column short of the reader); the gate (`a_events` after the reader crossing) switches the limit to `m_xmax` in reader mode only (`a_step`), so the R2 permanent dock latch no longer widens patrol after wobble recovery.
 - Bug fixed: with B at column 0 the initial UP landed on B (ride, carrier 21, y 171) and, while `gate`=0, `plat_pursuer` never moved it - a stationary-rear-robot trap in the user's Oct 4 17:09 build. B was removed and `on_vacuum` returns 0 for an inactive reader-mode B (`e_mode&2`, gate 0) even if metadata adds one later.
 - Steps: (1) walk right to the forepaw reach (cat x 17..21), swing, and swing again after a miss; every connected hit at patrol columns 8..10 carries it into the reader (column 12) about 17..32 frames later, inside the 40-frame stun, so a hit always opens the gate; standing further right (x >= 22) is within the robot's contact distance; (2) gate: reader tiles 83 `RELAY` -> 84 `DONE` (`draw_reader`, called after the actual crossing and from `act_init`/reset; R2 dock does not call it); (3) wait at the first pit edge and jump to the roof when A is 5..7 columns away and heading left (~24-frame window; ride y 171); (4) ride, jump to the balcony (row 18, cols 23..27, y 152) at A column >=19; (5) jump down/right from the balcony to the floor at cols 33..39 (y 184) and walk to the service exit. The physical floor is only row 22 cols 0..22 and 33..39; rows 22..23 cols 23..32 are clear. Walking the floor, or riding before the gate, never reaches the exit. An early dismount falls into the pit but permits a retry/reboard from the grounded lane; respawn resets gate/reader.
 - Captions: `r4_goal` writes four 36-character strings from `R4Goal` (`nocross`, charset ASCII-32) to TermScreen row 0 col 0 through `draw_row0_msg`, chosen by gate and `player_col` (0: SWAT, 1: RIDE/BALCONY, col>=23: GAP/EXIT, col>=33: ACCESS OPEN); the HUD action comes from `R4Hint` {SWAT, RIDE, JUMP, EXIT}.
-- Checks: `python3 tests/test_l03_assets.py`; `python3 tests/test_l03_routes.py` (model bots: 36 stand/boarding/rear variants with 0 respawns, every swing phase at x 17..21 gating inside the stun, per-frame three-column robot support, early dismount/reboard, late jump retry, pre-gate rider, captions/hook source checks); `python3 tests/test_l03_runtime.py --asset-overlay` runs the real 6502 `enter_plat_room`/`plat_frame` on the existing XEX via `tools/sim.py` with only the R4 ATR chunk 12 (and its checksum entry) replaced in memory; bot uses joystick/FIRE only, counts real `respawn` calls. Limits: no VBI/display/audio; overlay mode runs the old compiled code on the new room data only; the new captions, reader redraw/reset, door state and the gate-0/gate-1 root guard are checked only in the default branch, which needs a fresh authorised build and has not been run. `out/level03-room4-preview.png` is rendered from source data (initial `Game(3)` screen, font/palette, cat from the sprite atlas), not from a compiled emulator frame.
+- Checks: `go test ./tests -run L03Assets`; `go test ./tests -run L03` (model bots: 36 stand/boarding/rear variants with 0 respawns, every swing phase at x 17..21 gating inside the stun, per-frame three-column robot support, early dismount/reboard, late jump retry, pre-gate rider, captions/hook source checks); `L03_ASSET_OVERLAY=1 go test ./tests -run L03Runtime` runs the real 6502 `enter_plat_room`/`plat_frame` on the existing XEX via `tools/sim` with only the R4 ATR chunk 12 (and its checksum entry) replaced in memory; bot uses joystick/FIRE only, counts real `respawn` calls. Limits: no VBI/display/audio; overlay mode runs the old compiled code on the new room data only; the new captions, reader redraw/reset, door state and the gate-0/gate-1 root guard are checked only in the default branch, which needs a fresh authorised build and has not been run. `out/level03-room4-preview.png` is rendered from source data (initial `Game(3)` screen, font/palette, cat from the sprite atlas), not from a compiled emulator frame.
 
 Sprites: 58 logical frames (50-53 seated/shove, 54-57 right-facing glass reach/contact/push/retract) map through assets/cat-frame-map.bin to 43 physical frames.
 Siedzenie (50/51) ma osobny, pionowy tułów, podniesiony pysk, złożone tylne
@@ -488,7 +521,7 @@ FIRE or any key skips after a release; cleanup disarms the FIRE edge so
 the skip cannot also shove the glass. `plat_push` and its HUD prompt require
 `dlg_done`; watching/skipping the exchange never performs the final action.
 
-`tools/make_ai_scene.py` generates streamed chunk 25:
+`tools/cmd/make-ai-scene` generates streamed chunk 25:
 `assets/ai-portrait.pic`, 3200 bitmap bytes + two 30-byte mouth patches,
 padded to 26 sectors (3328 B), loaded at $A000. It fits within one ANTIC
 4K block and does not touch Music, PMG or the resident cat atlas.
@@ -497,7 +530,7 @@ path checks and reloads the current room and chunk 15 (entire 2560-byte
 cry), repaints the glass/HUD, and restores the gameplay display list,
 palette and PMG without resetting player/objective state.
 
-`python3 tests/test_level04.py` replays both no-death routes in a source-level
+`go test ./tests -run Level04` replays both no-death routes in a source-level
 jump/lift/floor model and checks mandatory lift geometry, all 64 hazard
 phases and contact boundaries, scene/finale gates and cinematic data/cleanup.
 It does not execute K65 or establish emulator display/audio acceptance.
@@ -517,11 +550,11 @@ Chunks now start at sector 290, after the reserved `$1000..$9FFF` resident
 bank; the boot loader still reads only the actual resident payload.
 Consequently changing the linked program size does not move disk chunks
 or require a table/link/table/relink cycle. Chunk indices 0..15 are
-unchanged. `python3 tests/test_cat_streaming.py` checks source wiring,
+unchanged. `go test ./tests -run CatStreaming` checks source wiring,
 overlay bounds, logical frames and disk layout using synthetic payloads,
 not a compiled game. A fresh XEX and ATR are still required together.
-Prepare the stable table with `python3 tools/make_atr.py --table-only`,
-build `main.k65proj`, then run `python3 tools/make_atr.py` to pack that XEX.
+Prepare the stable table with `go run ./tools/cmd/make-atr --table-only`,
+build `main.k65proj`, then run `go run ./tools/cmd/make-atr` to pack that XEX.
 Table-only mode does not read or modify XEX/ATR and works before the first build.
 
 ### Title and level soundtracks
@@ -535,7 +568,7 @@ FIRE, Return or Space starts level 01.
 The original 432 score bytes are unchanged; three bytes were appended for
 frames per sixteenth note and lead/bass attack volume.
 
-`python3 tools/make_music.py` generates five 435-byte tracks:
+`go run ./tools/cmd/make-music` generates five 435-byte tracks:
 
 | Scene | Asset | Character | PAL tempo |
 |---|---|---|---|
@@ -565,7 +598,7 @@ to SIO, and SFX retain channel-4 priority. The final PCM scene still freezes
 the VBI player through `level_finished`.
 
 The solver's bounded `boot` helper skips the intro, then releases/presses FIRE at the title before
-searching a level. `tests/test_music.py` checks preservation of the title,
+searching a level. `tests/music_test.go` checks preservation of the title,
 generated melodies/moods, tuning, memory bounds, disk data and source wiring.
 These checks do not establish compiled K65 playback or audible POKEY quality;
 a fresh authorized build, matching ATR and emulator listening are still needed.
@@ -573,7 +606,7 @@ a fresh authorized build, matching ATR and emulator listening are still needed.
 ### Approved bitmap title
 
 `assets/title-screen.png` is the lossless native 160x192 version of the
-approved Desktop mockup. `python3 tools/make_title.py` packs it as
+approved Desktop mockup. `go run ./tools/cmd/make-title` packs it as
 `assets/title-screen.pic`, a four-color ANTIC E bitmap. The Atari palette uses
 black, dark blue, light fur/text and amber; RGB colors depend on the emulator
 or display. No title bitmap is linked into the resident bank.
@@ -590,8 +623,8 @@ initializes PMG. Intro art remains resident and is not modified by title loads.
 
 Title/music chunks share `load_checked_chunk` for SIO status and padded
 checksum validation; errors restore a readable terminal and halt at
-`DISKERR`. After regenerating artwork, prepare `make_atr.py --table-only`
-before compiling and pack a matching ATR afterwards. `tests/test_title_screen.py`
+`DISKERR`. After regenerating artwork, prepare `make-atr --table-only`
+before compiling and pack a matching ATR afterwards. `tests/title_screen_test.go`
 reconstructs the bitmap from synthetic ATR sectors and its three DMA regions,
 checks exact artwork preservation, 4K boundaries, live-music separation and
 input/transition source contracts. It is not an emulator screenshot or

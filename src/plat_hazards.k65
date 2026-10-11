@@ -1,0 +1,77 @@
+// Lasers and electrified floor.
+// - plat_beam - R2 lasers over the aisle
+// - plat_haz - electrified floor
+
+func plat_beam {			// R2 lasers over the aisle: off while the vacuum is docked
+  a=cur_level
+  a?2
+  != { return }
+  a=e_mode
+  a&1
+  a?0
+  == { return }
+  a=dk
+  a?0
+  != { tmp=a=0 } else {
+    a=RTCLOK
+    a&16
+    a?0
+    == { a=0xCF } else { a=79 }
+    tmp=a
+  }
+  x=19
+  y=m_z0
+  a=m_z1
+  c+ a-m_z0
+  c- a+1
+  cnt=a
+  put_run
+  a=dk
+  a?0
+  != { return }
+  a=player_col
+  a?m_z0
+  < { return }
+  a=m_z1
+  a?player_col
+  < { return }
+  a=player_y
+  a?153
+  < { return }
+  a?184
+  >= { return }				// 24-pixel body overlaps the beam's Y 176..183 band
+  respawn
+}
+
+func plat_haz {				// electrified floor band, 32 frames on / 32 off
+  a=m_h0
+  a?0
+  == { return }
+  a=RTCLOK
+  a&0x20
+  a?0
+  == { a=0xCF } else { a=0 }
+  tmp=a
+  x=22
+  y=m_h0
+  a=m_h1
+  c+ a-m_h0
+  c- a+1
+  cnt=a
+  put_run
+  a=RTCLOK
+  a&0x20
+  a?0
+  != { return }
+  a=player_y
+  a?184
+  != { return }
+  a=player_col
+  a?m_h0
+  < { return }
+  a=m_h1
+  a?player_col
+  < { return }
+  respawn
+}
+

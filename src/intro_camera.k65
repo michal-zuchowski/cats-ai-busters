@@ -1,0 +1,294 @@
+// Intro camera beats: storm pan, blinking racks, zoom bitmap, cat reveal.
+// - build_storm_list/pan_step/storm_pan - right-to-left pan over the panorama
+// - blink_rack_leds - rack LED blinking during the pan
+// - build_zoom_bitmap/build_zoom_list/show_zoom_bitmap - push-in on the terminal
+// - show_cat/build_reveal_list - cut that pulls back to the watching cat
+
+// ============================================================================
+// Playable intro cutscene (no gameplay yet) — see doc/scenario/intro.md and
+// doc/tech/graphics.md for the authoritative script/technical plan.
+//
+//   Beat 1 (ANTIC E, then ANTIC 4): right-to-left track past blinking racks, push in on
+//           the terminal, then lines reveal sequentially, followed by a
+//           blinking cursor pauses before "Y_" appears (still blinking).
+//   Beat 2 (ANTIC E / GR.15 bitmap): a cut pulls back to a facility cat
+//           watching from the dark; then a
+//           second cut to a close-up cat face whose slit pupils dilate to
+//           round in-place (only the eye region's bytes are touched — no
+//           whole-image copies per frame).
+//   Beat 3: a short PCM meow plays with the mouth genuinely toggled in sync
+//           during playback; then a secure video call reveals the boss cat
+//           on a faceless human's lap before the cut to black.
+//
+// Timing uses the OS jiffy clock (RTCLOK, incremented once per VBI) via
+// wait_frames; the only DLIs are the reveal's floor recolor and face_kernel. All display-list/color/DMACTL
+// changes go through the OS shadow registers (SDLSTL/H, SDMCTL, COLOR0-4) so
+// the stock OS deferred-VBI (kept enabled via NMIEN) doesn't stomp them.
+// ============================================================================
+
+// 96 LMS pairs; row stride is 64 bytes and both entries point at the same row.
+func build_storm_list {
+  pan_ptr=a=&<RevealImg+24		// start at the right end of the panorama
+  pan_ptr+1=a=&>RevealImg+24
+  dl_ptr=a=&<dl_storm+3
+  dl_ptr+1=a=&>dl_storm+3
+  x=96
+  {
+    a=0x4E
+    y=0
+    (dl_ptr),y=a
+    y=3
+    (dl_ptr),y=a
+    y=1
+    a=pan_ptr
+    (dl_ptr),y=a
+    y=4
+    (dl_ptr),y=a
+    y=2
+    a=pan_ptr+1
+    (dl_ptr),y=a
+    y=5
+    (dl_ptr),y=a
+
+    a=pan_ptr
+    c- a+64
+    pan_ptr=a
+    c+? { pan_ptr+1++ }
+    a=dl_ptr
+    c- a+6
+    dl_ptr=a
+    c+? { dl_ptr+1++ }
+    x--
+    x?0
+  } !=
+}
+
+// Move every pair of LMS addresses back one byte: the camera tracks left.
+func pan_step {
+  dl_ptr=a=&<dl_storm+3
+  dl_ptr+1=a=&>dl_storm+3
+  x=96
+  {
+    y=1
+    a=(dl_ptr),y
+    c+ a-1
+    (dl_ptr),y=a
+    c-? {
+      y=2
+      a=(dl_ptr),y
+      c+ a-1
+      (dl_ptr),y=a
+      y=5
+      (dl_ptr),y=a
+    }
+    y=1
+    a=(dl_ptr),y
+    y=4
+    (dl_ptr),y=a
+    a=dl_ptr
+    c- a+6
+    dl_ptr=a
+    c+? { dl_ptr+1++ }
+    x--
+    x?0
+  } !=
+}
+
+// Toggle every LED whose 8-step pattern has the current phase bit set.
+func blink_rack_leds {
+  a=pan_phase
+  a&7
+  x=a
+  a=BitMasks,x
+  led_bit=a
+  x=0
+  {
+    a=Leds+121,x
+    a?0xFF == break
+    c- a+&>RevealImg
+    led_ptr+1=a
+    a=Leds+363,x
+    a&led_bit
+    a?0 != {
+      led_ptr=a=Leds,x
+      y=0
+      a=(led_ptr),y
+      a^Leds+242,x
+      (led_ptr),y=a
+    }
+    x++
+  } always
+}
+
+// 24 four-pixel steps at 12 PAL frames each: 288 frames / 50 Hz = 5.76 s.
+// LEDs change twice per step.
+func storm_pan {
+  AUDF2=a=0xF2
+  AUDC2=a=0xA2			// low fan noise
+  AUDF3=a=0x31
+  AUDC3=a=0x84			// quiet continuous data-center hum
+  pan_phase=a=0
+  x=1 wait_frames			// start LMS updates at VBI, before visible rows
+  {
+    pan_step
+    blink_rack_leds
+    x=6 wait_frames
+    pan_phase++
+    blink_rack_leds
+    x=6 wait_frames
+    pan_phase++
+    a=pan_phase
+    a?48
+  } !=
+}
+
+// Double the last 80x48 pixels around the far monitor into spare XL RAM.
+func build_zoom_bitmap {
+  pan_ptr=a=&<RevealImg+961
+  pan_ptr+1=a=&>RevealImg+961
+  art_ptr=a=&<ZoomBuf
+  art_ptr+1=a=&>ZoomBuf
+  zoom_second_ptr=a=&<ZoomBuf+40
+  zoom_second_ptr+1=a=&>ZoomBuf+40
+  zoom_rows=a=48
+  {
+    zoom_col=a=0
+    zoom_dest_col=a=0
+    {
+      y=zoom_col
+      a=(pan_ptr),y
+      x=a
+      y=zoom_dest_col
+      a=ZoomLeft,x
+      (art_ptr),y=a
+      y++
+      a=ZoomRight,x
+      (art_ptr),y=a
+      y++
+      zoom_dest_col=y
+      zoom_col++
+      a=zoom_col
+      a?20
+    } !=
+    y=0
+    {
+      a=(art_ptr),y
+      (zoom_second_ptr),y=a
+      y++
+      y?40
+    } !=
+    a=pan_ptr
+    c- a+64
+    pan_ptr=a
+    c+? { pan_ptr+1++ }
+    a=art_ptr
+    c- a+80
+    art_ptr=a
+    c+? { art_ptr+1++ }
+    a=zoom_second_ptr
+    c- a+80
+    zoom_second_ptr=a
+    c+? { zoom_second_ptr+1++ }
+    zoom_rows--
+    a=zoom_rows
+    a?0
+  } !=
+}
+
+func build_zoom_list {
+  pan_ptr=a=&<ZoomBuf
+  pan_ptr+1=a=&>ZoomBuf
+  dl_ptr=a=&<dl_reveal+3
+  dl_ptr+1=a=&>dl_reveal+3
+  x=96
+  {
+    y=1
+    a=pan_ptr
+    (dl_ptr),y=a
+    y=4
+    (dl_ptr),y=a
+    y=2
+    a=pan_ptr+1
+    (dl_ptr),y=a
+    y=5
+    (dl_ptr),y=a
+    a=pan_ptr
+    c- a+40
+    pan_ptr=a
+    c+? { pan_ptr+1++ }
+    a=dl_ptr
+    c- a+6
+    dl_ptr=a
+    c+? { dl_ptr+1++ }
+    x--
+    x?0
+  } !=
+}
+
+func show_zoom_bitmap {
+  build_zoom_bitmap
+  build_zoom_list
+  SDLSTL=a=&<dl_reveal
+  SDLSTH=a=&>dl_reveal
+  reveal_palette
+  x=16 wait_frames
+}
+
+// Composite the cat only after the terminal shot; scrolling never exposes it.
+func show_cat {
+  strip_ptr=a=&<CatStrip
+  strip_ptr+1=a=&>CatStrip
+  art_ptr=a=&<RevealImg+4096
+  art_ptr+1=a=&>RevealImg+4096
+  x=32
+  {
+    y=0
+    {
+      a=(strip_ptr),y
+      (art_ptr),y=a
+      y++
+      y?12
+    } !=
+    a=strip_ptr
+    c- a+12
+    strip_ptr=a
+    c+? { strip_ptr+1++ }
+    a=art_ptr
+    c- a+64
+    art_ptr=a
+    c+? { art_ptr+1++ }
+    x--
+    x?0
+  } !=
+}
+
+func build_reveal_list {
+  y=0
+  {
+    a=dl_storm,y
+    dl_reveal,y=a
+    a=dl_storm+256,y
+    dl_reveal+256,y=a
+    y++
+    y?0
+  } !=
+  y=0
+  {
+    a=dl_storm+512,y
+    dl_reveal+512,y=a
+    y++
+    y?70
+  } !=
+  dl_reveal+420=a=0xCE		// recolor at the floor, after rack row 69
+}
+
+naked reveal_dli {
+  a!!
+  WSYNC=a
+  COLPF0=a=0x72
+  COLPF1=a=0x08
+  COLPF2=a=0x2C
+  a??
+  return_i
+}
+

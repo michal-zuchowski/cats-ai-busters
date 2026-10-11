@@ -1,0 +1,171 @@
+// Platform level goals, HUD and frame loop.
+// - r4_goal - level 04 next action
+// - plat_hud - platform HUD
+// - plat_frame/frame_any - per-frame loops
+// - init_plat/next_level/dbg_level - level setup and progression
+
+func r4_goal {				// returns the room's next action in x
+  x=0
+  a=gate
+  a?0
+  != {
+    x=1
+    a=player_col
+    a?23
+    >= { x=2 }
+    a?33
+    >= { x=3 }
+  }
+  a=R4Off,x
+  c- a+&<R4Goal
+  msg_src=a
+  msg_src+1=a=&>R4Goal
+  msg_len=a=36
+  draw_row0_msg
+  a=R4Hint,x
+  x=a
+  a=ride
+  a?0
+  != {
+    a=act_col
+    a?17
+    >= { x=1 }
+  }
+}
+
+func plat_hud {
+  hud_col=a=0x0C
+  x=0
+  a=cur_level
+  a?1
+  == {
+    a=cur_room
+    a?0
+    == { x=1 }
+    a?2
+    == {
+      x=3
+      a=fan_t
+      a&64
+      a?0
+      == { x=2 }
+    }
+    sw_ready
+    a?0
+    != { x=7 }
+  }
+  a=cur_level
+  a?2
+  == {
+    x=4
+    a=ride
+    a?0
+    != {
+      x=5
+      a=bw
+      a?0
+      != { x=6 }
+    }
+    a=dk
+    a?0
+    != { x=8 }
+    a=e_mode
+    a&1
+    a?0
+    != {
+      a=gate
+      a?0
+      != { x=9 }
+    }
+    a=cur_room
+    a?3
+    == { r4_goal }
+  }
+  a=cur_level
+  a?3
+  == {
+    glass_ready
+    a?0 != { x=6 }
+  }
+  a=HintOff,x
+  msg_src=a
+  msg_src+1=a=&>Hints
+  hud_label
+  a=player_x
+  a>> a>> a>> a>>
+  c- a+2
+  hud_n=a
+  hud_bar
+}
+
+func plat_frame {
+  blink_leds
+  plat_input
+  a=level_finished
+  a?0
+  != { return }
+  plat_phys
+  plat_fan
+  plat_lift
+  plat_crumble
+  plat_actor
+  plat_pursuer
+  paw_both
+  plat_hit
+  plat_haz
+  plat_beam
+  plat_dlg
+  tick_cat
+  plat_hud
+  draw_player
+}
+
+func frame_any {
+  a=cur_level
+  a?0
+  == { l01_hop game_frame } else { plat_frame }
+}
+
+func init_plat {
+  x=cur_level
+  a=LvC1,x
+  COLOR1=a
+  COLOR0=a=0x0A
+  COLOR3=a=0x34
+  COLOR4=a=0
+  init_pmg
+  cur_room=a=0
+  fire_prev=a=1
+  dlg_done=a=0
+  entry_col=a=0
+  level_finished=a=0
+  level_music
+  enter_plat_room
+}
+
+func next_level {
+  a=cur_level
+  a?3
+  >= { return }
+  cur_level++
+  init_plat
+}
+
+func dbg_level {			// TEST: keys 1-4 jump to level 1-4
+  a=CH
+  a?0x1F
+  == { lives=a=9 CH=a=0xFF init_gameplay return }	// debug keys refill the nine lives
+  a?0x1E
+  == { x=1 }
+  a?0x1A
+  == { x=2 }
+  a?0x18
+  == { x=3 }
+  a?0x1E
+  != { a?0x1A != { a?0x18 != { return } } }
+  lives=a=9				// debug refill
+  CH=a=0xFF
+  cur_level=x
+  init_plat
+}
+

@@ -1,0 +1,63 @@
+// Title screen.
+// - title_screen - title display and start wait
+
+func title_screen {
+  switch_to_term
+  GRACTL=a=0
+  SDMCTL=a=0
+  DMACTL=a
+  cur_room=a=0
+  level_finished=a
+  disk_dest=a=&<ZoomBuf
+  disk_dest+1=a=&>ZoomBuf
+  a=22
+  load_checked_chunk
+  disk_dest=a=&<TermScreen
+  disk_dest+1=a=&>TermScreen
+  a=23
+  load_checked_chunk
+  disk_dest=a=&<TitleBottom
+  disk_dest+1=a=&>TitleBottom
+  a=24
+  load_checked_chunk
+  init_audio
+  a=17
+  start_music
+  NMIEN=a=0x40				// static bitmap has no DLI
+  SDLSTL=a=&<dl_title
+  SDLSTH=a=&>dl_title
+  COLOR4=a=0x00
+  COLOR0=a=0x82
+  COLOR1=a=0x0E
+  COLOR2=a=0x28
+  SDMCTL=a=0x22
+  title_phase=a=1
+title_release:
+  CH=a=0xFF
+  x=1 wait_frames
+  input_pressed
+  a?0
+  != { goto title_release }
+  CH=a=0xFF
+  title_phase=a=2
+title_wait:
+  x=1 wait_frames
+  a=TRIG0
+  a&1
+  a?0
+  == { goto title_start }
+  a=CH
+  a?0x0C
+  == { goto title_start }
+  a?0x21
+  == { goto title_start }
+  goto title_wait
+title_start:
+  title_phase=a=0
+  music_ready=a
+  SDMCTL=a
+  DMACTL=a
+  CH=a=0xFF
+  cut_to_black
+}
+

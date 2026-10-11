@@ -1,3 +1,5 @@
+[← back to doc/README.md](../README.md)
+
 # Intro — The Witness
 
 Night in a data center. The camera tracks from right to left along a row of server racks for about six seconds while over a hundred amber and green status lights blink, over a steady fan hum.

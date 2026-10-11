@@ -1,0 +1,176 @@
+// Platform physics and input.
+// - plat_fire - edge-triggered fire
+// - plat_input - joystick handling
+// - plat_phys - gravity, jump and collision
+// - l01_hop - level 01 jump helper
+
+func plat_fire {			// edge-triggered like read_fire
+  a=TRIG0
+  a&1
+  a?0
+  != { fire_prev=a=1 return }
+  a=fire_prev
+  a?0
+  == { return }
+  fire_prev=a=0
+  a=air
+  a?0
+  != { return }
+  a=paw_t
+  a?0
+  != { return }
+  a=cur_level
+  a?1
+  == { plat_switch return }
+  a?2
+  == { swat return }
+  a?3
+  == { plat_push }
+}
+
+func plat_input {
+  a=jprep
+  a?0
+  != {
+    jprep--
+    a=jprep
+    a?0
+    != { return }
+    vy=a=0xFC
+    air=a=1
+    gt=a=0
+    paw_t=a
+  }
+  a=PORTA
+  a&1
+  a?0
+  == {
+    a=air
+    a?0
+    == {
+      a=lnd
+      a?0
+      == { jprep=a=3 walk_timer=a=0 return }
+    }
+  }
+  plat_fire
+  a=level_finished
+  a?0
+  != { return }
+  a=lnd
+  a?0
+  != { return }
+  a=paw_t
+  a?0
+  != { return }
+  tmp=a=0
+  a=air
+  a?0
+  == { a=RTCLOK a&1 tmp=a }		// on the ground: 1 px per 2 frames
+  a=tmp
+  a?0
+  != { return }
+  a=PORTA
+  a&4
+  a?0
+  == {
+    facing=a=1
+    a=player_x
+    a?0
+    == { return }
+    player_x--
+    set_col
+    a=air
+    a?0
+    == { walk_timer=a=4 }
+    return
+  }
+  a=PORTA
+  a&8
+  a?0
+  == {
+    facing=a=0
+    a=player_x
+    a?140
+    == { plat_exit return }
+    player_x++
+    set_col
+    a=air
+    a?0
+    == { walk_timer=a=4 }
+  }
+}
+
+func plat_phys {
+  a=air
+  a?0
+  == {
+    under
+    a?0
+    != { return }
+    jprep=a=0
+    lnd=a
+    paw_t=a
+    air=a=1
+    vy=a=0
+  }
+  walk_timer=a=0
+  idle_timer=a=0
+  gt++
+  a=gt
+  a?3
+  == {				// gravity: +1 every 3 frames
+    gt=a=0
+    a=vy
+    a?5
+    != { vy++ }
+    a=vy
+    a?0
+    == { gt=a=2 }			// one frame at the apex, not a three-frame hover
+  }
+  a=vy
+  a&0x80
+  a?0
+  != {					// rising
+    a=vy
+    a^0xFF
+    c- a+1
+    cnt=a
+    { player_y-- cnt-- } !=
+  } else {
+    a=vy
+    a?0
+    != {				// falling: land when the feet reach a solid tile row
+      cnt=a
+      {
+        player_y++
+        under
+        a?0
+        != { air=a=0 vy=a=0 cnt=a=1 lnd=a=10 }
+        cnt--
+      } !=
+    }
+  }
+  a=player_y
+  a?196
+  >= { respawn }
+}
+
+func l01_hop {				// level 01: UP hops in place; under() lands the cat on the flat floor
+  a=alert_timer
+  a?0
+  != { return }
+  a=level_finished
+  a?0
+  != { return }
+  a=air
+  a?0
+  == {
+    a=PORTA
+    a&1
+    a?0
+    == { vy=a=0xFC air=a=1 gt=a=0 walk_timer=a=0 } else { return }
+  }
+  plat_phys
+}
+

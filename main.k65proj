@@ -2,9 +2,40 @@
 -lowAddr 0x1000
 -hiaddr 0x9FFF
 
-defs.k65 main
-sample.k65 main
-main.k65 main
+src/hardware_defs.k65 main
+src/meow_sample.k65 main
+src/memory_map.k65 main
+src/intro_text.k65 main
+src/hud_strings.k65 main
+src/bitmaps.k65 main
+src/display_lists.k65 main
+src/system.k65 main
+src/intro_camera.k65 main
+src/intro_scenes.k65 main
+src/l01_drawing.k65 main
+src/l01_cameras.k65 main
+src/l01_player.k65 main
+src/audio.k65 main
+src/l01_rooms.k65 main
+src/l01_hud.k65 main
+src/disk_io.k65 main
+src/l01_init.k65 main
+src/level_text.k65 main
+src/plat_tables.k65 main
+src/plat_surfaces.k65 main
+src/plat_drawing.k65 main
+src/plat_rooms.k65 main
+src/plat_paw.k65 main
+src/plat_switch_crumble.k65 main
+src/plat_physics.k65 main
+src/plat_fan_lift.k65 main
+src/plat_vacuums.k65 main
+src/plat_hazards.k65 main
+src/ai_cutscene.k65 main
+src/final_scene.k65 main
+src/plat_loop.k65 main
+src/title_screen.k65 main
+src/main_scene.k65 main
 
 -o out/cats-ai-busters.xex
 -link

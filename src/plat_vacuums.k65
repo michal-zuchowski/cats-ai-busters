@@ -1,0 +1,306 @@
+// Vacuum robots and their hit checks.
+// - dock_tick - R2 docked vacuum
+// - a_step/a_events/plat_actor - patrolling vacuum
+// - b_right/b_left/b_move/b_touch/plat_pursuer - pursuing vacuum
+// - hit_check/plat_hit - collision with the cat
+
+func dock_tick {			// R2: the docked vacuum blinks, then recovers and heads left
+  dk--
+  a=dk
+  a?0
+  == {
+    act_wob=a=24
+    act_dir=a=1
+    act_t=a=0
+  }
+  draw_act
+}
+
+func a_step {				// one patrol column; the right limit opens while struck / unlocked
+  wm=a=m_amax
+  a=e_mode
+  a?0
+  != {
+    a=act_wob
+    a?0
+    != { wm=a=m_xmax }
+    a=gate
+    a?0
+    != {
+      a=e_mode
+      a&2
+      a?0
+      != { wm=a=m_xmax }
+    }
+  }
+  a=act_dir
+  a?0
+  == {
+    a=act_col
+    a?wm
+    >= { act_dir=a=1 } else { act_col++ kk=a=1 }
+  } else {
+    a=m_amin
+    a?act_col
+    >= { act_dir=a=0 } else {
+      tmp=a=1
+      a=e_bspd
+      a?0
+      != {
+        a=act_col
+        c+ a-bcol
+        a?4
+        < { tmp=a=0 }			// never into the pursuer
+      }
+      a=tmp
+      a?0
+      != { act_col-- kk=a=2 }
+    }
+  }
+}
+
+func a_events {				// docking in the bay / crossing the reader
+  a=e_mode
+  a&1
+  a?0
+  != {
+    a=act_dir
+    a?0
+    == {
+      a=act_wob
+      a?0
+      != {
+        a=act_col
+        a?m_dock
+        >= {
+          dk=a=240
+          act_wob=a=0
+          gate=a=1
+          tmp=a=0
+          draw_gate
+        }
+      }
+    }
+  }
+  a=e_mode
+  a&2
+  a?0
+  == { return }
+  a=gate
+  a?0
+  != { return }
+  a=act_col
+  a?m_z0
+  < { return }
+  a=m_z1
+  a?act_col
+  < { return }
+  gate=a=1
+  tmp=a=0
+  draw_gate
+  draw_reader
+}
+
+func plat_actor {
+  a=m_arow
+  a?0
+  == { return }
+  spin_brushes
+  a=act_wob
+  a?0
+  != { act_wob-- }
+  a=bwob
+  a?0
+  != { bwob-- }
+  ride=a=0
+  a=air
+  a?0
+  == {
+    on_vacuum
+    a?0
+    != { ride=a=1 }
+  }
+  slot=a=0
+  a=dk
+  a?0
+  != { dock_tick return }
+  act_t++
+  a=act_t
+  a?m_aspd
+  < { return }
+  act_t=a=0
+  erase_act
+  kk=a=0
+  a_step
+  draw_act
+  a_events
+  carry
+}
+
+func b_right {				// pursuer one column right, never nearer than 4 to the carrier
+  a=bcol
+  a?m_bmax
+  >= { return }
+  a=act_col
+  c+ a-bcol
+  a?4
+  < { return }				// closes to 3 columns: dome-to-dome touching
+  bcol++
+  kk=a=1
+}
+
+func b_left {
+  a=m_bmin
+  a?bcol
+  >= { return }
+  bcol--
+  kk=a=2
+}
+
+func b_move {				// shoved, chasing a rider, or going home
+  a=bwob
+  a?0
+  != {
+    a=bdir
+    a?0
+    == { b_right } else { b_left }
+    return
+  }
+  a=ride
+  a?0
+  != { b_right return }
+  a=m_bcol
+  a?bcol
+  < { b_left }
+  a=bcol
+  a?m_bcol
+  < { b_right }
+}
+
+func b_touch {				// a = 1 while the rider's rearmost pixel overlaps the pursuer's dome front
+  a=lnd
+  a?0
+  != { a=0 return }
+  a=jprep
+  a?0
+  != { a=0 return }
+  a=ride
+  a?0
+  == { return }
+  a=carrier
+  a?0
+  != { a=0 return }			// only the cat riding the lead vacuum is chased
+  a=bwob
+  a?0
+  != { a=0 return }			// a shoved pursuer is disarmed
+  a=bcol
+  a<< a<<
+  c- a+10
+  tmp=a
+  a=player_x
+  x=facing
+  x?0
+  != { c- a+2 }			// the left-facing seated frame starts two pixels further in
+  a?tmp
+  < { a=1 return }
+  a=0
+}
+
+func plat_pursuer {			// the separate rear vacuum: wakes when the cat rides, sleeps at home
+  a=cur_level
+  a?2
+  != { return }
+  a=e_bspd
+  a?0
+  == { return }
+  a=e_mode
+  a&2
+  a?0
+  != {
+    a=gate
+    a?0
+    == { return }
+  }
+  slot=a=21
+  bw=a=0
+  a=ride
+  a?0
+  != { bw=a=1 }
+  a=bcol
+  a?m_bcol
+  != { bw=a=1 }
+  a=bw
+  a?0
+  != {
+    b_touch
+    a?0
+    == {
+      a=bk
+      a?0
+      != { bk-- }
+    } else {
+      bk++
+      a=bk
+      a?48
+      >= { slot=a=0 respawn return }	// held against the rider for ~0.8 s: retry
+    }
+  }
+  bt++
+  a=bt
+  a?m_bspd
+  < { slot=a=0 return }
+  bt=a=0
+  erase_act
+  kk=a=0
+  b_move
+  draw_act
+  carry
+  slot=a=0
+}
+
+func hit_check {			// slot: walking into a live vacuum at floor level
+  x=slot
+  a=act_wob,x
+  a?0
+  != { return }				// a struck vacuum is briefly disarmed
+  a=slot
+  a?0
+  == {
+    a=dk
+    a?0
+    != { return }			// docked
+  } else {
+    a=bw
+    a?0
+    == { return }			// a sleeping pursuer is harmless
+  }
+  vacuum_roof
+  c- a+1
+  tmp=a
+  a=player_y
+  a?tmp
+  < { return }
+  x=slot
+  a=act_col,x
+  tmp=a
+  a=player_col
+  c+ a-tmp
+  a?3
+  >= { return }
+  respawn
+}
+
+func plat_hit {
+  a=m_arow
+  a?0
+  == { return }
+  slot=a=0
+  hit_check
+  a=e_bspd
+  a?0
+  == { return }
+  slot=a=21
+  hit_check
+  slot=a=0
+}
+

@@ -1,0 +1,149 @@
+// Controller switch and crumbling floor.
+// - sw_ready/plat_switch - controller switch use
+// - cr_put/crumble_reset/plat_crumble - crumbling floor tiles
+
+func sw_ready {				// a = 1: grounded at the controller's height, within 2 columns, unused
+  a=m_swy
+  a?0
+  == { return }
+  a?player_y
+  != { a=0 return }
+  a=sw_on
+  a?0
+  != { a=0 return }
+  a=air
+  a?0
+  != { a=0 return }
+  a=player_col
+  c+ a-m_swc
+  c- a+2
+  a?5
+  >= { a=0 return }
+  a=1
+}
+
+func plat_switch {			// FIRE at the controller: open the roof gate, power the lift
+  sw_ready
+  a?0
+  == { return }
+  sw_on=a
+  sfx_switch
+  tmp=a=62
+  a=m_swy
+  a>> a>> a>>
+  c+ a-1
+  x=a
+  y=m_swc
+  cnt=a=1
+  put_run
+  a=m_exit
+  a>> a>> a>>
+  c+ a-4
+  cr_i=a
+  kk=a=3
+  {
+    tmp=a=85
+    x=cr_i
+    y=39
+    cnt=a=1
+    put_run
+    cr_i++
+    kk--
+  } !=
+  a=m_lpow
+  a?0
+  != { draw_lift }
+}
+
+func cr_put {				// slot x: draw tmp (0 = restore art) on its tile; x preserved
+  cr_i=x
+  a=cr_c,x
+  y=a
+  a=cr_r,x
+  x=a
+  cnt=a=1
+  put_run
+  x=cr_i
+}
+
+func crumble_reset {		// level 02 only: other levels alias these bytes as actor state
+  a=cur_level
+  a?1
+  != { return }
+  x=0
+  {
+    a=cr_t,x
+    a?0
+    != {
+      tmp=a=0
+      cr_put
+      a=0
+      cr_t,x=a
+    }
+    x++
+    x?8
+  } !=
+}
+
+func plat_crumble {			// contact: warning 40 frames, tile gone until frame 120, then restored
+  a=cur_level
+  a?1
+  != { return }
+  x=0
+  {
+    a=cr_t,x
+    a?0
+    != {
+      c- a+1
+      cr_t,x=a
+      a?40
+      == { tmp=a=64 cr_put }
+      a=cr_t,x
+      a?120
+      == {
+        tmp=a=0
+        cr_put
+        a=0
+        cr_t,x=a
+      }
+    }
+    x++
+    x?8
+  } !=
+  a=air
+  a?0
+  != { return }
+  a=player_y
+  a&7
+  a?0
+  != { return }
+  a=player_y
+  a>> a>> a>>
+  c+ a-1
+  tmp=a
+  x=a
+  row_ptr
+  y=player_col
+  a=(sp),y
+  a?127
+  != { return }
+  x=0
+  {
+    a=cr_t,x
+    a?0
+    == {
+      a=1
+      cr_t,x=a
+      a=tmp
+      cr_r,x=a
+      a=player_col
+      cr_c,x=a
+      tmp=a=0xFF			// warning: inverse, still supporting
+      cr_put
+      return
+    }
+    x++
+    x?8
+  } !=
+}
+

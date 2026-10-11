@@ -1,0 +1,42 @@
+// Level 01 initialisation.
+// - init_gameplay - reset state, load assets, start music and enter the first room
+
+func init_gameplay {
+  stop_music
+  switch_to_term
+  clear_term_screen
+  SDMCTL=a=0x22
+  disk_selftest
+  load_level_assets
+  COLOR0=a=0x0A				// light steel: highlights and HUD text
+  COLOR1=a=0x82				// dark blue steel racks
+  COLOR2=a=0x26				// rust cables
+  COLOR3=a=0x34				// red: LEDs and watched floor (inverse tiles)
+  COLOR4=a=0x00
+  init_pmg
+  VDSLST=a=&<hud_dli
+  VDSLST+1=a=&>hud_dli
+  NMIEN=a=0xC0
+  cur_room=a=0
+  move_timer=a=0
+  fire_prev=a=1
+  relay_done=a=0
+  alert_timer=a=0
+  level_finished=a=0
+  init_audio
+  entry_col=a=0
+  player_y=a=184
+  old_y=a=184
+  cur_level=a=0
+  lnd=a
+  jprep=a
+  paw_t=a
+  paw_kind=a
+  paw_hit=a
+  air=a
+  vy=a
+  gt=a
+  level_music
+  enter_room
+}
+

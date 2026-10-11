@@ -1,0 +1,35 @@
+// Platform levels 02-04 data tables.
+// - ActT - actor tile IDs; FanT - fan animation tiles
+// - HintOff/DlgOff/FinOff/FinRow - offsets into the text tables
+// - R4Goal/R4Off/R4Hint - level 04 goal text and offsets
+// - GlassPoses - glass-on-desk animation poses
+
+// ---------------------------------------------------------------------------
+// Platform levels 02-04 (data-driven: rooms are disk chunks, see tools/cmd/make-plat-levels)
+// Tiles: platforms are FLOOR tiles (one-way: only landed on when falling).
+// ---------------------------------------------------------------------------
+data ActT { 91 92 93 95 124 125 1 2 6 95 124 125 }
+data HintOff { 0 7 14 21 28 35 42 49 56 63 }
+data FanT { 21 22 23 24 25 27 28 60 }
+data DlgOff { 0 36 72 108 144 }
+data FinOff { 0 36 72 }
+data FinRow { 10 12 14 }
+data R4Goal {
+  nocross
+  charset " !~#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "SWAT THE VACUUM THROUGH THE READER. "
+  "RIDE RIGHT. JUMP TO THE BALCONY.    "
+  "JUMP THE GAP TO THE SERVICE EXIT.   "
+  "SERVICE ACCESS OPEN. GO RIGHT.      "
+}
+data R4Off { 0 36 72 108 }
+data R4Hint { 4 5 1 9 }
+// Four 8-byte glyph poses: upright, edge-tilted, tumbling and splash.
+// Pose 0 is the generated GLASS glyph and is restored on every ordinary draw.
+data GlassPoses {
+  0 0 65 65 105 105 85 170
+  0 65 65 105 105 85 170 0
+  0 65 105 85 170 0 65 0
+  0 65 85 170 0 65 105 0
+}
+

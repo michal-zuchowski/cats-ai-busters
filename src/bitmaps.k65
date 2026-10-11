@@ -1,0 +1,62 @@
+// Bitmap/picture data and RAM buffers.
+// - RoomArtBuf/CamCfg/ConeStep - fixed buffers in the intro's dead ZoomBuf scratch
+// - ChunkTable - disk chunk table (start sector, count, checksum) emitted by tools/cmd/make-atr
+// - MsgDiskOk/MsgDiskErr - disk self-test result strings
+// - FrameMap - logical -> physical cat sprite frame map
+// - RevealImg - 256x96 panorama of the facility (4K aligned)
+// - Leds/BitMasks - rack LED positions/blink patterns and bit masks
+// - CatStrip - cat pixels patched into the panorama's bottom rows
+// - FaceImg - 40x96 close-up cat face for the pupil-dilation beat
+// - CallImg - 40x80 video-call picture (boss cat on a lap)
+
+// CamCfg/ConeStep/RoomArt now live on disk (a3e.3) and are streamed into
+// RAM: RoomArtBuf/CamCfg/ConeStep share the intro's unused 4K ZoomBuf
+// scratch (dead once gameplay starts), each at a fixed offset so a
+// per-room RoomArtBuf reload (load_room_art) never disturbs the
+// once-per-level CamCfg/ConeStep loads (load_level_assets).
+var RoomArtBuf = 0xA000		// = ZoomBuf; current room's 960-byte clean tiles
+var CamCfg = 0xA400		// 3 rooms x 2 slots x 8 bytes (48 bytes)
+var ConeStep = 0xA480		// d=-40..39: lo[80], hi[80] (160 bytes)
+
+// Disk chunk table (a3e.2/a3e.3): one 5-byte entry per chunk appended to
+// the ATR after the resident program -- word start_sector, word
+// sector_count, byte checksum. tools/cmd/make-atr emits this; chunks are,
+// in order: room0/room1/room2 art (level-rooms.pic, 960 bytes each),
+// CamCfg (level-cams.bin), ConeStep (cone-step.bin). disk_selftest below
+// verifies chunk 0 (room0 art) as a real, load-bearing smoke test.
+data ChunkTable { binary "assets/disk-chunks.bin" }
+
+data MsgDiskOk { // 'DISK OK'
+  36 41 51 43 0 47 43
+}
+data MsgDiskErr { // 'DISKERR'
+  36 41 51 43 37 50 50
+}
+
+data FrameMap { binary "assets/cat-frame-map.bin" }	// 58 logical frames -> physical frame
+
+// The panorama is 256x96; the visible window is 160 pixels (40 bytes) wide.
+data RevealImg { // 64 bytes x 96 rows, two scanlines per row
+  align 4096
+  binary "assets/room.pic"
+}
+// After the intro ends, load the 5120-byte cat atlas over this 6144-byte panorama.
+
+data Leds { // lo[], 0, hi[], 0xFF, eor mask[], 0, blink pattern[], 0 (120 LEDs)
+  binary "assets/leds.tbl"
+}
+
+data BitMasks { 1 2 4 8 16 32 64 128 }
+
+data CatStrip { // last 12 bytes of each of the bottom 32 panorama rows
+  binary "assets/cat-strip.pic"
+}
+
+data FaceImg { // 40 bytes x 96 rows, two scanlines per row
+  align 4096
+  binary "assets/face.pic"
+}
+data CallImg { // 40 bytes x 80 rows, ANTIC D (two scanlines per row)
+  align 4096
+  binary "assets/call.pic"
+}

@@ -1,3 +1,5 @@
+[← back to doc/README.md](../README.md)
+
 # Level 01 — The Blind Spot (planned)
 
 **Place:** the data center from the intro, minutes after the CATCOM call.
@@ -6,7 +8,7 @@ the building, without revealing the feline agency. Humans remain oblivious;
 they are background characters, not enemies.
 
 The black screen after the call fades into the service corridor. A short
-message on the cat's CATCOM collar reads: `STOP THE RELAY. STAY UNSEEN.`
+message on the cat's CATCOM collar reads: `PLAY RECORD. STAY UNSEEN.`
 The gray tabby agent is already inside the data center. Three fixed screens
 form one continuous route; crossing the right edge advances to the next
 screen, and crossing the left edge returns to the previous one.
@@ -35,7 +37,9 @@ screen, and crossing the left edge returns to the previous one.
 area, the relay raises a local alert. The screen briefly flashes
 `UNRECOGNIZED DEVICE`; the cat retreats to the entrance of the current
 screen and that screen's switch/camera state resets. Completed earlier
-screens remain accessible. There are no lives, combat, or timed game over.
+screens remain accessible. Each alert costs one of the cat's nine lives (`X9` on the bottom HUD);
+losing the last one shows `GAME OVER` and restarts from the title screen.
+There is no combat or timer.
 Being seen does not tell the AI who rules the world; it only sees an
 unclassified disturbance.
 

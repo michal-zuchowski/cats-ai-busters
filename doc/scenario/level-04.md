@@ -1,3 +1,5 @@
+[← back to doc/README.md](../README.md)
+
 # Level 04 — The Last Command
 
 The cat reaches the AI's control suite from [Level 03](level-03.md).
@@ -70,7 +72,7 @@ conversation and stops for the timing-critical shutdown sample. No disk
 read occurs during PCM playback.
 
 Source/data routes and scene contracts are checked by
-`python3 tests/test_level04.py`. Fresh compiled XEX/ATR and emulator
+`go test ./tests -run Level04`. Fresh compiled XEX/ATR and emulator
 acceptance are still needed for display, sound and linker verification.
 The current post-shutdown text/fade is a temporary aftermath placeholder while
 the ending cinematic is redesigned. Its PMG cleanup is nevertheless explicit:

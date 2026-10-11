@@ -1,0 +1,331 @@
+// Level 01 drawing: messages, room header, cat sprite (PMG).
+// - clear_row0/1, draw_row0_msg/draw_row1_msg - message rows
+// - draw_room_header - room title row
+// - draw_frame/jump_facing/draw_player - cat player-missile sprite drawing
+// - set_col/cat_stepped/tick_cat - column update and walk animation
+// - repaint_current - redraw the current room state
+// - init_pmg - player-missile graphics setup
+
+// ------------------------------ Level 01 gameplay ----------------------------
+// Illustrated 40x24 rooms share a walkable row 22; RoomArt provides
+// the background, tile IDs 64..124 in TermFont the graphics.
+// Ceiling cameras sweep a light cone; the floor under its footprint is seen
+// unless a rack stands there (the art's floor row holds SHADOW, not FLOOR).
+// cam_sees is both what repaint_current draws and what check_detection uses.
+
+func clear_row0 {
+  x=0
+  a=0
+  {
+    TermScreen,x=a
+    x++
+    x?40
+  } !=
+}
+
+func clear_row1 {
+  x=0
+  a=0
+  {
+    TermScreen+40,x=a
+    x++
+    x?40
+  } !=
+}
+
+func draw_row0_msg {			// msg_src/msg_len set by the caller
+  y=0
+  {
+    a=(msg_src),y
+    TermScreen,y=a
+    y++
+    y?msg_len
+  } !=
+}
+
+func draw_row1_msg {			// msg_src/msg_len set by the caller
+  y=0
+  {
+    a=(msg_src),y
+    TermScreen+40,y=a
+    y++
+    y?msg_len
+  } !=
+}
+
+func draw_room_header {		// row 1: reuses "CONTROL INFRASTRUCTURE"
+  a=cur_room				// from the intro's Line4, or MsgRoute once
+  a?2					// the relay in room 2 is diverted
+  == {
+    a=relay_done
+    a?0
+    != {
+      msg_src=a=&<MsgRoute
+      msg_src+1=a=&>MsgRoute
+      msg_len=a=22
+      draw_row1_msg
+      return
+    }
+  }
+  msg_src=a=&<Line4+10
+  msg_src+1=a=&>Line4+10
+  msg_len=a=22
+  draw_row1_msg
+}
+
+func draw_frame {			// a = logical frame number; draws it at player_y
+  x=a
+  a=FrameMap,x
+  x=a
+  a&1
+  a?0
+  == { a=0 } else { a=0x80 }
+  spr_ptr=a
+  a=x
+  a>>
+  c- a+&>RevealImg
+  spr_ptr+1=a
+  x=old_y
+  y=24
+  a=0
+  {
+    PmMem,x=a
+    PmMem+256,x=a
+    PmMem+512,x=a
+    PmMem+768,x=a
+    x++
+    y--
+  } !=
+  y=0
+  x=player_y
+  { a=(spr_ptr),y PmMem,x=a x++ y++ y?24 } !=
+  y=32
+  x=player_y
+  { a=(spr_ptr),y PmMem+256,x=a x++ y++ y?56 } !=
+  y=64
+  x=player_y
+  { a=(spr_ptr),y PmMem+512,x=a x++ y++ y?88 } !=
+  y=96
+  x=player_y
+  { a=(spr_ptr),y PmMem+768,x=a x++ y++ y?120 } !=
+  old_y=a=player_y
+  a=player_x
+  c- a+48
+  HPOSP0=a
+  HPOSP2=a
+  c- a+8
+  HPOSP1=a
+  HPOSP3=a
+}
+
+func jump_facing {			// a = right-facing leap frame (28..35)
+  x=facing
+  x?0
+  != { c- a+8 }
+  draw_frame
+}
+
+func draw_player {			// PMG cat: stride frame from x (paws stay planted), else idle
+  a=jprep
+  a?0
+  != { a=28 jump_facing return }
+  a=air
+  a?0
+  != {					// push off, stretch forward, reach down
+    a=vy
+    a?0xFF
+    == { a=30 } else {
+      a&0x80
+      a?0
+      != {
+        a=vy
+        a?0xFD
+        < { a=29 } else { a=30 }
+      } else {
+        a=vy
+        a?1
+        >= { a=31 } else { a=30 }
+      }
+    }
+    jump_facing
+    return
+  }
+  a=paw_t
+  a?0
+  != {
+    a=paw_kind
+    a?2
+    == {				// seated hind-leg shove
+      paw_t--
+      a=50
+      x=paw_t
+      x?4
+      >= { x?8 < { a=52 } }
+      x=facing
+      x?0
+      != { c- a+1 }
+      draw_frame
+      return
+    }
+    paw_t--
+    a=paw_t
+    a?3
+    < { a=28 jump_facing return }	// pull the paw back before standing
+    a=paw_kind
+    a?0
+    == {
+      a=paw_t
+      a?7
+      < {
+        a=48
+        x=facing
+        x?0
+        != { a=49 }
+        draw_frame
+        return
+      }
+    }
+    a=paw_kind
+    c- a+44
+    x=facing
+    x?0
+    != { c- a+2 }
+    draw_frame
+    return
+  }
+  a=lnd
+  a?0
+  != {
+    a=lnd
+    a?9
+    >= { a=32 } else {
+      a?6
+      >= { a=33 } else {
+        a?3
+        >= { a=34 } else { a=35 }
+      }
+    }
+    lnd--
+    jump_facing
+    return
+  }
+  a=ride
+  a?0
+  != {
+    a=cur_level
+    a?2
+    == {				// seated on a vacuum roof
+      a=50
+      x=facing
+      x?0
+      != { a=51 }
+      draw_frame
+      return
+    }
+  }
+  a=walk_timer
+  a?0
+  == {
+    a=idle_timer
+    a?30
+    >= { a=13 } else { a=12 }
+  } else {
+    a=player_x			// 1 drawing per colour clock
+    { a?12 >= { c+ a-12 } } >=	// mod 12: 12-drawing stride
+    x=facing
+    x?0
+    != { a^0xFF c- a+12 }		// mirrored frames play forward while x falls
+  }
+  x=facing
+  x?0
+  != { c- a+14 }
+  draw_frame
+}
+
+func set_col {				// player_col = column under the cat's middle
+  a=player_x
+  c- a+2
+  a>>
+  a>>
+  c- a+2
+  player_col=a
+}
+
+func cat_stepped {			// 1 px per 3 frames: half-size cat, same leg cadence
+  walk_timer=a=4
+  move_timer=a=2
+  set_col
+}
+
+func tick_cat {
+  a=walk_timer
+  a?0
+  != { walk_timer-- }
+  idle_timer++
+  a=idle_timer
+  a?40
+  >= { idle_timer=a=0 }
+}
+
+func repaint_current {			// repaints play-row column x for the current room
+  a=cur_room
+  a?2
+  == {
+    x?33
+    == {
+      a=relay_done
+      a?0
+      == { a=83 } else { a=84 }
+      goto rp_fixed
+    }
+    x?38
+    == {
+      a=relay_done
+      a?0
+      == { a=81 } else { a=85 }
+      goto rp_fixed
+    }
+  }
+  call cam_sees
+  a?0
+  != { a=117 TermScreen+880,x=a return }
+  a=x
+  y=a
+  a=(floor_ptr),y
+  TermScreen+880,x=a
+  return
+rp_fixed:				// terminal and hatch keep their glyph, lit red when watched
+  tmp=a
+  call cam_sees
+  a?0
+  != { a=tmp a|0x80 TermScreen+880,x=a return }
+  a=tmp
+  TermScreen+880,x=a
+}
+
+func init_pmg {
+  a=0
+  y=0
+  {
+    PmMem,y=a
+    PmMem+256,y=a
+    PmMem+512,y=a
+    PmMem+768,y=a
+    y++
+    y?0
+  } !=
+  a=0					// normal-width players: half-size cat
+  SIZEP0=a
+  SIZEP1=a
+  SIZEP2=a
+  SIZEP3=a
+  PMBASE=a=0xB8
+  GRACTL=a=2				// players only
+  SDMCTL=a=0x3A				// playfield + single-line player DMA
+  GPRIOR=a=1				// cat in front of the racks
+  PCOLR0=a=0x24				// P0/P1: stripes, nose, far legs (dark ginger)
+  PCOLR1=a=0x24
+  PCOLR2=a=0x2C				// P2/P3: ginger fur
+  PCOLR3=a=0x2C
+}
+

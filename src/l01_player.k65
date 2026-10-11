@@ -1,0 +1,163 @@
+// Level 01 player logic: detection, alert, relay terminal, input.
+// - check_detection - cat inside a camera cone?
+// - trigger_alert - alert state, life loss and respawn
+// - handle_relay - relay terminal hacking
+// - read_fire/read_and_move - joystick input and movement
+
+func check_detection {			// The cat spans columns x/4..(x+15)/4: test its
+  a=player_x				// rear and front body columns, 3 px of tail and
+  c- a+3				// whiskers forgiven at each end. The cone is
+  a>>					// always wider than the gap between them.
+  a>>
+  x=a
+  cam_sees
+  a?0
+  != { call trigger_alert return }
+  a=player_x
+  c- a+12
+  a>>
+  a>>
+  x=a
+  cam_sees
+  a?0
+  != { call trigger_alert }
+}
+
+func trigger_alert {			// ignored while already alerting; relay_done is untouched
+  a=alert_timer
+  a?0
+  != { return }
+  call lose_life			// forward: defined in l01_hud
+  alert_timer=a=90
+  relay_progress=a=0
+  relay_active=a=0
+  switch_timer=a=0
+  player_x=a=0
+  facing=a=0
+  set_col
+  walk_timer=a=0
+  draw_player
+  clear_row0
+  msg_src=a=&<MsgAlert
+  msg_src+1=a=&>MsgAlert
+  msg_len=a=19
+  draw_row0_msg
+  call sfx_alert
+}
+
+func handle_relay {
+  a=relay_active
+  a?0
+  == { return }
+  a=player_col
+  a?33
+  != { relay_active=a=0 relay_progress=a=0 return }
+  relay_progress++
+  a=relay_progress
+  a?90
+  >= {
+    relay_done=a=1
+    relay_active=a=0
+    x=33
+    repaint_current
+    x=38
+    repaint_current
+    clear_row1
+    msg_src=a=&<MsgRoute
+    msg_src+1=a=&>MsgRoute
+    msg_len=a=22
+    draw_row1_msg
+    call sfx_success
+  }
+}
+
+func read_fire {			// edge-triggered: one action per press-release cycle
+  a=TRIG0
+  a&1
+  a?0
+  != { fire_prev=a=1 return }
+  a=fire_prev
+  a?0
+  == { return }
+  fire_prev=a=0
+  a=cur_room
+  a?1
+  == {
+    a=player_col
+    a?6
+    == { switch_timer=a=250 call sfx_switch }
+    return
+  }
+  a=cur_room
+  a?2
+  == {
+    a=player_col
+    a?33
+    == {
+      a=relay_done
+      a?0
+      == { relay_active=a=1 }
+    }
+  }
+}
+
+func read_and_move {
+  a=move_timer
+  a?0
+  != { move_timer-- return }
+
+  a=PORTA
+  a&4
+  a?0
+  == {
+    facing=a=1
+    a=player_x
+    a?0
+    == {
+      a=cur_room
+      a?0
+      != {
+        entry_col=a=136
+        cur_room--
+        call enter_room
+      }
+      move_timer=a=6
+      return
+    }
+    player_x--
+    cat_stepped
+    return
+  }
+
+  a=PORTA
+  a&8
+  a?0
+  == {
+    facing=a=0
+    a=player_x
+    a?140
+    == {
+      a=cur_room
+      a?2
+      == {
+        a=relay_done
+        a?0
+        == { move_timer=a=6 return }
+        player_x=a=144
+        cat_stepped
+        draw_player
+        call level_ending
+        return
+      }
+      entry_col=a=0
+      cur_room++
+      call enter_room
+      move_timer=a=6
+      return
+    }
+    player_x++
+    cat_stepped
+    return
+  }
+}
+
