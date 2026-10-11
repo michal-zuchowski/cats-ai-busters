@@ -22,7 +22,7 @@ const (
 	Void      = 64
 	Ceil      = 65
 	CeilEdge  = 66
-	Tray      = 67
+	CatL      = 67 // playback cat head, left half (right half CatR); eyes blink, OR Inv = red REC eyes
 	Cam       = 68
 	RailL     = 69
 	Floor     = 70 // play row: open floor (fixed ID, used by src/*.k65)
@@ -35,7 +35,7 @@ const (
 	Cap       = 77
 	Shadow    = 78 // play row: rack shelter
 	Beam      = 79 // play row: watched floor, drawn inverse (red)
-	Safe      = 80 // play row: camera dark
+	CatR      = 80
 	Wall      = 81 // hatch closed
 	Switch    = 82
 	Relay     = 83
@@ -149,6 +149,42 @@ func Frame(s *Screen, left, top, right, bottom int, fill func(x, y int) int) {
 	}
 	s[top][left], s[top][right] = FrTL, FrTR
 	s[bottom][left], s[bottom][right] = FrBL, FrBR
+}
+
+// Console draws the record console: a framed screen, a control strip and a
+// plinth, rows top..21. Its footprint keeps the Shadow floor of a rack.
+func Console(s *Screen, left, top, width int) {
+	right := left + width - 1
+	Frame(s, left, top, right, top+3, func(x, y int) int { return pick((x+y)%2 == 0, TxtB|Inv, TxtA) })
+	for x := left; x <= right; x++ {
+		s[top+4][x] = Panel
+		s[21][x] = Plinth
+	}
+	s[21][left], s[21][right] = PlinthL, PlinthR
+}
+
+// PlaybackBlock is one wall-monitor interior (rows from Row, columns from Col)
+// that shows the looped recording once the room-3 console has been used.
+type PlaybackBlock struct {
+	Row, Col int
+	Tiles    [][]int
+}
+
+// Playback replaces the two monitor interiors of room 3 (src/l01_rooms.k65
+// PlayL/PlayR, row-major, rows of 5 and 3 tiles).
+var Playback = [2]PlaybackBlock{
+	{7, 18, [][]int{
+		{Beam | Inv, Beam | Inv, Beam | Inv, Beam | Inv, Beam | Inv},
+		{Void, CatL | Inv, CatR | Inv, Void, Void},
+		{Void, Void, Void, CatL | Inv, CatR | Inv},
+		{Beam | Inv, Beam | Inv, Beam | Inv, Beam | Inv, Beam | Inv},
+	}},
+	{11, 33, [][]int{
+		{Beam | Inv, Beam | Inv, Beam | Inv},
+		{Void, CatL | Inv, CatR | Inv},
+		{CatL | Inv, CatR | Inv, Void},
+		{Beam | Inv, Beam | Inv, Beam | Inv},
+	}},
 }
 
 // Shell is the empty room: void, ceiling rows, bottom edge, conduit columns and camera tiles.
@@ -279,18 +315,14 @@ func Room(number int) []byte {
 		Rack(s, 28, 7, 5, 21, 7)
 		Rack(s, 36, 6, 4, 21, 8)
 		FloorRow(s, SpecialTile{6, Switch})
-	default: // zone 1 7..25 with cover 12..16, shelter 26..31, zone 2, relay 33, hatch 38
+	default: // zone 1 7..25 with cover 12..16, shelter (record console) 26..31, zone 2, hatch 38
 		s = Shell([]int{20, 35}, []int{8, 24})
 		Rack(s, 1, 6, 6, 21, 9)
 		Rack(s, 12, 8, 5, 21, 10)
 		Frame(s, 17, 6, 23, 11, func(x, y int) int { return pick((x*y)%3 != 0, TxtB, TxtA) })
-		Rack(s, 26, 5, 6, 21, 11)
+		Console(s, 26, 16, 6)
 		Frame(s, 32, 10, 36, 15, func(x, y int) int { return pick(y%2 != 0, TxtA, TxtB|Inv) })
-		for y := 13; y < 22; y++ {
-			s[y][38] = Wall
-			s[y][39] = Wall
-		}
-		FloorRow(s, SpecialTile{33, Relay}, SpecialTile{38, Wall})
+		FloorRow(s, SpecialTile{38, Wall})
 	}
 	for _, c := range Cameras[number] {
 		if c.Col != 0 {

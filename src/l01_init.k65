@@ -2,6 +2,7 @@
 // - init_gameplay - reset state, load assets, start music and enter the first room
 
 func init_gameplay {
+  preload_ready=a=0			// before any load: never trust a stale stage
   stop_music
   switch_to_term
   clear_term_screen

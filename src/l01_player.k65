@@ -1,7 +1,7 @@
-// Level 01 player logic: detection, alert, relay terminal, input.
+// Level 01 player logic: detection, alert, record console, input.
 // - check_detection - cat inside a camera cone?
 // - trigger_alert - alert state, life loss and respawn
-// - handle_relay - relay terminal hacking
+// - start_playback - console FIRE: loop on both monitors, camera 2 fooled
 // - read_fire/read_and_move - joystick input and movement
 
 func check_detection {			// The cat spans columns x/4..(x+15)/4: test its
@@ -29,8 +29,6 @@ func trigger_alert {			// ignored while already alerting; relay_done is untouche
   != { return }
   call lose_life			// forward: defined in l01_hud
   alert_timer=a=90
-  relay_progress=a=0
-  relay_active=a=0
   switch_timer=a=0
   player_x=a=0
   facing=a=0
@@ -45,30 +43,17 @@ func trigger_alert {			// ignored while already alerting; relay_done is untouche
   call sfx_alert
 }
 
-func handle_relay {
-  a=relay_active
-  a?0
-  == { return }
-  a=player_col
-  a?33
-  != { relay_active=a=0 relay_progress=a=0 return }
-  relay_progress++
-  a=relay_progress
-  a?90
-  >= {
-    relay_done=a=1
-    relay_active=a=0
-    x=33
-    repaint_current
-    x=38
-    repaint_current
-    clear_row1
-    msg_src=a=&<MsgRoute
-    msg_src+1=a=&>MsgRoute
-    msg_len=a=22
-    draw_row1_msg
-    call sfx_success
-  }
+func start_playback {			// console FIRE: the loop plays at once; camera 2 is fooled for good
+  relay_done=a=1
+  call show_playback			// forward: defined in l01_rooms
+  x=38
+  repaint_current
+  clear_row1
+  msg_src=a=&<MsgRoute
+  msg_src+1=a=&>MsgRoute
+  msg_len=a=22
+  draw_row1_msg
+  call sfx_success
 }
 
 func read_fire {			// edge-triggered: one action per press-release cycle
@@ -91,12 +76,15 @@ func read_fire {			// edge-triggered: one action per press-release cycle
   a=cur_room
   a?2
   == {
-    a=player_col
-    a?33
-    == {
-      a=relay_done
-      a?0
-      == { relay_active=a=1 }
+    a=player_col			// console under the cat: shadowed columns 27..29
+    a?27
+    >= {
+      a?30
+      < {
+        a=relay_done
+        a?0
+        == { start_playback }
+      }
     }
   }
 }

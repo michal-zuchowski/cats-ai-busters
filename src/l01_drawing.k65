@@ -55,7 +55,7 @@ func draw_row1_msg {			// msg_src/msg_len set by the caller
 
 func draw_room_header {		// row 1: reuses "CONTROL INFRASTRUCTURE"
   a=cur_room				// from the intro's Line4, or MsgRoute once
-  a?2					// the relay in room 2 is diverted
+  a?2					// the room-3 console has played its loop
   == {
     a=relay_done
     a?0
@@ -271,13 +271,6 @@ func repaint_current {			// repaints play-row column x for the current room
   a=cur_room
   a?2
   == {
-    x?33
-    == {
-      a=relay_done
-      a?0
-      == { a=83 } else { a=84 }
-      goto rp_fixed
-    }
     x?38
     == {
       a=relay_done
@@ -294,7 +287,7 @@ func repaint_current {			// repaints play-row column x for the current room
   a=(floor_ptr),y
   TermScreen+880,x=a
   return
-rp_fixed:				// terminal and hatch keep their glyph, lit red when watched
+rp_fixed:				// the hatch keeps its glyph, lit red when watched
   tmp=a
   call cam_sees
   a?0

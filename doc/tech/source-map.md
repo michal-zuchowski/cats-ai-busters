@@ -26,7 +26,7 @@ ai_cutscene final_scene plat_loop title_screen main_scene
 | --- | --- | --- | --- |
 | `hardware_defs` | Atari XL/XE register definitions | GTIA, ANTIC, POKEY, PIA/MMU, SIO/OS vectors, OS shadows | – |
 | `meow_sample` | Meow PCM data (CC0, 256-aligned + 64 B silence) | `meow_ptr`, `Meow` | `meow.pcm` |
-| `memory_map` | Zero-page and page-6 variables shared by all scenes; screen/PMG addresses | intro, L01, disk (`disk_*`), platform (`m_*`, actors) state, `lives` `0x06A9`; `ZoomBuf` `0xA000`, `CryBuf` `0xA600`, `TermScreen` `0xB000`, `Music` `0xB400`, `TitleBottom` `0xB600`, `PmMem` `0xBC00` | – |
+| `memory_map` | Zero-page and page-6 variables shared by all scenes; screen/PMG addresses | intro, L01, disk (`disk_*`), platform (`m_*`, actors) state, `lives` `0x06A9`; `ZoomBuf` `0xA000`, `CryBuf` `0xA600`, `StageRoom` `0xA800`, `StageMusic` `0xAC00` (overlap CryBuf before platform gameplay; `preload_ready` `0x06AA`), `TermScreen` `0xB000`, `Music` `0xB400`, `TitleBottom` `0xB600`, `PmMem` `0xBC00` | – |
 | `intro_text` | Terminal font (also level tile graphics), zoom tables, video-call patches/text, terminal lines | `TermFont`, `ZoomLeft/Right`, `CallMouth`, `CallText`, `Line0..Line6` | `term-font.pic`, `zoom-left.tbl`, `zoom-right.tbl`, `call-mouth.tbl`, `call-text.pic` |
 | `hud_strings` | Level 01 HUD strings (ascii-32 encoding) | `MsgHud`, `MsgLevel`, `MsgCamOff`, `MsgStop`, `MsgAlert`, `MsgGameOver`, `MsgRoute` … | – |
 | `bitmaps` | Picture data and RAM buffers | `RoomArtBuf` `0xA000`, `CamCfg` `0xA400`, `ConeStep` `0xA480`, `ChunkTable`, `FrameMap`, `RevealImg`, `Leds`, `CatStrip`, `FaceImg`, `CallImg`, disk self-test messages | `disk-chunks.bin`, `cat-frame-map.bin`, `room.pic`, `leds.tbl`, `cat-strip.pic`, `face.pic`, `call.pic` |
@@ -51,9 +51,9 @@ ai_cutscene final_scene plat_loop title_screen main_scene
 | --- | --- | --- |
 | `l01_drawing` | Message rows, room header, cat PMG sprite drawing, walk animation | `draw_row0_msg`, `draw_player`, `tick_cat`, `repaint_current`, `init_pmg` |
 | `l01_cameras` | Camera sweep, visibility test, light cones | `cam_sees`, `load_cams`, `tick_cams`, `draw_cone`, `redraw_cones`, `tick_switch` |
-| `l01_player` | Detection, alert/respawn, relay terminal, joystick | `check_detection`, `trigger_alert`, `handle_relay`, `read_and_move` |
+| `l01_player` | Detection, alert/respawn, record-console action, joystick | `check_detection`, `trigger_alert`, `start_playback`, `read_and_move` |
 | `l01_rooms` | Room art streaming, room entry, ending, LED blink | `load_room_chunk`, `load_room_art` (chunks 0–2), `enter_room`, `level_ending`, `blink_leds` |
-| `l01_hud` | Bottom HUD and the L01 frame loop | `draw_hud`, `hud_bar`, `draw_lives`, `lose_life`, `game_over`, `game_frame` |
+| `l01_hud` | Bottom HUD and the L01 frame loop | `draw_hud`, `draw_lives`, `lose_life`, `game_over`, `game_frame` |
 | `l01_init` | Level 01 start | `init_gameplay` (self-test, assets, music, first room) |
 | `level_text` | Per-level story/dialogue/hint text and per-level tables | `Txt`, `Dlg`, `Fin`, `Hints`, `LvBase`, `LvRooms` (3 4 4 2), `LvC1/LvC2`, `RowLo/RowHi` |
 
@@ -64,7 +64,7 @@ Linked between these: `audio` and `disk_io` (see below).
 | File | What it does | Key items | Chunks |
 | --- | --- | --- | --- |
 | `audio` | POKEY effects and music sequencer (VBI-driven) | `sfx_switch/alert/success`, `tick_audio`, `music_step`, `tick_music` | reads `Music` buffer |
-| `disk_io` | SIO sector reads (no DOS), checksums, asset loads, music start/stop | `disk_read`, `disk_checksum`, `disk_selftest`, `load_level_assets`, `load_checked_chunk`, `start_music`, `level_music`, `init_audio` | 0, 3, 4, 16, 17–21 |
+| `disk_io` | SIO sector reads (no DOS), checksums, asset loads, music start/stop, early level 2 staging | `disk_read`, `disk_checksum`, `disk_selftest`, `load_level_assets`, `load_checked_chunk`, `start_music`, `level_music`, `init_audio`, `l01_preload`, `preload_level2`, `take_staged_room`, `take_staged_music` | 0, 3, 4, 5, 16, 17–21 |
 
 ## Platform engine (levels 02–04, `plat_`)
 

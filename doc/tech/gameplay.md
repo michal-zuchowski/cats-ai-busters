@@ -30,7 +30,7 @@ and the intro buffers remain at `$A000` (zoom) and `$B000` (screen).
 - `lose_life` (`l01_hud`) runs when an L01 alert actually starts (`trigger_alert`, after the
   `alert_timer` early return) and on every platform `respawn` (all callers are deaths/retries;
   room entry uses `enter_plat_room`, which does not call it). Room entries keep the count.
-- HUD: heart + digit at row 24 columns 9-10; the font has no usable "5".."9" (those slots are level tiles), so `draw_lives` copies `LifeHeart`/`LifeDigits` glyphs into the unused "=" (29) and "@" (32) font slots (`draw_lives`, called by `draw_hud_static`, so it is
+- HUD: nine hearts at row 24 columns 19-27, replacing the old progress bar (red inverse 157 = remaining, blue 29 = lost). The font has no free glyph, so `draw_lives` copies `LifeHeart` (colour 3) into the unused "=" (29) slot (`draw_lives`, called by `draw_hud_static`, so it is
   refreshed on every room/level entry and by `lose_life`).
 - At 0 lives `game_over` stops music, shows `GAME OVER` on row 0 for ~3 s, then `goto intro_skip`
   (resets the stack, NMIEN and audio) and re-runs `title_screen` -> `lives=9` -> `init_gameplay`
@@ -40,8 +40,8 @@ and the intro buffers remain at `$A000` (zoom) and `$B000` (screen).
 
 - One player, one joystick in port 1: four directions move the cat; diagonals
   do not increase speed. The fire button acts only when the cat overlaps the
-  maintenance switch or relay cabinet. The hatch exits by walking into it
-  after the relay has been diverted. No keyboard or second joystick needed
+  maintenance switch or the room-3 record console. The hatch exits by walking into it
+  after the record console has played. No keyboard or second joystick needed
   for the first level.
 - Move on a tile map; walls and racks block movement. The cat may walk
   through marked shadow floor tiles behind racks, where rack walls block
@@ -55,10 +55,9 @@ and the intro buffers remain at `$A000` (zoom) and `$B000` (screen).
   service switch overrides one camera's sequence for a limited number of
   frames; it never disables the other camera. An alert resets only the
   current screen's temporary state and cat position.
-- Relay interaction needs the action button and a brief uninterrupted
-  progress period while the cat stays adjacent; leaving or being seen
-  cancels progress. The switch can be used again after every failed
-  crossing. Store permanent progress as a small relay-completed flag and
+- Console interaction needs only the action button (edge-triggered, no
+  hold) while the cat stands at the console, player_col 27..29. The switch can be used again after every failed
+  crossing. Store permanent progress as a small console-completed flag (`relay_done`) and
   temporary state as the current room, positions, camera phase and timers.
 
 ## Picture and sound
@@ -210,7 +209,7 @@ been exercised in the emulator.
   state animates), but it does not special-case the player's own column, and
   `draw_player` was only called on movement. Any frame where the player
   stood still inside a monitored zone — including the entire time they hold
-  the relay terminal in room 2, which is itself inside `redraw_zone`'s
+  the console in room 2, which is itself inside `redraw_zone`'s
   range — silently erased the cat until the next keypress. Fixed by calling
   `draw_player` immediately after every `redraw_zone` call (both call sites,
   in `game_frame`'s normal and alert-recovery branches).
@@ -240,6 +239,21 @@ been exercised in the emulator.
   relay was recorded. Moved the sweep minimum to 27; `tests/gameplay_logic_test.go`
   now replays the sweep and asserts the hatch is reachable after the relay
   (and that it was not with the original settings).
+- **Room 3 record console (replaces the old relay hold).** The third rack
+  (cols 26..31) is now a console (`levelart.Console`) on a shadowed floor.
+  FIRE at player_col 27..29 runs `start_playback` once: `relay_done=1`
+  (kept through alerts, cleared by `init_gameplay`) and `show_playback`
+  copies the `PlayL`/`PlayR` cat/REC loops (`levelart.Playback`) into both
+  `RoomArtBuf` and `TermScreen`, so cone erase/redraw cannot undo them;
+  `enter_room` replays them after `load_room_art`. `tick_cam` forces camera
+  slot 1 off every tick once done, so detection and cone agree; slot 0 is
+  unaffected. `relay_progress`/`relay_active` and the old floor relay tile
+  (col 33) are gone. Tiles 67/80 are the `CatL`/`CatR` monitor glyphs
+  (their eyes blink in `blink_leds`); font slots 29 and 32 are untouched.
+  `gpRoom3Reach` searches (x, both camera phases, done), including the
+  initial sweep transient, and checks that the console and exit are reachable.
+  The exit gate separately requires playback; camera 2 can also be crossed
+  by timing its sweep without playback, but the hatch stays locked.
 - **The HUD objective vanished after the first alert.** The initial
   `hint_timer` never cleared the text at zero, and alert recovery blanked
   the row permanently. Removed the countdown: the objective stays visible
@@ -361,6 +375,16 @@ this looks identical to the classic "forward bare-call" abort, so if a
 build aborts silently after adding a new `binary`-included data block,
 check that the referenced file actually exists first.
 
+**Level 1 → 2 transition.** Entering L01 room 3 stages level 2's first room
+(chunk 5 → `StageRoom`) and music (chunk 19 → `StageMusic`), so the transition
+itself reads no sector (`tests/transition_runtime_test.go`: 0 SIO, ~1.5 frames
+of CPU). `level_ending` skips its 2 × 75-frame hold on level 1 (`cur_level == 0`, next
+data already staged); other levels keep the hold (held success tone, game frozen). If the stage is missing (debug
+level keys), `init_plat` stays silent while it loads: `stop_music`, then
+`enter_plat_room` (8 sectors), then `level_music` (4 sectors), so the first note
+never sounds over a disk read. `level_finished=0` re-arms the VBI, so level 1's
+track must be stopped before any load.
+
 ### Streaming room art and level assets from disk (a3e.3)
 
 Level 01's room art (three 960-byte rooms, `assets/level-rooms.pic`) and
@@ -412,7 +436,7 @@ room-0 chunk).
 ### Prefetching during the level ending (a3e.5)
 
 `level_ending` (fires when the cat exits room 2 at `player_x=140` with
-`relay_done` set) shows `MsgEnding`, plays `sfx_success`, then pauses for
+`relay_done` set) shows `MsgEnding`, plays `sfx_success`, then (levels other than L01 only) pauses for
 150 frames before fading colors/PMG/audio to black. To prove the
 continuous-loading trick works, that pause is now split in half (`x=75`
 `wait_frames` twice) around a `call prefetch_next_level`: level 2 doesn't
@@ -443,7 +467,7 @@ alive, clean audio-init log, no crash/signal), but the interactive
 session was screen-locked for this task (`CGWindowListCopyWindowInfo`
 reports `onscreen=false` for all windows) — the same environment
 limitation noted for a3e.4 — so reaching the actual level-1 ending
-in-emulator (finish room 2's relay, then exit right) to screenshot the
+in-emulator (press FIRE at room 3's record console, then exit right) to screenshot the
 pause could not be completed live; the mechanism was instead verified by
 code parity with `disk_selftest`/`load_room_art`/`load_level_assets`
 (already screenshot-verified in a3e.2/a3e.3) and by the checksum test.

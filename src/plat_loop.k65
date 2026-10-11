@@ -34,7 +34,6 @@ func r4_goal {				// returns the room's next action in x
 }
 
 func plat_hud {
-  hud_col=a=0x0C
   x=0
   a=cur_level
   a?1
@@ -91,11 +90,6 @@ func plat_hud {
   msg_src=a
   msg_src+1=a=&>Hints
   hud_label
-  a=player_x
-  a>> a>> a>> a>>
-  c- a+2
-  hud_n=a
-  hud_bar
 }
 
 func plat_frame {
@@ -127,6 +121,7 @@ func frame_any {
 }
 
 func init_plat {
+  stop_music				// silence level 1 before any load: level_finished=0 below re-arms the VBI
   x=cur_level
   a=LvC1,x
   COLOR1=a
@@ -139,8 +134,9 @@ func init_plat {
   dlg_done=a=0
   entry_col=a=0
   level_finished=a=0
-  level_music
   enter_plat_room
+  level_music				// first note only once the room is ready, so no disk read sustains it
+  preload_ready=a=0			// stage consumed (or unused); CryBuf may overwrite it later
 }
 
 func next_level {

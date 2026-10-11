@@ -3,6 +3,7 @@
 // - disk_checksum/disk_selftest - chunk verification
 // - load_level_assets - CamCfg/ConeStep loads per level
 // - stop_music/music_failure/load_checked_chunk/start_music/level_music - music chunks
+// - take_staged_music/take_staged_room/l01_preload/preload_level2 - level 2 staging (synchronous, at L01 room 3 entry)
 // - init_audio - POKEY and music VBI setup
 
 // Reads disk_count sectors starting at disk_sector into disk_dest via SIOV
@@ -179,10 +180,14 @@ func load_checked_chunk {		// a = chunk index; returns the verified checksum in 
 func start_music {			// a = title chunk 17 or level chunk 18..21
   music_chunk=a
   stop_music
-  disk_dest=a=&<Music
-  disk_dest+1=a=&>Music
-  a=music_chunk
-  load_checked_chunk
+  call take_staged_music
+  a?0
+  == {
+    disk_dest=a=&<Music
+    disk_dest+1=a=&>Music
+    a=music_chunk
+    load_checked_chunk
+  }
   a=Music+432
   a?0
   == { music_failure }
@@ -203,6 +208,71 @@ func start_music {			// a = title chunk 17 or level chunk 18..21
   drum_type=a
   drum_t=a
   music_ready=a=1
+}
+
+func take_staged_music {		// A=1 if level 2's staged track was copied to Music, else 0
+  a=music_chunk
+  a?19
+  != { a=0 return }
+  a=preload_ready
+  a?0
+  == { a=0 return }
+  x=0
+  {
+    a=StageMusic,x
+    Music,x=a
+    a=StageMusic+256,x
+    Music+256,x=a
+    x++
+    x?0
+  } !=
+  a=1
+}
+
+func take_staged_room {			// cnt = chunk; A=1 if level 2 room 0 was copied to RoomArtBuf (art + metadata)
+  a=cnt
+  a?5
+  != { a=0 return }
+  a=preload_ready
+  a?0
+  == { a=0 return }
+  x=0
+  {
+    a=StageRoom,x
+    RoomArtBuf,x=a
+    a=StageRoom+256,x
+    RoomArtBuf+256,x=a
+    a=StageRoom+512,x
+    RoomArtBuf+512,x=a
+    a=StageRoom+768,x
+    RoomArtBuf+768,x=a
+    x++
+    x?0
+  } !=
+  a=1
+}
+
+func l01_preload {			// entering L01 room 3: stage level 2 once per new game
+  a=cur_room
+  a?2
+  != { return }
+  a=preload_ready
+  a?0
+  != { return }
+  call preload_level2
+}
+
+// Synchronous (not background) staging: the SIO pause happens at room 3 entry.
+func preload_level2 {
+  disk_dest=a=&<StageRoom
+  disk_dest+1=a=&>StageRoom
+  a=5
+  load_checked_chunk
+  disk_dest=a=&<StageMusic
+  disk_dest+1=a=&>StageMusic
+  a=19
+  load_checked_chunk
+  preload_ready=a=1			// only after both checked reads succeeded
 }
 
 func level_music {

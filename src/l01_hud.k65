@@ -1,10 +1,10 @@
 // Level 01 HUD and main game loop.
-// - draw_hud_static/hud_label/hud_bar - bottom HUD row, status label and 12-cell bar
-// - draw_lives/lose_life/game_over - lives indicator (cols 9-10), life loss, GAME OVER restart
+// - draw_hud_static/hud_label - bottom HUD row and its status label
+// - draw_lives/lose_life/game_over - nine hearts (cols 19-27), life loss, GAME OVER restart
 // - fire_prompt/draw_hud - dynamic HUD updates
 // - game_frame - the level 01 per-frame loop
 
-// Row 24 HUD: "ROOM n/3", heart + digit lives, a status label with a 12-cell bar, "LEVEL 01".
+// Row 24 HUD: "ROOM n/3", a status label, nine life hearts, "LEVEL 01".
 func draw_hud_static {
   y=0
   {
@@ -21,24 +21,25 @@ func draw_hud_static {
   call draw_lives			// forward: defined below
 }
 
-func draw_lives {			// heart + digit at columns 9-10 (between ROOM and the status label)
-  // TermFont has no free glyphs and its "5".."9" slots hold level tiles, so the
-  // heart and the current digit are copied into the unused "=" (29) and "@" (32) slots.
-  a=lives
-  a<< a<< a<<
-  x=a
+func draw_lives {			// nine hearts at columns 19-27 (where the progress bar was)
+  // TermFont has no free glyphs, so the heart (colour 3) is copied into the unused "=" (29) slot.
+  // Inverse 157 = remaining life (COLPF3 red), plain 29 = lost life (COLPF2 blue, like the frame).
   y=0
   {
     a=LifeHeart,y
     TermFont+232,y=a			// 29*8
-    a=LifeDigits,x
-    TermFont+256,y=a			// 32*8
-    x++
     y++
     y?8
   } !=
-  TermScreen+969=a=29
-  TermScreen+970=a=32
+  x=0
+  {
+    a=29
+    x?lives
+    < { a=157 }
+    TermScreen+979,x=a
+    x++
+    x?9
+  } !=
 }
 
 func lose_life {			// one life lost; the last one ends the game (never returns then)
@@ -72,85 +73,36 @@ func hud_label {			// msg_src -> 7 cells at column 11
   } !=
 }
 
-func hud_bar {				// hud_n filled of 11 cells at columns 19..29
-  TermScreen+978=a=122			// HUD_L
-  TermScreen+990=a=123			// HUD_R
-  x=0
-  {
-    a=121				// HUD_EMPTY
-    x?hud_n
-    < { a=120 }				// HUD_FULL
-    TermScreen+979,x=a
-    x++
-    x?11
-  } !=
-}
-
-naked hud_dli {			// HUD row: gold text, state-coloured bar, blue frame
+naked hud_dli {			// HUD row: gold text, blue frame (red hearts use COLPF3)
   a!!
   WSYNC=a
   COLPF0=a=0x1C
-  a=hud_col
-  COLPF1=a
   COLPF2=a=0x86
   a??
   return_i
 }
 
 func fire_prompt {
-  hud_col=a=0x1C			// gold
   msg_src=a=&<MsgFireHud
   msg_src+1=a=&>MsgFireHud
   hud_label
-  a=RTCLOK				// blinking full bar
-  a&16
-  == { hud_n=a=11 } else { hud_n=a=0 }
-  hud_bar
 }
 
-func draw_hud {				// status: alert > switch > relay > blank
+func draw_hud {				// status: alert > switch > console prompt/RECORD > blank
   a=alert_timer
   a?0
   != {
-    hud_col=a=0x36			// red
     msg_src=a=&<MsgAlertHud
     msg_src+1=a=&>MsgAlertHud
     hud_label
-    a=alert_timer			// drains as the alert runs out
-    a>> a>> a>>
-    hud_n=a
-    hud_bar
     return
   }
   a=switch_timer
   a?0
   != {
-    hud_col=a=0xC8			// green
     msg_src=a=&<MsgCamOff
     msg_src+1=a=&>MsgCamOff
     hud_label
-    a=switch_timer			// 250 frames -> 11 cells: t/32 + t/64 + 1
-    a>> a>> a>> a>> a>>
-    hud_n=a
-    a=switch_timer
-    a>> a>> a>> a>> a>> a>>
-    c- a+hud_n
-    c- a+1
-    hud_n=a
-    hud_bar
-    return
-  }
-  a=relay_active
-  a?0
-  != {
-    hud_col=a=0x2C			// orange
-    msg_src=a=&<MsgRecordHud
-    msg_src+1=a=&>MsgRecordHud
-    hud_label
-    a=relay_progress
-    a>> a>> a>>
-    hud_n=a
-    hud_bar
     return
   }
   a=cur_room				// on the room-2 switch: prompt for fire
@@ -160,26 +112,28 @@ func draw_hud {				// status: alert > switch > relay > blank
     a?6
     == { fire_prompt return }
   }
-  a=cur_room				// on the room-3 relay, until diverted
+  a=cur_room				// room 3: prompt at the console until it plays, then RECORD
   a?2
   == {
     a=relay_done
     a?0
     == {
       a=player_col
-      a?33
-      == { fire_prompt return }
+      a?27
+      >= {
+        a?30
+        < { fire_prompt return }
+      }
+    } else {
+      msg_src=a=&<MsgRecordHud
+      msg_src+1=a=&>MsgRecordHud
+      hud_label
+      return
     }
   }
-  hud_col=a=0x0C			// white: how far through the room
   msg_src=a=&<MsgHiddenHud
   msg_src+1=a=&>MsgHiddenHud
   hud_label
-  a=player_x
-  a>> a>> a>> a>>
-  c- a+2
-  hud_n=a
-  hud_bar
 }
 
 func game_frame {
@@ -196,7 +150,6 @@ func game_frame {
     redraw_zone		// repaints the gated play-row tiles
     draw_player		// PMG frame + position
     check_detection
-    handle_relay
     return
   }
   alert_timer--

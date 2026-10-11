@@ -1,9 +1,10 @@
 // Zero-page and page-6 variable map shared by every scene.
 // - Intro cutscene state: pan/zoom/call pointers, LED blink, meow/face-kernel scratch
-// - Level 01 gameplay: room, player column/x/y, timers, relay, alert, sfx/music sequencer state
+// - Level 01 gameplay: room, player column/x/y, timers, console state, alert, sfx/music sequencer state
 // - Disk I/O parameters (SIO sector, count, destination, checksum, busy/failed flags)
 // - Platform levels 02-04 state: per-room metadata slots (m_*), actors, lift, paw, switch, crumble, vacuum
 // - Lives counter (lives, page 6)
+// - Level 2 staging buffers and readiness flag (reuse CryBuf before platform gameplay)
 // - Terminal, HUD and camera slot variables; screen/PMG memory addresses (TermScreen, PmMem)
 
 
@@ -36,16 +37,14 @@ var ZoomBuf = 0xA000
 // Fresh zero-page bytes (no aliasing with intro vars, to avoid any risk of
 // two `var` declarations sharing one address); only ever touched after
 // cut_to_black, when the intro's own zero-page vars are already dead.
-var cur_room = 0xA3		// 0 = corridor, 1 = server aisle, 2 = relay room
+var cur_room = 0xA3		// 0 = corridor, 1 = server aisle, 2 = camera room with the record console
 var player_col = 0xA4		// 2..38, column of the cat on the play row
 var move_timer = 0xA5		// frames until another joystick move is accepted
 var fire_prev = 0xA6		// 1 = TRIG0 seen released (arms the next press)
 var switch_timer = 0xA7	// room1: frames the switch keeps segment A dark
 var art_base[2] = 0xA8		// RoomArt of the current room
 var floor_ptr[2] = 0xAA		// art_base + 880: the room's floor row (FLOOR = seen by cameras)
-var relay_progress = 0xAC	// frames spent holding the relay terminal
-var relay_done = 0xAD		// 1 once the relay is diverted; never cleared by alerts
-var relay_active = 0xAE	// 1 while the player is working the relay terminal
+var relay_done = 0xAD		// 1 once the room-3 console played its loop (camera 2 fooled); never cleared by alerts
 var alert_timer = 0xAF		// >0 while "UNRECOGNIZED DEVICE" freezes play
 var sfx_timer = 0xB1		// frames left for the current one-shot cue
 var mus_timer = 0xB2		// frames until the next music step (16th note)
@@ -182,8 +181,6 @@ var TermScreen = 0xB000
 // Camera cones (page 6 is free on the Atari OS). Two camera slots per room,
 // loaded from CamCfg (tools/cmd/make-level-art CAMERAS); old* hold the cone
 // span drawn on each of the 17 rows so it can be erased from RoomArt.
-var hud_n = 0x06A0		// HUD bar: filled cells
-var hud_col = 0x06A1		// HUD bar colour (state)
 var music_ready = 0x06A2		// VBI must not read a track while it is being replaced
 var title_phase = 0x06A3		// 0 gameplay/intro, 1 release FIRE, 2 await start
 var music_chunk = 0x06A4
@@ -192,6 +189,9 @@ var ai_line = 0x06A6
 var ai_frame = 0x06A7
 var ai_pose = 0x06A8
 var lives = 0x06A9		// cat lives left, 9..1 (0 = game over, which restarts at the title); 0x06A9 is free page 6
+var preload_ready = 0x06AA	// 1 once L01 room 3 staged level 2's first room and music; 0 on every init_gameplay, cleared by init_plat
+var StageRoom = 0xA800		// staged level 2 room 0 (chunk 5, 1024 B incl. metadata); CryBuf (A600..AFFF) is only loaded later
+var StageMusic = 0xAC00		// staged level 2 music (chunk 19, 512 B padded); ends at 0xADFF, below TermScreen
 var Music = 0xB400		// one 512-byte streamed track, after the 1000-byte screen
 var TitleBottom = 0xB600		// title only; PMG is disabled while this buffer is displayed
 var cone_i = 0x0600
@@ -224,4 +224,3 @@ var sl_wait = 0x0624
 var sl_on = 0x0626
 var oldL = 0x0630		// 2 x 17 rows, 0xFF = nothing drawn
 var oldR = 0x0660
-

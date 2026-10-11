@@ -15,7 +15,7 @@ scripted in `main` (`src/main_scene.k65`):
    meow → boss-cat video call.
 2. **Title screen** (`title_screen`): bitmap title + music; FIRE/Return/Space starts.
 3. **Level 01 — stealth** (`init_gameplay`, 3 rooms): dodge camera light cones,
-   use switch and relay terminal.
+   use switch and record console.
 4. **Levels 02–04 — platformers** (`next_level` → `init_plat`; 4 / 4 / 2 rooms):
    L02 vertical route (lift, crumbling floor, fan), L03 AI vacuum robots
    (swat, dock, ride), L04 defenses.

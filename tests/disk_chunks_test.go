@@ -45,3 +45,15 @@ func TestDiskChunksMatchATR(t *testing.T) {
 		}
 	}
 }
+
+// The committed chunk table is the one BuildATR derives from the current asset chunks; the
+// resident payload only has to be valid, it does not affect the table.
+func TestDiskChunkTableMatchesAssets(t *testing.T) {
+	_, _, table, err := atr.BuildATR([]byte{0xEA}, atr.ExtraChunks())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(table, readAsset("disk-chunks.bin")) {
+		t.Errorf("assets/disk-chunks.bin is stale: regenerate it from the current asset chunks")
+	}
+}

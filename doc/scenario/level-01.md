@@ -24,20 +24,19 @@ screen, and crossing the left edge returns to the previous one.
    aisle before it resets. The other camera continues its regular sweep;
    rack shadows still provide shelter. The timer starts only when the
    switch is pressed and can be retried indefinitely.
-3. **Relay cabinet — act, then escape.** The relay terminal is beside the
-   AI's wall monitor from the intro. Approach from the safe side, press the
-   action button and stay at the terminal for a short, visible progress
-   sequence. A moving camera makes the timing matter, but a nearby rack
-   provides a place to wait. The cat diverts the outgoing command to a
-   closed test network: the screen changes from `CONTROL INFRASTRUCTURE`
-   to `ROUTE: TEST / ISOLATED`. The player then reaches the service hatch
-   at the right edge to finish the level.
+3. **Record console — act, then escape.** The third rack from the left
+   (columns 26..31) is replaced by a record console with a REC-lit panel.
+   Stand at its centre (in the rack's shadow) and press the action button
+   once: both wall monitors immediately show a looping cat recording, which
+   fools the second (right-hand) camera for the rest of the game. The first
+   camera is unaffected. The status line reads `RECORD`, and the player reaches
+   the service hatch at the right edge to finish the level.
 
 **Failure and recovery:** If a camera sees the cat in its lit detection
-area, the relay raises a local alert. The screen briefly flashes
+area, the camera raises a local alert. The screen briefly flashes
 `UNRECOGNIZED DEVICE`; the cat retreats to the entrance of the current
 screen and that screen's switch/camera state resets. Completed earlier
-screens remain accessible. Each alert costs one of the cat's nine lives (heart + digit on the bottom HUD);
+screens remain accessible. Each alert costs one of the cat's nine lives (nine hearts on the bottom HUD, in place of the old progress bar);
 losing the last one shows `GAME OVER` and restarts from the title screen.
 There is no combat or timer.
 Being seen does not tell the AI who rules the world; it only sees an
@@ -49,5 +48,5 @@ The AI still believes it is competing only with humans. Cut to black; the
 route continues in the proposed [Level 02 — The Vertical Route](level-02.md).
 
 The first playable milestone is one complete run from the corridor to the
-hatch, including camera detection, reset, switch, relay action and ending.
+hatch, including camera detection, reset, switch, record-console action and ending.
 Dialogue, collectibles, combat and a larger mission map can wait.

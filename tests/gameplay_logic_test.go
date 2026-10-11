@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"regexp"
 	"sort"
@@ -202,7 +203,7 @@ func TestGameplayCameras(t *testing.T) {
 			}
 		}
 	}
-	// Only the rack shadow hides the cat: a tile that is drawn (relay terminal, hatch) is
+	// Only shadow (racks, the record console) hides the cat: a tile that is drawn (the hatch) is
 	// watched like any other floor, and drawn inverted while watched.
 	gpHas(t, gpBody("cam_sees"), "a?78")
 	gpHas(t, gpBody("repaint_current"), "rp_fixed")
@@ -211,9 +212,6 @@ func TestGameplayCameras(t *testing.T) {
 	gpHas(t, gpBody("check_detection"), "c- a+3")
 	gpHas(t, gpBody("check_detection"), "c- a+12")
 
-	cam2 := L.Cameras[2][1]
-	ensure(t, !gpRoom3Playable(t, 30, 7, 100), "old room-3 sweep is playable")
-	ensure(t, gpRoom3Playable(t, cam2.Lo, cam2.Speed, cam2.Pause), "room-3 sweep is not playable")
 	// Only room 1's first camera is gated by the switch.
 	var gates []int
 	for r := 0; r < 3; r++ {
@@ -234,96 +232,146 @@ func TestGameplayCameras(t *testing.T) {
 	gpHas(t, gf, "tick_cams")
 }
 
-// The cat is four columns wide and walks one column in 12 frames while the room-3 exit camera
-// sweeps one in 9, so the floor past the shelter can only be crossed while the camera waits at
-// an end. Replay the sweep pixel by pixel and check the terminal can be held for the full
-// recording and the hatch reached afterwards.
-func gpRoom3Playable(t *testing.T, lo, speed, pause int) bool {
-	t.Helper()
-	relayFrames := func() int {
-		m := gpRe(t, `a=relay_progress\s*\n\s*a\?(\d+)`, gpBody("handle_relay"))
-		if m == nil {
-			t.FailNow()
-		}
-		v, _ := strconv.Atoi(m[1])
-		return v
-	}()
-	cam := L.Cameras[2][1]
-	hi, hw := cam.Hi, cam.HalfWidth
-	floor := L.Room(2)[22*40 : 23*40]
-	centre, direction, wait := lo, 0, speed
-	var sweep []int
-	for i := 0; i < 2*(hi-lo)*speed+2*pause; i++ {
-		sweep = append(sweep, centre)
-		if wait != 0 {
-			wait--
-			continue
-		}
-		wait = speed
-		if direction == 0 {
-			centre++
-		} else {
-			centre--
-		}
-		if centre == hi {
-			direction, wait = 1, pause
-		}
-		if centre == lo {
-			direction, wait = 0, pause
-		}
+type gpCamState struct{ centre, dir, wait int }
+
+// tick mirrors tick_cam: wait counts down once per frame, and the move (with the end pause
+// reload) happens on the frame after it reached 0, so intervals are Speed+1 and Pause+1.
+func (s gpCamState) tick(c L.Camera) gpCamState {
+	if s.wait != 0 {
+		s.wait--
+		return s
 	}
-	cycle := len(sweep)
-	safe := func(x, tt int) bool { // both end columns of the cat, as check_detection tests
+	s.wait = c.Speed
+	if s.dir == 0 {
+		s.centre++
+	} else {
+		s.centre--
+	}
+	if s.centre == c.Hi {
+		s.dir, s.wait = 1, c.Pause
+	}
+	if s.centre == c.Lo {
+		s.dir, s.wait = 0, c.Pause
+	}
+	return s
+}
+
+// gpRoom3Timeline lists both camera centres per frame from load_cams (centre=Lo, dir=0,
+// wait=Speed) until the joint state first repeats. Frames from loop on repeat forever.
+func gpRoom3Timeline(cams [2]L.Camera) (frames [][2]int, loop int) {
+	st := [2]gpCamState{{cams[0].Lo, 0, cams[0].Speed}, {cams[1].Lo, 0, cams[1].Speed}}
+	first := map[[2]gpCamState]int{}
+	for {
+		if i, ok := first[st]; ok {
+			return frames, i
+		}
+		first[st] = len(frames)
+		frames = append(frames, [2]int{st[0].centre, st[1].centre})
+		st = [2]gpCamState{st[0].tick(cams[0]), st[1].tick(cams[1])}
+	}
+}
+
+// gpRoom3Reach explores the cat's moves (walk 1 pixel per 3 frames, wait, or with fire press FIRE
+// at the console, player_col 27..29, for one frame) and reports whether a console press is
+// reachable undetected, whether the right edge (x=140) is reachable undetected, and whether camera 2
+// alone ever detects a cat that is safe once the console was used (muted). The exit gate itself
+// is checked in the source: the parked camera does not guard the edge.
+func gpRoom3Reach(fire bool) (console, edge, muted bool) {
+	cams := L.Cameras[2]
+	frames, loop := gpRoom3Timeline(cams)
+	next := func(t int) int {
+		if t+1 == len(frames) {
+			return loop
+		}
+		return t + 1
+	}
+	floor := L.Room(2)[22*40 : 23*40]
+	safe := func(x, t int, done bool) bool { // both end columns of the cat, as check_detection tests
 		for _, col := range []int{(x + 3) >> 2, (x + 12) >> 2} {
-			d := col - sweep[tt%cycle]
-			if floor[col] != L.Shadow && d >= -hw && d <= hw {
-				return false
+			if floor[col] == L.Shadow {
+				continue
+			}
+			for s, c := range cams {
+				if s == 1 && done {
+					continue
+				}
+				if d := col - frames[t][s]; d >= -c.HalfWidth && d <= c.HalfWidth {
+					return false
+				}
 			}
 		}
 		return true
+	}
+	const maxX = 140
+	for x := 0; x <= maxX; x++ {
+		for t := range frames {
+			if !safe(x, t, false) && safe(x, t, true) {
+				muted = true
+			}
+		}
 	}
 	type st struct {
 		x, t int
 		done bool
 	}
-	var queue []st
-	seen := map[st]bool{}
-	for tt := 0; tt < cycle; tt++ {
-		if safe(0, tt) { // room entrance
-			s := st{0, tt, false}
-			seen[s] = true
-			queue = append(queue, s)
-		}
-	}
+	seen := map[st]bool{{0, 0, false}: true}
+	queue := []st{{0, 0, false}}
 	for len(queue) > 0 {
 		cur := queue[len(queue)-1]
 		queue = queue[:len(queue)-1]
-		if cur.x >= 140 && cur.done {
-			return true
+		if cur.x == maxX && (!fire || cur.done) {
+			edge = true
 		}
-		type mv struct{ target, frames int }
-		moves := []mv{{cur.x + 1, 3}, {cur.x - 1, 3}, {cur.x, 1}} // 1 pixel per 3 frames
-		if !cur.done && ((cur.x+2)>>2)+2 == 33 {
-			moves = append(moves, mv{cur.x, relayFrames})
+		type mv struct {
+			target, frames int
+			done           bool
+		}
+		moves := []mv{{cur.x + 1, 3, cur.done}, {cur.x - 1, 3, cur.done}, {cur.x, 1, cur.done}}
+		if col := ((cur.x + 2) >> 2) + 2; col >= 27 && col < 30 && !cur.done {
+			console = true
+			if fire {
+				moves = append(moves, mv{cur.x, 1, true})
+			}
 		}
 		for _, m := range moves {
-			if m.target < 0 || m.target > 140 {
+			if m.target < 0 || m.target > maxX {
 				continue
 			}
-			ok := true
-			for k := 1; k <= m.frames && ok; k++ {
-				ok = safe(m.target, cur.t+k)
+			t, ok := cur.t, true
+			for k := 0; k < m.frames && ok; k++ {
+				t = next(t)
+				ok = safe(m.target, t, m.done)
 			}
-			if ok {
-				n := st{m.target, (cur.t + m.frames) % cycle, cur.done || m.frames == relayFrames}
-				if !seen[n] {
-					seen[n] = true
-					queue = append(queue, n)
-				}
+			if n := (st{m.target, t, m.done}); ok && !seen[n] {
+				seen[n] = true
+				queue = append(queue, n)
 			}
 		}
 	}
-	return false
+	return
+}
+
+func TestGameplayRoom3Console(t *testing.T) {
+	cams := L.Cameras[2]
+	frames, loop := gpRoom3Timeline(cams)
+	// Spot-check the timeline against the source cadence: first move after Speed+1 frames,
+	// first end pause lasts Pause+1 frames.
+	ensure(t, frames[cams[0].Speed][0] == cams[0].Lo && frames[cams[0].Speed+1][0] == cams[0].Lo+1, "camera 1 first step cadence")
+	ensure(t, loop < len(frames) && len(frames) > 2*(cams[1].Hi-cams[1].Lo)*cams[1].Speed, "timeline too short: %d frames, loop at %d", len(frames), loop)
+
+	console, edge, muted := gpRoom3Reach(true)
+	ensure(t, console, "console columns 27..29 not reachable undetected")
+	ensure(t, edge, "right edge not reachable after the console")
+	ensure(t, muted, "console does not mute camera 2 detection")
+	// Camera 2 parks and leaves the edge open, so the exit gate alone requires the console.
+	rm := gpBody("read_and_move")
+	ensure(t, regexp.MustCompile(`(?s)a\?2\s*==\s*\{\s*a=relay_done\s*a\?0\s*==\s*\{\s*move_timer=a=6\s*return`).MatchString(rm), "exit is not gated by relay_done")
+	// After the action the last camera slot is off, the first is not; re-entry replays the loop.
+	tc := gpBody("tick_cam")
+	gpRe(t, `(?s)a\?2\s*==\s*\{\s*a=relay_done\s*a\?0\s*!=\s*\{\s*a=x\s*a\?1\s*==\s*\{\s*tmp=a=0`, tc)
+	gpRe(t, `(?s)a\?2\s*==\s*\{\s*a=relay_done\s*a\?0\s*!=\s*\{\s*show_playback`, gpBody("enter_room"))
+	gpHas(t, gpBody("start_playback"), "relay_done=a=1")
+	gpHasNot(t, gpBody("trigger_alert"), "relay_done=a=0")
 }
 
 func TestGameplayRedrawFollowedByDrawPlayer(t *testing.T) {
@@ -757,10 +805,40 @@ func TestGameplayRelayHudAndMain(t *testing.T) {
 	main := src()
 	// relay_done is permanent progress and must never be reset by trigger_alert.
 	ensure(t, !regexp.MustCompile(`relay_done\s*(=|\+\+|--)`).MatchString(gpBody("trigger_alert")), "trigger_alert touches relay_done")
-	// handle_relay must not touch relay_done unless relay_progress has reached the completion threshold.
-	hr := gpBody("handle_relay")
-	gpRe(t, `a=relay_progress\s*\n\s*a\?90`, hr)
-	ensure(t, mustIndex(t, hr, "a?90") < mustIndex(t, hr, "relay_done=a=1"), "relay_done before threshold")
+	// The console acts at once on the FIRE edge (no recording delay) and only once.
+	sp := gpBody("start_playback")
+	gpHas(t, sp, "relay_done=a=1")
+	gpHas(t, sp, "call show_playback")
+	gpHasNot(t, src(), "relay_progress")
+	gpHasNot(t, src(), "relay_active")
+	gpHasNot(t, src(), "handle_relay")
+	rf := gpBody("read_fire")
+	gpRe(t, `a=player_col[^\n]*\n\s*a\?27\s*\n\s*>= \{\s*a\?30\s*\n\s*< \{\s*a=relay_done\s*\n\s*a\?0\s*\n\s*== \{ start_playback \}`, rf)
+	// Camera 2 of room 3 is fooled every tick; the loop is rewritten into RoomArtBuf on every entry.
+	tc := gpBody("tick_cam")
+	// An early return keeps the long body out of one relative branch (-128..127).
+	gpRe(t, `a=sl_cam,x\s*\n\s*a\?0\s*\n\s*== \{ return \}`, tc)
+	gpRe(t, `a=cur_room[^\n]*\n\s*a\?2\s*\n\s*== \{\s*a=relay_done\s*\n\s*a\?0\s*\n\s*!= \{\s*a=x\s*\n\s*a\?1\s*\n\s*== \{ tmp=a=0 \}`, tc)
+	sb := gpBody("show_playback")
+	for _, blk := range L.Playback {
+		for r := range blk.Tiles {
+			off := (blk.Row+r)*40 + blk.Col
+			gpHas(t, sb, fmt.Sprintf("RoomArtBuf+%d,x=a TermScreen+%d,x=a", off, off))
+		}
+	}
+	for name, blk := range map[string]L.PlaybackBlock{"PlayL": L.Playback[0], "PlayR": L.Playback[1]} {
+		var want []int
+		for _, row := range blk.Tiles {
+			want = append(want, row...)
+		}
+		ensure(t, intsEq(gpDataBytes(name), want), "%s data", name)
+	}
+	room := L.Room(2)
+	ensure(t, room[16*40+26] == L.FrTL && room[21*40+31] == L.PlinthR && room[22*40+26] == L.Shadow && room[22*40+31] == L.Shadow, "console footprint")
+	ensure(t, room[22*40+33] == L.Floor, "old relay column is open floor")
+	er0 := gpBody("enter_room")
+	gpHas(t, er0, "show_playback")
+	ensure(t, mustIndex(t, er0, "load_room_art") < mustIndex(t, er0, "show_playback"), "playback replayed after art load")
 
 	// The objective stays visible and is restored after an alert.
 	gf := gpBody("game_frame")
@@ -838,9 +916,10 @@ func TestGameplayRelayHudAndMain(t *testing.T) {
 
 	gpHas(t, gpBody("fire_prompt"), "MsgFireHud")
 	dh := gpBody("draw_hud")
-	ensure(t, strings.Count(dh, "fire_prompt") == 2, "draw_hud fire_prompt count") // switch + relay prompts
+	ensure(t, strings.Count(dh, "fire_prompt") == 2, "draw_hud fire_prompt count") // switch + console prompts
 	gpHas(t, dh, "a?6")
-	gpHas(t, dh, "a?33")
+	gpHas(t, dh, "a?27")
+	gpHas(t, dh, "a?30")
 }
 
 func TestGameplayAudioAndEnding(t *testing.T) {
@@ -887,6 +966,7 @@ func TestGameplayAudioAndEnding(t *testing.T) {
 
 	// level_ending shows the per-level message from Txt/TxtOff (a3e.5 prefetch placeholder is gone)
 	gpHas(t, gpBody("level_ending"), "TxtOff,x")
+	gpHas(t, gpBody("level_ending"), "skip hold L01 because next data staged")
 	gpHasNot(t, main, "prefetch_next_level")
 
 	// level 01 hop: UP jumps, plat_phys lands the cat back on the single flat floor

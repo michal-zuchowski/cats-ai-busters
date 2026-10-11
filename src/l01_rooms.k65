@@ -1,8 +1,23 @@
 // Level 01 rooms: art streaming, entering rooms, ending, LED blinking.
 // - load_room_chunk/load_room_art/paint_room_art - stream a room's art from disk
-// - enter_room - switch to a room and set up cameras
+// - PlayL/PlayR - tiles of the looped recording (levelart.Playback)
+// - show_playback - room 3 cat/REC loop on both monitors (PlayL/PlayR)
+// - enter_room - switch to a room and set up cameras (room 3 entry triggers l01_preload)
 // - level_ending - level 01 completion sequence
-// - blink_leds - blink server LEDs in the room art
+// - blink_leds - blink server LEDs and the playback cat's eyes
+
+data PlayL {				// left monitor interior, 5x4: scan rows, cat heads (195/208 = red-eyed CatL/CatR)
+  207 207 207 207 207
+  64 195 208 64 64
+  64 64 64 195 208
+  207 207 207 207 207
+}
+data PlayR {				// right monitor interior, 3x4
+  207 207 207
+  64 195 208
+  195 208 64
+  207 207 207
+}
 
 func load_room_chunk {			// a = chunk index; streams it to disk_dest (ChunkTable, 5 bytes/entry)
   tmp=a
@@ -26,10 +41,14 @@ func load_room_chunk {			// a = chunk index; streams it to disk_dest (ChunkTable
 func load_room_art {			// a = chunk index: streams the 960-byte art (+ metadata) into
 					// RoomArtBuf (a3e.3), then paints it onto TermScreen
   cnt=a
-  disk_dest=a=&<RoomArtBuf
-  disk_dest+1=a=&>RoomArtBuf
-  a=cnt
-  call load_room_chunk
+  call take_staged_room
+  a?0
+  == {
+    disk_dest=a=&<RoomArtBuf
+    disk_dest+1=a=&>RoomArtBuf
+    a=cnt
+    call load_room_chunk
+  }
   call paint_room_art
 }
 
@@ -69,18 +88,43 @@ func paint_room_art {
   } !=
 }
 
+func show_playback {			// room 2: swap both monitor interiors for the cat loop,
+					// in RoomArtBuf (cone erase source) and on TermScreen
+  x=0
+  { a=PlayL,x RoomArtBuf+298,x=a TermScreen+298,x=a x++ x?5 } !=
+  x=0
+  { a=PlayL+5,x RoomArtBuf+338,x=a TermScreen+338,x=a x++ x?5 } !=
+  x=0
+  { a=PlayL+10,x RoomArtBuf+378,x=a TermScreen+378,x=a x++ x?5 } !=
+  x=0
+  { a=PlayL+15,x RoomArtBuf+418,x=a TermScreen+418,x=a x++ x?5 } !=
+  x=0
+  { a=PlayR,x RoomArtBuf+473,x=a TermScreen+473,x=a x++ x?3 } !=
+  x=0
+  { a=PlayR+3,x RoomArtBuf+513,x=a TermScreen+513,x=a x++ x?3 } !=
+  x=0
+  { a=PlayR+6,x RoomArtBuf+553,x=a TermScreen+553,x=a x++ x?3 } !=
+  x=0
+  { a=PlayR+9,x RoomArtBuf+593,x=a TermScreen+593,x=a x++ x?3 } !=
+}
+
 func enter_room {
   a=entry_col
   player_x=a
   set_col
   switch_timer=a=0
-  relay_active=a=0
-  relay_progress=a=0
   walk_timer=a=0
   idle_timer=a=0
   a=cur_room
   load_room_art
   load_cams
+  a=cur_room				// the loop is part of RoomArtBuf: replay it after every load
+  a?2
+  == {
+    a=relay_done
+    a?0
+    != { show_playback }
+  }
   call draw_hud_static
   clear_row1
   draw_room_header
@@ -90,6 +134,7 @@ func enter_room {
   draw_row0_msg
   redraw_zone
   draw_player
+  call l01_preload
 }
 
 func level_ending {
@@ -103,10 +148,14 @@ func level_ending {
   msg_len=a=36
   draw_row0_msg
   sfx_success
-  x=75
-  wait_frames
-  x=75
-  wait_frames
+  // skip hold L01 because next data staged
+  a=cur_level
+  a?0 != {
+    x=75
+    wait_frames
+    x=75
+    wait_frames
+  }
   COLOR0=a=0
   COLOR1=a=0
   COLOR2=a=0
@@ -132,5 +181,14 @@ func blink_leds {			// toggle the LED pixel in the SRV_B/SRV_D glyphs (tiles 73/
   a<<
   a|0xAA
   TermFont+604=a			// 75*8+4: "2322" / "2222"
+  a=RTCLOK
+  a&0x40					// playback cat blinks: eye rows of CatL/CatR (67/80)
+  a>>
+  a|0x55
+  TermFont+539=a			// 67*8+3: "1311" / "1111"
+  a=RTCLOK
+  a&0x40
+  a>> a>> a>>
+  a|0x55
+  TermFont+643=a			// 80*8+3: "1131" / "1111"
 }
-

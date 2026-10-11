@@ -268,7 +268,7 @@ func TestMusicSourceContracts(t *testing.T) {
 	lt(body("tick_music"), "a=sfx_timer", "AUDC4=a")
 	has(body("init_gameplay"), "stop_music", "init_audio")
 	lt(body("init_gameplay"), "cur_level=a=0", "level_music")
-	lt(body("init_plat"), "level_music", "enter_plat_room")
+	lt(body("init_plat"), "stop_music", "enter_plat_room", "level_music")
 	has(body("level_music"), "c- a+18")
 	has(body("next_level"), "init_plat")
 	has(body("dbg_level"), "init_gameplay", "init_plat")

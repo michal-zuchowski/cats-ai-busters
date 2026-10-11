@@ -3,6 +3,7 @@
 // - cone_rows_start/cone_rows_next/cone_row/draw_cone/erase_slot - light cone drawing
 // - cam_tiles/redraw_cones - camera tile and cone repainting (plus the zone repaint helper)
 // - tick_switch - camera switch-off timer
+// tick_cam also keeps room 3's second camera off after the record console ran.
 
 // ---- Room 0: corridor. cols 2..14 shelter, 15..24 camera strip, 25..37 open.
 
@@ -22,8 +23,8 @@ func cam_sees {				// x = column -> a: 1 if a live camera footprint covers open 
   y=a
   a=(floor_ptr),y
   a?78
-  == { a=0 return }			// rack shadow is the only cover; the relay
-					// terminal and hatch tiles are watched too
+  == { a=0 return }			// shadow (racks, record console) is the only cover;
+					// the hatch tile is watched too
   y=0
   {
     a=sl_cam,y
@@ -77,35 +78,47 @@ func load_cams {			// CamCfg row for cur_room -> both slots, sweeps restart
 func tick_cam {				// x = slot
   a=sl_cam,x
   a?0
+  == { return }  // early return keeps every branch inside the 127-byte relative range
+  a=sl_gate,x
+  a?0
   != {
-    a=sl_gate,x
+    a=switch_timer
+    a?0
+    == { a=1 } else { a=0 }
+  } else { a=1 }
+  tmp=a
+  a=cur_room				// room 3 camera 2 is fooled for good once the console played
+  a?2
+  == {
+    a=relay_done
     a?0
     != {
-      a=switch_timer
-      a?0
-      == { a=1 } else { a=0 }
-    } else { a=1 }
-    a?sl_on,x
-    != { sl_on,x=a cone_dirty=a=1 }
-    a=sl_wait,x
-    a?0
-    == {
-      a=sl_speed,x
-      sl_wait,x=a
-      a=sl_dir,x
-      a?0
-      == { a=sl_c,x c- a+1 } else { a=sl_c,x c+ a-1 }
-      sl_c,x=a
-      a?sl_max,x
-      == { a=1 sl_dir,x=a a=sl_pause,x sl_wait,x=a }
-      a=sl_c,x
-      a?sl_min,x
-      == { a=0 sl_dir,x=a a=sl_pause,x sl_wait,x=a }
-      cone_dirty=a=1
-    } else {
-      c+ a-1
-      sl_wait,x=a
+      a=x
+      a?1
+      == { tmp=a=0 }
     }
+  }
+  a=tmp
+  a?sl_on,x
+  != { sl_on,x=a cone_dirty=a=1 }
+  a=sl_wait,x
+  a?0
+  == {
+    a=sl_speed,x
+    sl_wait,x=a
+    a=sl_dir,x
+    a?0
+    == { a=sl_c,x c- a+1 } else { a=sl_c,x c+ a-1 }
+    sl_c,x=a
+    a?sl_max,x
+    == { a=1 sl_dir,x=a a=sl_pause,x sl_wait,x=a }
+    a=sl_c,x
+    a?sl_min,x
+    == { a=0 sl_dir,x=a a=sl_pause,x sl_wait,x=a }
+    cone_dirty=a=1
+  } else {
+    c+ a-1
+    sl_wait,x=a
   }
 }
 
