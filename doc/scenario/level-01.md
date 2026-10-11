@@ -37,7 +37,7 @@ screen, and crossing the left edge returns to the previous one.
 area, the relay raises a local alert. The screen briefly flashes
 `UNRECOGNIZED DEVICE`; the cat retreats to the entrance of the current
 screen and that screen's switch/camera state resets. Completed earlier
-screens remain accessible. Each alert costs one of the cat's nine lives (`X9` on the bottom HUD);
+screens remain accessible. Each alert costs one of the cat's nine lives (heart + digit on the bottom HUD);
 losing the last one shows `GAME OVER` and restarts from the title screen.
 There is no combat or timer.
 Being seen does not tell the AI who rules the world; it only sees an

@@ -30,7 +30,7 @@ and the intro buffers remain at `$A000` (zoom) and `$B000` (screen).
 - `lose_life` (`l01_hud`) runs when an L01 alert actually starts (`trigger_alert`, after the
   `alert_timer` early return) and on every platform `respawn` (all callers are deaths/retries;
   room entry uses `enter_plat_room`, which does not call it). Room entries keep the count.
-- HUD: `X` + digit at row 24 columns 9-10 (`draw_lives`, called by `draw_hud_static`, so it is
+- HUD: heart + digit at row 24 columns 9-10; the font has no usable "5".."9" (those slots are level tiles), so `draw_lives` copies `LifeHeart`/`LifeDigits` glyphs into the unused "=" (29) and "@" (32) font slots (`draw_lives`, called by `draw_hud_static`, so it is
   refreshed on every room/level entry and by `lose_life`).
 - At 0 lives `game_over` stops music, shows `GAME OVER` on row 0 for ~3 s, then `goto intro_skip`
   (resets the stack, NMIEN and audio) and re-runs `title_screen` -> `lives=9` -> `init_gameplay`

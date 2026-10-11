@@ -4,7 +4,7 @@
 // - fire_prompt/draw_hud - dynamic HUD updates
 // - game_frame - the level 01 per-frame loop
 
-// Row 24 HUD: "ROOM n/3", "Xn" lives, a status label with a 12-cell bar, "LEVEL 01".
+// Row 24 HUD: "ROOM n/3", heart + digit lives, a status label with a 12-cell bar, "LEVEL 01".
 func draw_hud_static {
   y=0
   {
@@ -21,11 +21,24 @@ func draw_hud_static {
   call draw_lives			// forward: defined below
 }
 
-func draw_lives {			// 'X' + digit at columns 9-10 (between ROOM and the status label)
-  TermScreen+969=a=56			// 'X'
+func draw_lives {			// heart + digit at columns 9-10 (between ROOM and the status label)
+  // TermFont has no free glyphs and its "5".."9" slots hold level tiles, so the
+  // heart and the current digit are copied into the unused "=" (29) and "@" (32) slots.
   a=lives
-  c- a+16				// '0'..'9'
-  TermScreen+970=a
+  a<< a<< a<<
+  x=a
+  y=0
+  {
+    a=LifeHeart,y
+    TermFont+232,y=a			// 29*8
+    a=LifeDigits,x
+    TermFont+256,y=a			// 32*8
+    x++
+    y++
+    y?8
+  } !=
+  TermScreen+969=a=29
+  TermScreen+970=a=32
 }
 
 func lose_life {			// one life lost; the last one ends the game (never returns then)
