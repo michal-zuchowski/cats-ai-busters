@@ -6,6 +6,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.K65_DEPLOY_KEY }}
       - run: sudo apt-get update && sudo apt-get install -y gawk g++ make
       - run: bash ci/k65-build.sh
 
