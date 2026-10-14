@@ -44,9 +44,7 @@ Source layout (`src/`, in project order):
 
 ## Model Usage Policy
 
-- Expensive, high-capability models (e.g. Claude Opus, GPT-*-sol class) are reserved for planning, task breakdown, delegation, supervision, code review and verification.
-- Implementation is delegated to cheaper models (e.g. Claude Sonnet, Haiku, GPT-*-mini/luna class) running as sub-agents with complete context, a bounded scope, acceptance criteria and explicit verification steps.
-- The expensive coordinating model owns the plan, assigns implementation tasks, monitors progress and reviews every delegated diff. It independently verifies the requested behavior rather than accepting the implementing model's completion claim.
-- Substantive corrections found during review go back to the cheaper implementing model; the expensive model must not take over bulk implementation.
-- Use existing tests, linters and runtime checks for acceptance. Compile K65 only after an explicit user request; otherwise clearly distinguish source/data checks from fresh compiled-game verification.
-- Small, trivial edits (a few lines, docs, config) may be done directly when delegation would cost more than the change.
+- **Claude Opus** — design and management only: architecture, planning, task breakdown, delegation, supervision, code review and verification. Opus does not write implementation code.
+- **Claude Haiku** — searching code and documentation (exploration, lookups, research sub-agents).
+- **Claude Sonnet** — all hands-on work: implementation, tests, refactors, docs, config, scripts, builds and fixes for review findings.
+- **GPT \*-sol** — UI/UX design only (layouts, user flows, visual and interaction design, design review). GPT models are banned from writing or editing code.
