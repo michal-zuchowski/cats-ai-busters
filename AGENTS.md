@@ -48,3 +48,14 @@ Source layout (`src/`, in project order):
 - **Claude Haiku** — searching code and documentation (exploration, lookups, research sub-agents).
 - **Claude Sonnet** — all hands-on work: implementation, tests, refactors, docs, config, scripts, builds and fixes for review findings.
 - **GPT \*-sol** — UI/UX design only (layouts, user flows, visual and interaction design, design review). GPT models are banned from writing or editing code.
+
+## Graphify Knowledge Graph
+
+Applies when the repository tracks `graphify-out/`.
+
+- A global git hook (`~/.githooks`) runs `graphify update` in the background after every commit, merge and checkout (10-minute debounce), so `graphify-out/` can change minutes after a commit and be left uncommitted and unpushed.
+- Before every commit: run `graphify update .` synchronously and stage `graphify-out/` in the same commit as the change.
+- Before finishing a task: wait until the background rebuild is done (`graphify-out/.autoupdate.lock` absent), then check that `git status` is clean and `git log origin/<branch>..HEAD` is empty.
+- If `graphify-out/` differs only in the `Built from commit` freshness hash, discard it with `git checkout -- graphify-out`; committing a hash-only change just retriggers the hook in an endless loop.
+- If it contains real graph changes (nodes, edges, communities), commit them as `chore(graphify): refresh graph` and push to the same branch.
+- Never commit `graphify-out/.autoupdate.*` (lock, stamp, log).
